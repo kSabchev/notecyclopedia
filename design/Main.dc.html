@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Notecyclopedia — Home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400;1,8..60,500&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F0}
+a{color:#1F3FBF}a:hover{color:#15298A}
+textarea::placeholder,input::placeholder{color:#6A6F79}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #F3F4F0; color: #16181D; font-family: 'Schibsted Grotesk', system-ui, sans-serif; font-size: 15px; line-height: 1.5; display: flex; flex-wrap: wrap; align-items: stretch">
+
+<nav aria-label="Main" style="flex: 1 1 248px; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #DDDFD8; padding: 24px 16px; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 0 8px">
+<div style="width: 36px; height: 36px; border-radius: 9px; background: #16181D; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'Source Serif 4', serif; font-style: italic; font-size: 22px">∑</div>
+<div style="display: flex; flex-direction: column">
+<span style="font-weight: 800; font-size: 17px; letter-spacing: -0.01em">Notecyclopedia</span>
+<span style="font-size: 12px; color: #565B66">Master's workbook</span>
+</div>
+</div>
+<button type="button" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border: 1px solid #DDDFD8; border-radius: 10px; background: #F3F4F0; color: #565B66; font: inherit; font-size: 14px; cursor: pointer; text-align: left">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<span style="flex: 1">Search everything</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; border: 1px solid #DDDFD8; border-radius: 5px; padding: 0 6px; background: #FFFFFF">Ctrl K</span>
+</button>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<a href="Main.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; background: #E8ECFA; color: #1F3FBF; font-weight: 600; text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"></path></svg>Home</a>
+<a href="Wiki.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #16181D; text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"></path><path d="M4 21V5"></path></svg>Wiki</a>
+<a href="Wiki.dc.html#formulas" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #16181D; text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 4H6l6 8-6 8h12"></path></svg>Formulas</a>
+<a href="Calculators.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #16181D; text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"></path></svg>Calculators</a>
+<a href="AIPortal.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #16181D; text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>AI portal</a>
+<a href="Editor.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #16181D; text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"></path><path d="M4 16v4h16v-4"></path></svg>Uploads</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="padding: 0 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #565B66">Courses</span>
+<a href="Wiki.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border-radius: 8px; color: #16181D; text-decoration: none"><span style="width: 8px; height: 8px; border-radius: 2px; background: #1F3FBF"></span>Mechanics</a>
+<a href="Wiki.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border-radius: 8px; color: #16181D; text-decoration: none"><span style="width: 8px; height: 8px; border-radius: 2px; background: #B85C00"></span>Thermodynamics</a>
+<a href="Wiki.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border-radius: 8px; color: #16181D; text-decoration: none"><span style="width: 8px; height: 8px; border-radius: 2px; background: #16181D"></span>Electromagnetism</a>
+<a href="Wiki.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border-radius: 8px; color: #16181D; text-decoration: none"><span style="width: 8px; height: 8px; border-radius: 2px; border: 1.5px solid #565B66; box-sizing: border-box"></span>Mathematical methods</a>
+</div>
+<div style="margin-top: auto; padding: 0 8px">
+<a href="Editor.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 10px; background: #16181D; color: #FFFFFF; font-weight: 600; text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>New page</a>
+</div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 40px 48px 72px; display: flex; flex-direction: column; gap: 40px">
+
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 8px; max-width: 640px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #565B66">Sunday · semester week 6</span>
+<h1 style="margin: 0; font-size: 44px; line-height: 1.05; font-weight: 800; letter-spacing: -0.025em">Your workbook</h1>
+<p style="margin: 0; font-size: 17px; color: #565B66">Lectures, notes, formulas and the calculators built from them — all in one place.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<a href="Editor.dc.html" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 1px solid #C9CCC4; border-radius: 10px; background: #FFFFFF; color: #16181D; font-weight: 600; text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"></path><path d="M4 16v4h16v-4"></path></svg>Upload files</a>
+<a href="Editor.dc.html" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 10px; background: #1F3FBF; color: #FFFFFF; font-weight: 600; text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>New note</a>
+</div>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+
+<div style="flex: 2 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 40px">
+
+<section aria-labelledby="h-continue" style="display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px">
+<h2 id="h-continue" style="margin: 0; font-size: 20px; font-weight: 700">Continue reading</h2>
+<a href="Wiki.dc.html" style="font-size: 14px; font-weight: 600">All pages</a>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px">
+<a href="Wiki.dc.html" style="display: flex; flex-direction: column; gap: 12px; padding: 20px; border: 1px solid #DDDFD8; border-radius: 12px; background: #FFFFFF; color: #16181D; text-decoration: none">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #565B66"><span style="width: 8px; height: 8px; border-radius: 2px; background: #1F3FBF"></span>Mechanics · Lecture 4</span>
+<span style="font-family: 'Source Serif 4', serif; font-size: 21px; line-height: 1.2; font-weight: 600">Uniformly accelerated motion</span>
+<span style="font-family: 'Source Serif 4', serif; font-style: italic; font-size: 17px; color: #1F3FBF">s = v₀t + ½at²</span>
+<span style="font-size: 13px; color: #565B66">Edited yesterday · 2 attachments</span>
+</a>
+<a href="Wiki.dc.html" style="display: flex; flex-direction: column; gap: 12px; padding: 20px; border: 1px solid #DDDFD8; border-radius: 12px; background: #FFFFFF; color: #16181D; text-decoration: none">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #565B66"><span style="width: 8px; height: 8px; border-radius: 2px; background: #B85C00"></span>Thermodynamics · Lecture 7</span>
+<span style="font-family: 'Source Serif 4', serif; font-size: 21px; line-height: 1.2; font-weight: 600">The ideal gas and its state equation</span>
+<span style="font-family: 'Source Serif 4', serif; font-style: italic; font-size: 17px; color: #1F3FBF">pV = nRT</span>
+<span style="font-size: 13px; color: #565B66">Edited 3 days ago · slides</span>
+</a>
+<a href="Wiki.dc.html" style="display: flex; flex-direction: column; gap: 12px; padding: 20px; border: 1px solid #DDDFD8; border-radius: 12px; background: #FFFFFF; color: #16181D; text-decoration: none">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #565B66"><span style="width: 8px; height: 8px; border-radius: 2px; background: #16181D"></span>Electromagnetism · Seminar</span>
+<span style="font-family: 'Source Serif 4', serif; font-size: 21px; line-height: 1.2; font-weight: 600">Coulomb's law — worked problems</span>
+<span style="font-family: 'Source Serif 4', serif; font-style: italic; font-size: 17px; color: #1F3FBF">F = k·q₁q₂ / r²</span>
+<span style="font-size: 13px; color: #565B66">Edited last week · my notes</span>
+</a>
+</div>
+</section>
+
+<section aria-labelledby="h-formulas" style="display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px">
+<h2 id="h-formulas" style="margin: 0; font-size: 20px; font-weight: 700">Pinned formulas</h2>
+<a href="Wiki.dc.html#formulas" style="font-size: 14px; font-weight: 600">Formula index</a>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1px; background: #DDDFD8; border: 1px solid #DDDFD8; border-radius: 12px; overflow: hidden">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 20px; background: #FFFFFF; background-image: linear-gradient(#EEF0EA 1px, transparent 1px), linear-gradient(90deg, #EEF0EA 1px, transparent 1px); background-size: 16px 16px">
+<span style="font-family: 'Source Serif 4', serif; font-style: italic; font-size: 26px">v = v₀ + at</span>
+<span style="font-weight: 600">Velocity, constant acceleration</span>
+<a href="Calculators.dc.html" style="font-size: 14px; font-weight: 600">Open calculator →</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 20px; background: #FFFFFF; background-image: linear-gradient(#EEF0EA 1px, transparent 1px), linear-gradient(90deg, #EEF0EA 1px, transparent 1px); background-size: 16px 16px">
+<span style="font-family: 'Source Serif 4', serif; font-style: italic; font-size: 26px">R = v₀² sin 2θ / g</span>
+<span style="font-weight: 600">Projectile range</span>
+<a href="Calculators.dc.html" style="font-size: 14px; font-weight: 600">Open calculator →</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 20px; background: #FFFFFF; background-image: linear-gradient(#EEF0EA 1px, transparent 1px), linear-gradient(90deg, #EEF0EA 1px, transparent 1px); background-size: 16px 16px">
+<span style="font-family: 'Source Serif 4', serif; font-style: italic; font-size: 26px">pV = nRT</span>
+<span style="font-weight: 600">Ideal gas law</span>
+<a href="Calculators.dc.html" style="font-size: 14px; font-weight: 600">Open calculator →</a>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="h-uploads" style="display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px">
+<h2 id="h-uploads" style="margin: 0; font-size: 20px; font-weight: 700">Recent source files</h2>
+<a href="Editor.dc.html" style="font-size: 14px; font-weight: 600">Manage files</a>
+</div>
+<div style="display: flex; flex-direction: column; border: 1px solid #DDDFD8; border-radius: 12px; background: #FFFFFF">
+<div style="display: flex; align-items: center; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #DDDFD8">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; padding: 4px 8px; border-radius: 6px; background: #F7EBDD; color: #8A4300">PDF</span>
+<span style="flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">lecture-04-kinematics.pdf</span>
+<span style="font-size: 13px; color: #565B66">→ Lecture 4</span>
+</div>
+<div style="display: flex; align-items: center; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #DDDFD8">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; padding: 4px 8px; border-radius: 6px; background: #E8ECFA; color: #1F3FBF">PPTX</span>
+<span style="flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">thermo-07-ideal-gas-slides.pptx</span>
+<span style="font-size: 13px; color: #565B66">→ Lecture 7</span>
+</div>
+<div style="display: flex; align-items: center; gap: 16px; padding: 14px 20px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; padding: 4px 8px; border-radius: 6px; background: #ECEDE8; color: #16181D">JPG</span>
+<span style="flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">whiteboard-coulomb-problem-3.jpg</span>
+<span style="font-size: 13px; color: #565B66">→ Seminar notes</span>
+</div>
+</div>
+</section>
+</div>
+
+<aside style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 24px">
+
+<section aria-labelledby="h-ask" style="display: flex; flex-direction: column; gap: 16px; padding: 24px; border-radius: 14px; background: #16181D; color: #FFFFFF">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2B66D" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>
+<h2 id="h-ask" style="margin: 0; font-size: 18px; font-weight: 700">Ask your workbook</h2>
+</div>
+<div role="group" aria-label="Mode" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{modes}}" as="m" hint-placeholder-count="4">
+<button type="button" onClick="{{m.pick}}" aria-pressed="{{m.pressed}}" style="{{m.style}}">{{m.label}}</button>
+</sc-for>
+</div>
+<label for="ask-box" style="font-size: 13px; color: #C4C7CE">{{hint}}</label>
+<textarea id="ask-box" rows="4" placeholder="{{placeholder}}" style="box-sizing: border-box; width: 100%; resize: vertical; padding: 14px; border: 1px solid #3A3E47; border-radius: 10px; background: #22252C; color: #FFFFFF; font: inherit; font-size: 15px"></textarea>
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<span style="font-size: 13px; color: #C4C7CE">Sources: <span style="color: #FFFFFF; font-weight: 600">Mechanics · all lectures</span></span>
+<a href="AIPortal.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 10px; background: #F2B66D; color: #16181D; font-weight: 700; text-decoration: none">Run</a>
+</div>
+</section>
+
+<section aria-labelledby="h-calcs" style="display: flex; flex-direction: column; gap: 4px; padding: 20px; border: 1px solid #DDDFD8; border-radius: 14px; background: #FFFFFF">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding-bottom: 8px">
+<h2 id="h-calcs" style="margin: 0; font-size: 18px; font-weight: 700">My calculators</h2>
+<a href="Calculators.dc.html" style="font-size: 14px; font-weight: 600">Library</a>
+</div>
+<a href="Calculators.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 4px; border-bottom: 1px solid #ECEDE8; color: #16181D; text-decoration: none"><span style="font-weight: 500">Projectile motion</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #565B66">3 in · 3 out</span></a>
+<a href="Calculators.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 4px; border-bottom: 1px solid #ECEDE8; color: #16181D; text-decoration: none"><span style="font-weight: 500">Ideal gas — solve for any</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #565B66">4 in · 1 out</span></a>
+<a href="Calculators.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 4px; border-bottom: 1px solid #ECEDE8; color: #16181D; text-decoration: none"><span style="display: flex; align-items: center; gap: 8px; font-weight: 500">Braking distance<span style="font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 5px; background: #F7EBDD; color: #8A4300">AI-made</span></span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #565B66">2 in · 2 out</span></a>
+<a href="Calculators.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 4px; color: #16181D; text-decoration: none"><span style="font-weight: 500">Coulomb force</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #565B66">3 in · 1 out</span></a>
+</section>
+
+<section aria-label="Upload" style="display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 20px; border: 1.5px dashed #A9ADA4; border-radius: 14px; text-align: center">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#565B66" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"></path><path d="M4 16v4h16v-4"></path></svg>
+<span style="font-weight: 600">Drop lectures, slides or photos</span>
+<span style="font-size: 13px; color: #565B66">PDF, PPTX, DOCX, images — attached to a wiki page and searchable by the AI</span>
+<a href="Editor.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; margin-top: 4px; border: 1px solid #C9CCC4; border-radius: 10px; background: #FFFFFF; color: #16181D; font-weight: 600; text-decoration: none">Choose files</a>
+</section>
+</aside>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'ask' };
+  }
+  renderVals() {
+    var defs = [
+      { id: 'ask', label: 'Ask', hint: 'Ask a question about your notes', ph: 'Why is the range maximal at 45°?' },
+      { id: 'sum', label: 'Summarize', hint: 'Pick pages to condense into a short summary', ph: 'Summarize Lecture 4 in 5 bullet points' },
+      { id: 'solve', label: 'Solve', hint: 'Paste a problem — get a step-by-step solution', ph: 'A ball is thrown at 20 m/s at 30°. How far does it land?' },
+      { id: 'calc', label: 'Build calculator', hint: 'Describe a calculation to turn into a reusable tool', ph: 'Calculator for stopping distance from speed and friction' }
+    ];
+    var self = this;
+    var cur = defs.filter(function (d) { return d.id === self.state.mode; })[0];
+    return {
+      hint: cur.hint,
+      placeholder: cur.ph,
+      modes: defs.map(function (d) {
+        var on = d.id === self.state.mode;
+        return {
+          label: d.label,
+          pressed: on ? 'true' : 'false',
+          pick: function () { self.setState({ mode: d.id }); },
+          style: 'min-height: 40px; padding: 0 14px; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; ' + (on ? 'background: #F2B66D; color: #16181D; border: 1px solid #F2B66D' : 'background: transparent; color: #FFFFFF; border: 1px solid #4A4F59')
+        };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

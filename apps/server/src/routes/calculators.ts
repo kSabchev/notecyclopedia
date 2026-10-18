@@ -1,0 +1,98 @@
+import { calculatorSpecSchema, exportHTML, exportJSON, exportPython } from '@nc/shared'
+import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm'
+import { Router } from 'express'
+import { z } from 'zod'
+import { assertCourse, memberCourseIds } from '../access'
+import { db, schema } from '../db'
+import { HttpError, me, notFound, param } from '../http'
+
+export const calculators = Router()
+
+async function loadCalc(id: string, userId: string, edit = false) {
+  const [c] = await db.select().from(schema.calculators).where(eq(schema.calculators.id, id))
+  if (!c) throw notFound('Calculator not found')
+  if (c.courseId) await assertCourse(c.courseId, userId, edit ? 'editor' : 'viewer')
+  else if (c.ownerId !== userId) throw notFound('Calculator not found')
+  return c
+}
+
+calculators.get('/', async (req, res) => {
+  const user = me(req)
+  const ids = await memberCourseIds(user.id)
+  const rows = await db
+    .select()
+    .from(schema.calculators)
+    .where(
+      or(
+        and(isNull(schema.calculators.courseId), eq(schema.calculators.ownerId, user.id)),
+        ids.length ? inArray(schema.calculators.courseId, ids) : undefined,
+      ),
+    )
+    .orderBy(desc(schema.calculators.updatedAt))
+  res.json(rows)
+})
+
+const input = z.object({
+  spec: calculatorSpecSchema,
+  courseId: z.string().uuid().nullable().default(null),
+  origin: z.enum(['manual', 'ai']).default('manual'),
+  sourcePageId: z.string().uuid().nullable().default(null),
+})
+
+calculators.post('/', async (req, res) => {
+  const body = input.parse(req.body)
+  const user = me(req)
+  if (body.courseId) await assertCourse(body.courseId, user.id, 'editor')
+  const [c] = await db
+    .insert(schema.calculators)
+    .values({ ...body, name: body.spec.name, ownerId: user.id })
+    .returning()
+  res.status(201).json(c)
+})
+
+calculators.get('/:id', async (req, res) => {
+  res.json(await loadCalc(param(req, 'id'), me(req).id))
+})
+
+calculators.put('/:id', async (req, res) => {
+  const user = me(req)
+  const c = await loadCalc(param(req, 'id'), user.id, true)
+  const body = input.pick({ spec: true, courseId: true }).parse(req.body)
+  if (body.courseId && body.courseId !== c.courseId) await assertCourse(body.courseId, user.id, 'editor')
+  const [row] = await db
+    .update(schema.calculators)
+    .set({ spec: body.spec, name: body.spec.name, courseId: body.courseId, updatedAt: new Date() })
+    .where(eq(schema.calculators.id, c.id))
+    .returning()
+  res.json(row)
+})
+
+calculators.delete('/:id', async (req, res) => {
+  const c = await loadCalc(param(req, 'id'), me(req).id, true)
+  await db.delete(schema.calculators).where(eq(schema.calculators.id, c.id))
+  res.status(204).end()
+})
+
+calculators.get('/:id/export', async (req, res) => {
+  const c = await loadCalc(param(req, 'id'), me(req).id)
+  const { format } = z.object({ format: z.enum(['json', 'py', 'html']) }).parse(req.query)
+  const base =
+    c.name
+      .replace(/[^\p{L}\p{N}]+/gu, '-')
+      .replace(/^-|-$/g, '')
+      .toLowerCase() || 'calculator'
+  let body: string
+  try {
+    body =
+      format === 'json' ? exportJSON(c.spec) : format === 'py' ? exportPython(c.spec) : exportHTML(c.spec)
+  } catch (e) {
+    throw new HttpError(422, `Cannot export: ${(e as Error).message}`)
+  }
+  const type = { json: 'application/json', py: 'text/x-python', html: 'text/html' }[format]
+  res.setHeader('content-type', `${type}; charset=utf-8`)
+  res.setHeader(
+    'content-disposition',
+    `attachment; filename*=UTF-8''${encodeURIComponent(`${base}.${format}`)}`,
+  )
+  res.send(body)
+})

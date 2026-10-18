@@ -1,0 +1,154 @@
+@import "tailwindcss";
+@import "katex/dist/katex.min.css";
+
+/* Design tokens — see design/README.md */
+@theme {
+  --color-bg: #f3f4f0;
+  --color-surface: #ffffff;
+  --color-surface-2: #fafaf8;
+  --color-ink: #16181d;
+  --color-ink-2: #22252c;
+  --color-muted: #565b66;
+  --color-line: #dddfd8;
+  --color-line-strong: #c9ccc4;
+  --color-line-soft: #ecede8;
+  --color-accent: #1f3fbf;
+  --color-accent-hover: #15298a;
+  --color-accent-soft: #e8ecfa;
+  --color-ai: #9a4a00;
+  --color-ai-text: #8a4300;
+  --color-ai-soft: #f7ebdd;
+  --color-ai-on-dark: #f2b66d;
+  --color-note: #fff8e8;
+  --color-note-line: #ead9a8;
+  --color-ok: #2f7d4f;
+  --color-danger: #b42318;
+
+  --font-sans: "Schibsted Grotesk", system-ui, sans-serif;
+  --font-serif: "Source Serif 4", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/* Base styles live in the base layer so Tailwind utilities (e.g. text-ink on a link) win. */
+@layer base {
+  html,
+  body {
+    background: var(--color-bg);
+    color: var(--color-ink);
+  }
+  body {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  a {
+    color: var(--color-accent);
+  }
+  a:hover {
+    color: var(--color-accent-hover);
+  }
+}
+
+.graph-paper {
+  background-image: linear-gradient(#eef0ea 1px, transparent 1px),
+    linear-gradient(90deg, #eef0ea 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* Reading typography for wiki pages and the editor */
+.prose-nc {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  line-height: 1.65;
+}
+.prose-nc > * + * {
+  margin-top: 1rem;
+}
+.prose-nc h1,
+.prose-nc h2,
+.prose-nc h3 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 2rem;
+}
+.prose-nc h1 {
+  font-size: 30px;
+}
+.prose-nc h2 {
+  font-size: 24px;
+}
+.prose-nc h3 {
+  font-size: 20px;
+}
+.prose-nc ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+.prose-nc ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+.prose-nc blockquote {
+  border-left: 3px solid var(--color-line-strong);
+  padding-left: 1rem;
+  color: var(--color-muted);
+}
+.prose-nc code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--color-line-soft);
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+}
+.prose-nc pre {
+  background: var(--color-ink);
+  color: #e6e8ec;
+  padding: 1rem;
+  border-radius: 10px;
+  overflow-x: auto;
+}
+.prose-nc pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+.prose-nc a {
+  text-decoration: underline;
+}
+.prose-nc .ProseMirror-selectednode {
+  outline: 2px solid var(--color-accent);
+  border-radius: 12px;
+}
+.ProseMirror:focus {
+  outline: none;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #6a6f79;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Chat answers */
+.answer {
+  font-size: 16px;
+  line-height: 1.6;
+}
+.answer > * + * {
+  margin-top: 0.75rem;
+}
+.answer ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+.answer ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+.answer .katex-display {
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
