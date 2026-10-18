@@ -7,6 +7,7 @@ import { auth } from './auth'
 import { env } from './env'
 import { errorHandler, requireUser } from './http'
 import { ai } from './routes/ai'
+import { backup } from './routes/backup'
 import { calculators } from './routes/calculators'
 import { courses } from './routes/courses'
 import { files } from './routes/files'
@@ -32,6 +33,7 @@ api.use('/pages', pages)
 api.use('/formulas', formulas)
 api.use('/files', files)
 api.use('/calculators', calculators)
+api.use('/backup', backup)
 api.use('/search', search)
 api.use('/ai', ai)
 app.use('/api', api)

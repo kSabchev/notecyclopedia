@@ -2,6 +2,7 @@ import type { AiMode } from '@nc/shared'
 import { Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
 import { Layout } from './components/Layout'
 import { AiPortal, type AiSearch } from './routes/AiPortal'
+import { Backup } from './routes/Backup'
 import { Calculators } from './routes/Calculators'
 import { Files } from './routes/Files'
 import { Formulas } from './routes/Formulas'
@@ -50,6 +51,7 @@ const routes = [
   }),
   createRoute({ getParentRoute: () => appRoute, path: '/files', component: Files }),
   createRoute({ getParentRoute: () => appRoute, path: '/profile', component: Profile }),
+  createRoute({ getParentRoute: () => appRoute, path: '/backup', component: Backup }),
 ] as const
 
 const routeTree = rootRoute.addChildren([loginRoute, appRoute.addChildren([...routes])])

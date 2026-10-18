@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, ErrorNote, Field, SectionHeader, btn, inputCls } from '../components/ui'
@@ -72,6 +73,13 @@ export function Profile() {
         <h1 className="m-0 text-[36px] font-extrabold tracking-[-0.025em]">{t('profile.title')}</h1>
         <p className="mb-0 mt-2 text-muted">{t('profile.subtitle')}</p>
       </header>
+
+      <Link
+        to="/backup"
+        className="rounded-[12px] border border-line bg-surface p-5 font-semibold text-ink no-underline hover:border-line-strong"
+      >
+        {t('backup.title')} →
+      </Link>
 
       <Card className="flex flex-col gap-5 p-6">
         <SectionHeader title={t('profile.details')} />

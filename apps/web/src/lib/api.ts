@@ -55,6 +55,23 @@ export interface PageInput {
   aiVisible: boolean
 }
 
+export interface BackupSummary {
+  courses: number
+  pages: number
+  revisions: number
+  calculators: number
+  files: number
+  createdAt: string
+}
+
+export interface BackupImportResult {
+  courses: number
+  pages: number
+  calculators: number
+  files: number
+  warnings: string[]
+}
+
 export const api = {
   courses: {
     list: () => get<Course[]>('/courses'),
@@ -101,6 +118,19 @@ export const api = {
     remove: (id: string) => request<void>('DELETE', `/calculators/${id}`),
     exportUrl: (id: string, format: 'json' | 'py' | 'html') =>
       `/api/calculators/${id}/export?format=${format}`,
+  },
+  backup: {
+    exportUrl: () => '/api/backup/export',
+    preview: (file: File) => {
+      const body = new FormData()
+      body.set('archive', file)
+      return request<BackupSummary>('POST', '/backup/preview', body)
+    },
+    import: (file: File) => {
+      const body = new FormData()
+      body.set('archive', file)
+      return request<BackupImportResult>('POST', '/backup/import', body)
+    },
   },
   search: (q: string) => get<SearchHit[]>(`/search${qs({ q })}`),
   ai: {

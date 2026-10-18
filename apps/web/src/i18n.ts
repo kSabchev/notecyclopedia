@@ -3,6 +3,36 @@ import { initReactI18next } from 'react-i18next'
 
 const en = {
   app: { name: 'Notecyclopedia', tagline: "Master's workbook" },
+  backup: {
+    title: 'Data backup',
+    subtitle: 'Download a copy of your workbook or import a backup as a separate copy.',
+    exportTitle: 'Export your data',
+    exportDescription:
+      'The ZIP includes courses you can access, pages and revision history, calculators, and uploaded files. It does not include account credentials, AI chats, or browser-only preferences.',
+    download: 'Download backup',
+    importTitle: 'Import a backup',
+    importDescription:
+      'Choose a Notecyclopedia ZIP backup to validate it and review its contents before importing.',
+    archiveFile: 'Backup ZIP file',
+    checking: 'Checking backup…',
+    preview: 'Preview backup',
+    previewTitle: 'Backup contents',
+    previewDate: 'Created {{date}}',
+    courses: 'Courses: {{count}}',
+    pages: 'Pages: {{count}}',
+    revisions: 'Page revisions: {{count}}',
+    calculators: 'Calculators: {{count}}',
+    files: 'Uploaded files: {{count}}',
+    copyNotice: 'Import creates new private copies owned by you. Existing data is not changed.',
+    confirmImport: 'Import {{name}} as new copies? Existing data will not be changed.',
+    createCopy: 'Create copies',
+    importing: 'Importing…',
+    importSuccess: 'Backup imported as new copies.',
+    warnings: {
+      'page-index': 'Some page search indexes could not be rebuilt.',
+      'file-index': 'Some uploaded files could not be queued for indexing.',
+    },
+  },
   nav: {
     home: 'Home',
     wiki: 'Wiki',
@@ -235,6 +265,35 @@ type Dict = typeof en
 
 const bg: Dict = {
   app: { name: 'Notecyclopedia', tagline: 'Магистърска тетрадка' },
+  backup: {
+    title: 'Архив на данните',
+    subtitle: 'Изтегли копие на тетрадката или импортирай архив като отделно копие.',
+    exportTitle: 'Експортиране на данни',
+    exportDescription:
+      'ZIP архивът включва курсовете, до които имаш достъп, страниците и версиите им, калкулаторите и качените файлове. Не включва данни за вход, AI разговори или настройки само за браузъра.',
+    download: 'Изтегли архив',
+    importTitle: 'Импортиране на архив',
+    importDescription: 'Избери ZIP архив от Notecyclopedia, за да го провериш и прегледаш преди импортиране.',
+    archiveFile: 'ZIP архив',
+    checking: 'Проверка на архива…',
+    preview: 'Преглед на архива',
+    previewTitle: 'Съдържание на архива',
+    previewDate: 'Създаден на {{date}}',
+    courses: 'Курсове: {{count}}',
+    pages: 'Страници: {{count}}',
+    revisions: 'Версии на страници: {{count}}',
+    calculators: 'Калкулатори: {{count}}',
+    files: 'Качени файлове: {{count}}',
+    copyNotice: 'Импортирането създава нови лични копия. Съществуващите данни не се променят.',
+    confirmImport: 'Да импортирам ли {{name}} като нови копия? Съществуващите данни няма да се променят.',
+    createCopy: 'Създай копия',
+    importing: 'Импортиране…',
+    importSuccess: 'Архивът е импортиран като нови копия.',
+    warnings: {
+      'page-index': 'Индексите за търсене на някои страници не бяха възстановени.',
+      'file-index': 'Някои файлове не бяха добавени към опашката за индексиране.',
+    },
+  },
   nav: {
     home: 'Начало',
     wiki: 'Уики',

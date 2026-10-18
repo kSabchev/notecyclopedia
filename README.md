@@ -32,6 +32,15 @@ Open http://localhost:5173, create an account, create a course, and add pages.
 To share a course with classmates, they sign up first, then the course owner invites them by email
 (as editor or viewer) from the course page.
 
+## Data backup
+
+Open **Profile → Data backup** to download a versioned ZIP backup or restore one. Backups include
+courses you can access, pages and revision history, calculators, and uploaded file contents. They do
+not include sign-in credentials, sessions, AI conversations, or browser-local preferences. Import
+validates and previews the archive before creating new private copies owned by the signed-in user;
+it never merges with or overwrites existing data. Derived formula and search indexes are rebuilt,
+and uploaded files are queued for re-indexing.
+
 Generate a secret with `openssl rand -base64 32`.
 
 ## Scripts
