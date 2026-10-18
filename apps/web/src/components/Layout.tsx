@@ -5,7 +5,17 @@ import { useTranslation } from 'react-i18next'
 import { setLanguage } from '../i18n'
 import { api } from '../lib/api'
 import { signOut, useSession } from '../lib/auth'
-import { BookIcon, CalcIcon, HomeIcon, PlusIcon, SearchIcon, SigmaIcon, SparkIcon, UploadIcon } from './Icons'
+import {
+  BookIcon,
+  CalcIcon,
+  HomeIcon,
+  PlusIcon,
+  SearchIcon,
+  SigmaIcon,
+  SparkIcon,
+  UploadIcon,
+  UserIcon,
+} from './Icons'
 import { SearchDialog } from './SearchDialog'
 import { btn, inputCls } from './ui'
 
@@ -146,6 +156,10 @@ export function Layout() {
           <Link to="/files" className={navCls}>
             <UploadIcon />
             {t('nav.files')}
+          </Link>
+          <Link to="/profile" className={navCls}>
+            <UserIcon />
+            {t('nav.profile')}
           </Link>
         </div>
         <div className="flex flex-col gap-1">

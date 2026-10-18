@@ -9,6 +9,7 @@ import { Home } from './routes/Home'
 import { Login } from './routes/Login'
 import { PageEdit, PageNew } from './routes/PageEdit'
 import { PageView } from './routes/PageView'
+import { Profile } from './routes/Profile'
 import { CourseView, Wiki } from './routes/Wiki'
 
 const rootRoute = createRootRoute({ component: Outlet })
@@ -48,6 +49,7 @@ const routes = [
     }),
   }),
   createRoute({ getParentRoute: () => appRoute, path: '/files', component: Files }),
+  createRoute({ getParentRoute: () => appRoute, path: '/profile', component: Profile }),
 ] as const
 
 const routeTree = rootRoute.addChildren([loginRoute, appRoute.addChildren([...routes])])
