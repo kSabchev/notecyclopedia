@@ -12,6 +12,9 @@ The `.dc.html` files are the canvas sources (they need the canvas runtime to ren
 | Calculators.dc.html | Calculator library | Filters, calculator list, live calculator with inputs/results/plot, export .json / .py / .html widget |
 | AIPortal.dc.html | AI portal | Mode tabs, step-by-step solution with formula citations, generated calculator card (Save / Export), sources in context, next steps |
 
+## Global symbol cheatsheet
+An expandable side drawer is available throughout the signed-in app. It groups common Greek letters, operators, and relations; clicking an entry copies its LaTeX source. In edit mode, users can add or remove entries or reset the grid to its defaults. Changes are saved in browser local storage.
+
 ## Design tokens
 ```css
 --bg: #F3F4F0;  --surface: #FFFFFF;  --surface-2: #FAFAF8;

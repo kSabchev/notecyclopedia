@@ -17,6 +17,7 @@ import {
   UserIcon,
 } from './Icons'
 import { SearchDialog } from './SearchDialog'
+import { SymbolPalette } from './SymbolPalette'
 import { btn, inputCls } from './ui'
 
 const COLORS = ['#1F3FBF', '#B85C00', '#16181D', '#2F7D4F', '#7A3FB8']
@@ -225,6 +226,7 @@ export function Layout() {
         <Outlet />
       </main>
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <SymbolPalette />
     </div>
   )
 }
