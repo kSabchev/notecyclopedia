@@ -208,7 +208,7 @@ const en = {
     generatingArticle: 'Generating draft…',
     reviewArticle: 'Review article draft',
     reviewArticleHint:
-      'Draft generated from {{name}}. Review and edit the content before accepting it. Saving creates a wiki page and indexes its formula blocks.',
+      'Draft generated from {{name}}. Review and edit the content before accepting it. Saving creates a wiki page, links the original file under Source files, and indexes its formula blocks.',
     acceptArticle: 'Accept and create article',
   },
   calc: {
@@ -482,7 +482,7 @@ const bg: Dict = {
     generatingArticle: 'Създаване на чернова…',
     reviewArticle: 'Преглед на черновата',
     reviewArticleHint:
-      'Чернова, създадена от {{name}}. Прегледай и редактирай съдържанието преди приемане. Запазването създава уики страница и индексира формулите ѝ.',
+      'Чернова, създадена от {{name}}. Прегледай и редактирай съдържанието преди приемане. Запазването създава уики страница, добавя оригиналния файл в „Източници“ и индексира формулите ѝ.',
     acceptArticle: 'Приеми и създай статия',
   },
   calc: {

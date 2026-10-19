@@ -58,8 +58,9 @@ and uploaded files are queued for re-indexing.
 After a text-based PDF finishes indexing, open **Uploads** and choose **Create wiki article**.
 The AI creates an editable draft from the extracted PDF text; review and edit the title, tags,
 article, and formula blocks before accepting it. Accepting creates a new lecture page in the same
-course. The normal page-save process adds its formula blocks to the formula index. Draft generation
-requires `ANTHROPIC_API_KEY` and currently supports extracted PDF text up to 80,000 characters.
+course and links the original PDF in the page's source files. The normal page-save process adds its
+formula blocks to the formula index. Draft generation requires `ANTHROPIC_API_KEY` and currently
+supports extracted PDF text up to 80,000 characters.
 Scanned PDFs without embedded text need OCR before they can be used for article generation.
 
 Generate a secret with `openssl rand -base64 32`.

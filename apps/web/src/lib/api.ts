@@ -91,7 +91,8 @@ export const api = {
   pages: {
     list: (courseId?: string) => get<PageSummary[]>(`/pages${qs({ courseId })}`),
     get: (id: string) => get<Page>(`/pages/${id}`),
-    create: (b: PageInput & { courseId: string }) => request<Page>('POST', '/pages', b),
+    create: (b: PageInput & { courseId: string; sourceFileId?: string }) =>
+      request<Page>('POST', '/pages', b),
     move: (id: string, courseId: string) => request<Page>('POST', `/pages/${id}/move`, { courseId }),
     update: (id: string, b: PageInput & { baseRevision: number; message?: string }) =>
       request<Page>('PUT', `/pages/${id}`, b),

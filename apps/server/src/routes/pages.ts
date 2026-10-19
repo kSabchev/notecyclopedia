@@ -62,6 +62,7 @@ pages.post('/', async (req, res) => {
   const body = z
     .object({
       courseId: z.string().uuid(),
+      sourceFileId: z.string().uuid().optional(),
       title: z.string().trim().min(1).max(200),
       type: pageType.default('note'),
       tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
@@ -71,16 +72,31 @@ pages.post('/', async (req, res) => {
     .parse(req.body)
   const user = me(req)
   await assertCourse(body.courseId, user.id, 'editor')
+  const { sourceFileId, ...pageBody } = body
   const content = body.content as DocJSON
   const page = await db.transaction(async (tx) => {
     const [p] = await tx
       .insert(schema.pages)
-      .values({ ...body, content, contentText: docToText(content), createdBy: user.id, updatedBy: user.id })
+      .values({
+        ...pageBody,
+        content,
+        contentText: docToText(content),
+        createdBy: user.id,
+        updatedBy: user.id,
+      })
       .returning()
     if (!p) throw new Error('insert failed')
     await tx
       .insert(schema.pageRevisions)
       .values({ pageId: p.id, revision: 1, title: p.title, content, message: 'Created', authorId: user.id })
+    if (sourceFileId) {
+      const [linkedFile] = await tx
+        .update(schema.files)
+        .set({ pageId: p.id })
+        .where(and(eq(schema.files.id, sourceFileId), eq(schema.files.courseId, body.courseId)))
+        .returning({ id: schema.files.id })
+      if (!linkedFile) throw new HttpError(400, 'Source file is not in this course')
+    }
     return p
   })
   await afterSave(page)

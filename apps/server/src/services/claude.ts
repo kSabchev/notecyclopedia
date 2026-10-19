@@ -89,8 +89,8 @@ const articleDraftSchema = z.object({
         z.object({
           type: z.literal('formula'),
           latex: z.string().trim().min(1).max(2000),
-          label: z.string().trim().max(100).optional(),
-          description: z.string().trim().max(500).optional(),
+          label: z.string().trim().max(100).nullable().optional(),
+          description: z.string().trim().max(500).nullable().optional(),
         }),
       ]),
     )
@@ -103,7 +103,7 @@ export async function generateArticleDraft(sourceName: string, sourceText: strin
   try {
     response = await requireClient().messages.create({
       model: env.anthropicModel,
-      max_tokens: 4096,
+      max_tokens: 8192,
       tools: [articleDraftTool],
       tool_choice: { type: 'tool', name: 'create_article_draft' },
       messages: [
@@ -128,10 +128,20 @@ ${JSON.stringify(sourceText)}`,
     }
     throw error
   }
+  if (response.stop_reason === 'max_tokens')
+    throw new HttpError(502, 'The article draft exceeded the AI output limit. Try generating it again.')
   const block = response.content.find((item) => item.type === 'tool_use')
   if (!block || block.type !== 'tool_use') throw new HttpError(502, 'The AI did not return an article draft')
   const parsed = articleDraftSchema.safeParse(block.input)
-  if (!parsed.success) throw new HttpError(502, 'The AI returned an invalid article draft')
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map(({ code, path }) => ({ code, path }))
+    console.error('[article-draft] Invalid response shape:', issues)
+    const details = issues
+      .slice(0, 3)
+      .map(({ code, path }) => `${path.join('.') || 'draft'} (${code})`)
+      .join(', ')
+    throw new HttpError(502, `The AI returned an invalid article draft: ${details}`)
+  }
 
   return {
     title: parsed.data.title,

@@ -39,6 +39,7 @@ function ArticleDraftEditor({
     mutationFn: () =>
       api.pages.create({
         courseId: file.courseId,
+        sourceFileId: file.id,
         title: title.trim(),
         type: 'lecture',
         tags: tags
