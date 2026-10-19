@@ -93,6 +93,71 @@ pages.get('/:id', async (req, res) => {
   res.json(rest)
 })
 
+pages.post('/:id/move', async (req, res) => {
+  const user = me(req)
+  const current = await loadPage(param(req, 'id'), user.id, 'editor')
+  const { courseId } = z.object({ courseId: z.string().uuid() }).parse(req.body)
+  if (courseId === current.courseId) throw new HttpError(400, 'Page is already in this course')
+  await assertCourse(courseId, user.id, 'editor')
+
+  const moved = await db.transaction(async (tx) => {
+    const linkedFiles = await tx
+      .select({ id: schema.files.id })
+      .from(schema.files)
+      .where(and(eq(schema.files.pageId, current.id), eq(schema.files.courseId, current.courseId)))
+    const linkedFileIds = linkedFiles.map((file) => file.id)
+    const [page] = await tx
+      .update(schema.pages)
+      .set({ courseId, updatedAt: new Date(), updatedBy: user.id })
+      .where(
+        and(
+          eq(schema.pages.id, current.id),
+          eq(schema.pages.courseId, current.courseId),
+          eq(schema.pages.revision, current.revision),
+        ),
+      )
+      .returning()
+    if (!page) throw new HttpError(409, 'This page changed while it was being moved. Reload and try again.')
+
+    if (linkedFileIds.length) {
+      await tx.update(schema.files).set({ courseId }).where(inArray(schema.files.id, linkedFileIds))
+      await tx
+        .update(schema.chunks)
+        .set({ courseId })
+        .where(
+          and(
+            eq(schema.chunks.sourceType, 'file'),
+            inArray(schema.chunks.sourceId, linkedFileIds),
+            eq(schema.chunks.courseId, current.courseId),
+          ),
+        )
+    }
+    await tx
+      .update(schema.chunks)
+      .set({ courseId })
+      .where(
+        and(
+          eq(schema.chunks.sourceType, 'page'),
+          eq(schema.chunks.sourceId, current.id),
+          eq(schema.chunks.courseId, current.courseId),
+        ),
+      )
+    await tx
+      .update(schema.calculators)
+      .set({ courseId, updatedAt: new Date() })
+      .where(
+        and(
+          eq(schema.calculators.sourcePageId, current.id),
+          eq(schema.calculators.courseId, current.courseId),
+        ),
+      )
+    return page
+  })
+
+  const { contentText: _omit, ...rest } = moved
+  res.json(rest)
+})
+
 pages.put('/:id', async (req, res) => {
   const user = me(req)
   const current = await loadPage(param(req, 'id'), user.id, 'editor')

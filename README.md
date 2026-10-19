@@ -32,6 +32,18 @@ Open http://localhost:5173, create an account, create a course, and add pages.
 To share a course with classmates, they sign up first, then the course owner invites them by email
 (as editor or viewer) from the course page.
 
+## Course protocols
+
+Upload protocols to an individual course to keep its protocol documents organized with the rest of
+the course materials. Each protocol belongs to the course it was uploaded to.
+
+## Docker container
+
+```sh
+pnpm db:up
+docker compose stop db
+```
+
 ## Data backup
 
 Open **Profile → Data backup** to download a versioned ZIP backup or restore one. Backups include
@@ -41,6 +53,15 @@ validates and previews the archive before creating new private copies owned by t
 it never merges with or overwrites existing data. Derived formula and search indexes are rebuilt,
 and uploaded files are queued for re-indexing.
 
+## Create wiki articles from PDFs
+
+After a text-based PDF finishes indexing, open **Uploads** and choose **Create wiki article**.
+The AI creates an editable draft from the extracted PDF text; review and edit the title, tags,
+article, and formula blocks before accepting it. Accepting creates a new lecture page in the same
+course. The normal page-save process adds its formula blocks to the formula index. Draft generation
+requires `ANTHROPIC_API_KEY` and currently supports extracted PDF text up to 80,000 characters.
+Scanned PDFs without embedded text need OCR before they can be used for article generation.
+
 Generate a secret with `openssl rand -base64 32`.
 
 ## Scripts
@@ -49,7 +70,7 @@ Generate a secret with `openssl rand -base64 32`.
 |---|---|
 | `pnpm dev` | Run web and server in watch mode |
 | `pnpm typecheck` | Type-check all packages |
-| `pnpm test` | Unit tests (calculator engine, document helpers) |
+| `pnpm test` | Unit tests and server backup tests |
 | `pnpm lint` | Biome lint + format check |
 | `pnpm db:generate` | Create a migration after changing `apps/server/src/db/schema.ts` |
 | `pnpm db:migrate` | Apply migrations |
@@ -60,6 +81,8 @@ Generate a secret with `openssl rand -base64 32`.
 - **Courses** are the unit of sharing. Members are `owner`, `editor` or `viewer`; every API route checks membership.
 - **Pages** store TipTap JSON. Each save creates a revision (with conflict detection), re-extracts formula blocks
   into the formula index, and re-chunks the text for AI retrieval (unless the page is hidden from AI).
+- **Pages** can be moved between courses where you have editor access. Attached files and calculators sourced
+  from the page move with it, and AI retrieval indexes are updated.
 - **Files** upload to `UPLOAD_DIR`, then a background job extracts text and indexes it.
 - **Search** uses Postgres full-text search with the `simple` config (works for Bulgarian and English).
   The AI also uses vector search when `VOYAGE_API_KEY` is set.

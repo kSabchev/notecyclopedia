@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { DocView, docHeadings } from '../components/DocView'
 import { FileDrop } from '../components/FileDrop'
 import { PenIcon, SparkIcon } from '../components/Icons'
-import { Eyebrow, FileBadge, btn } from '../components/ui'
+import { Eyebrow, FileBadge, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 import { timeAgo } from '../lib/format'
 
@@ -18,6 +18,7 @@ export function PageView() {
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>('read')
   const [openFile, setOpenFile] = useState<string | null>(null)
+  const [moveTarget, setMoveTarget] = useState('')
   const page = useQuery({ queryKey: ['page', pageId], queryFn: () => api.pages.get(pageId) })
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const files = useQuery({
@@ -38,12 +39,26 @@ export function PageView() {
       navigate({ to: '/wiki' })
     },
   })
+  const move = useMutation({
+    mutationFn: () => api.pages.move(pageId, moveTarget),
+    onSuccess: async (moved) => {
+      qc.setQueryData(['page', pageId], moved)
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['pages'] }),
+        qc.invalidateQueries({ queryKey: ['files'] }),
+        qc.invalidateQueries({ queryKey: ['formulas'] }),
+        qc.invalidateQueries({ queryKey: ['calculators'] }),
+      ])
+      setMoveTarget('')
+    },
+  })
 
   if (page.isPending) return <div className="p-10 text-muted">{t('common.loading')}</div>
   if (page.error) return <div className="p-10 text-danger">{page.error.message}</div>
   const p = page.data
   const course = courses.data?.find((c) => c.id === p.courseId)
   const canEdit = course && course.role !== 'viewer'
+  const moveCourses = courses.data?.filter((item) => item.role !== 'viewer' && item.id !== p.courseId) ?? []
   const headings = docHeadings(p.content)
   const aiLink = (mode: 'summarize' | 'ask' | 'solve' | 'calculator', q: string) => ({
     to: '/ai' as const,
@@ -178,6 +193,47 @@ export function PageView() {
               {t('page.delete')}
             </button>
           </div>
+        )}
+
+        {canEdit && moveCourses.length > 0 && (
+          <section className="flex flex-col gap-3 border-t border-line-soft pt-5">
+            <label htmlFor="move-course" className="text-sm font-semibold text-muted">
+              {t('page.moveToCourse')}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <select
+                id="move-course"
+                className={`${inputCls} min-w-0 flex-1`}
+                value={moveTarget}
+                onChange={(event) => setMoveTarget(event.target.value)}
+              >
+                <option value="">{t('page.selectCourse')}</option>
+                {moveCourses.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className={btn('secondary', 'sm')}
+                disabled={!moveTarget || move.isPending}
+                onClick={() => {
+                  const targetName = moveCourses.find((item) => item.id === moveTarget)?.name
+                  if (targetName && window.confirm(t('page.confirmMove', { course: targetName })))
+                    move.mutate()
+                }}
+              >
+                {move.isPending ? t('page.moving') : t('page.move')}
+              </button>
+            </div>
+            <p className="m-0 text-xs text-muted">{t('page.moveHint')}</p>
+            {move.error && (
+              <p role="alert" className="m-0 text-sm text-danger">
+                {move.error.message}
+              </p>
+            )}
+          </section>
         )}
       </article>
 

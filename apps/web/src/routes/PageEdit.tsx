@@ -12,7 +12,7 @@ import { ApiError, api } from '../lib/api'
 
 const TYPES: PageType[] = ['lecture', 'note', 'seminar', 'source']
 
-function Toolbar({ editor }: { editor: Editor }) {
+export function Toolbar({ editor }: { editor: Editor }) {
   const { t } = useTranslation()
   const s = useEditorState({
     editor,

@@ -10,6 +10,7 @@ import { assertCourse, loadPage, memberCourseIds } from '../access'
 import { db, schema } from '../db'
 import { env } from '../env'
 import { HttpError, me, notFound, param } from '../http'
+import { aiConfigured, generateArticleDraft } from '../services/claude'
 import { removeSource } from '../services/indexing'
 import { queueIngest } from '../services/jobs'
 
@@ -114,6 +115,22 @@ files.get('/:id/download', async (req, res) => {
   )
   res.setHeader('x-content-type-options', 'nosniff')
   res.sendFile(path.join(env.uploadDir, f.storageKey))
+})
+
+files.post('/:id/article-draft', async (req, res) => {
+  const file = await loadFile(param(req, 'id'), me(req).id, 'editor')
+  if (!file.name.toLowerCase().endsWith('.pdf') && file.mime !== 'application/pdf')
+    throw new HttpError(400, 'Only PDF files can be turned into article drafts')
+  if (file.status !== 'indexed' || !file.text?.trim())
+    throw new HttpError(409, 'Wait for the PDF to finish indexing before creating an article')
+  if (!aiConfigured()) throw new HttpError(503, 'AI is not configured. Add ANTHROPIC_API_KEY to .env')
+  if (file.text.length > 80_000)
+    throw new HttpError(
+      413,
+      'This PDF is too long to turn into one article. Use a shorter PDF or split it into sections.',
+    )
+
+  res.json(await generateArticleDraft(file.name, file.text))
 })
 
 files.patch('/:id', async (req, res) => {

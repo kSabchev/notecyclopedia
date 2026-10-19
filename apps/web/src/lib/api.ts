@@ -72,6 +72,12 @@ export interface BackupImportResult {
   warnings: string[]
 }
 
+export interface ArticleDraft {
+  title: string
+  tags: string[]
+  content: DocJSON
+}
+
 export const api = {
   courses: {
     list: () => get<Course[]>('/courses'),
@@ -86,6 +92,7 @@ export const api = {
     list: (courseId?: string) => get<PageSummary[]>(`/pages${qs({ courseId })}`),
     get: (id: string) => get<Page>(`/pages/${id}`),
     create: (b: PageInput & { courseId: string }) => request<Page>('POST', '/pages', b),
+    move: (id: string, courseId: string) => request<Page>('POST', `/pages/${id}/move`, { courseId }),
     update: (id: string, b: PageInput & { baseRevision: number; message?: string }) =>
       request<Page>('PUT', `/pages/${id}`, b),
     remove: (id: string) => request<void>('DELETE', `/pages/${id}`),
@@ -102,6 +109,7 @@ export const api = {
       return request<FileAsset[]>('POST', '/files', fd)
     },
     remove: (id: string) => request<void>('DELETE', `/files/${id}`),
+    articleDraft: (id: string) => request<ArticleDraft>('POST', `/files/${id}/article-draft`),
     url: (id: string, inline = false) => `/api/files/${id}/download${inline ? '?inline=1' : ''}`,
   },
   calculators: {

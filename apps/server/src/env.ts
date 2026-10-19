@@ -17,7 +17,7 @@ export const env = {
   webOrigin: req('WEB_ORIGIN', 'http://localhost:5173'),
   uploadDir: path.resolve(process.env.UPLOAD_DIR ?? './uploads'),
   anthropicKey: process.env.ANTHROPIC_API_KEY || null,
-  anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5',
+  anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5',
   voyageKey: process.env.VOYAGE_API_KEY || null,
   voyageModel: process.env.VOYAGE_MODEL || 'voyage-3.5',
   /** Embedding size stored in the chunks table; voyage-3.5 defaults to 1024. */
