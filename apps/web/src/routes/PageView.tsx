@@ -78,6 +78,11 @@ export function PageView() {
           / {t(`editor.types.${p.type}`)}
         </div>
         <div className="flex flex-col gap-3">
+          {p.lectureNumber !== null && (
+            <span className="text-sm font-semibold text-muted">
+              {t('page.lectureNumber', { n: p.lectureNumber })}
+            </span>
+          )}
           <h1 className="m-0 font-serif text-[46px] font-semibold leading-[1.08] tracking-[-0.015em]">
             {p.title}
           </h1>
@@ -252,7 +257,7 @@ export function PageView() {
         )}
         <section
           aria-labelledby="h-ai"
-          className="flex flex-col gap-2 rounded-[12px] bg-ink p-4.5 text-white"
+          className="flex flex-col gap-2 rounded-[12px] bg-inverse p-4.5 text-inverse-ink"
         >
           <h2 id="h-ai" className="m-0 mb-1.5 flex items-center gap-2 text-[15px] font-bold">
             <SparkIcon size={16} className="text-ai-on-dark" />
@@ -269,7 +274,7 @@ export function PageView() {
             <Link
               key={key}
               {...aiLink(mode, t(key))}
-              className="flex min-h-10 items-center rounded-lg bg-ink-2 px-3 text-sm text-white no-underline hover:text-white hover:brightness-125"
+              className="flex min-h-10 items-center rounded-lg bg-inverse-2 px-3 text-sm text-inverse-ink no-underline hover:text-inverse-ink hover:brightness-125"
             >
               {t(key)}
             </Link>

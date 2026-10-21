@@ -50,6 +50,7 @@ const qs = (o: Record<string, string | undefined>) => {
 export interface PageInput {
   title: string
   type: PageType
+  lectureNumber: number | null
   tags: string[]
   content: DocJSON
   aiVisible: boolean

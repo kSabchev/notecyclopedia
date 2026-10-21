@@ -4,10 +4,10 @@ type Variant = 'primary' | 'secondary' | 'dark' | 'ai' | 'ghost' | 'danger'
 const variants: Record<Variant, string> = {
   primary: 'bg-accent text-white hover:bg-accent-hover',
   secondary: 'bg-surface text-ink border border-line-strong hover:bg-surface-2',
-  dark: 'bg-ink text-white hover:bg-ink-2',
+  dark: 'bg-inverse text-inverse-ink hover:bg-inverse-2',
   ai: 'bg-ai text-white hover:brightness-110',
   ghost: 'bg-transparent text-ink hover:bg-line-soft',
-  danger: 'bg-surface text-danger border border-line-strong hover:bg-red-50',
+  danger: 'bg-surface text-danger border border-line-strong hover:bg-danger-soft',
 }
 
 export const btn = (v: Variant = 'secondary', size: 'md' | 'sm' = 'md') =>
@@ -56,7 +56,7 @@ export function ErrorNote({ error }: { error: unknown }) {
   return (
     <div
       role="alert"
-      className="rounded-[10px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-danger"
+      className="rounded-[10px] border border-danger-line bg-danger-soft px-4 py-3 text-sm text-danger"
     >
       {error instanceof Error ? error.message : String(error)}
     </div>

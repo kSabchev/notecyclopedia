@@ -42,6 +42,7 @@ function ArticleDraftEditor({
         sourceFileId: file.id,
         title: title.trim(),
         type: 'lecture',
+        lectureNumber: null,
         tags: tags
           .split(',')
           .map((tag) => tag.trim())

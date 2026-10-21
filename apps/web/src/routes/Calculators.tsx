@@ -251,7 +251,7 @@ export function Calculators() {
                 type="button"
                 aria-pressed={filter === f}
                 onClick={() => setFilter(f)}
-                className={`min-h-9 cursor-pointer rounded-full border px-3.5 text-sm font-semibold ${filter === f ? 'border-ink bg-ink text-white' : 'border-line-strong bg-surface text-ink'}`}
+                className={`min-h-9 cursor-pointer rounded-full border px-3.5 text-sm font-semibold ${filter === f ? 'border-inverse bg-inverse text-inverse-ink' : 'border-line-strong bg-surface text-ink'}`}
               >
                 {f === 'all' ? t('calc.all') : t('calc.aiMade')}
               </button>

@@ -8,6 +8,13 @@
       "when": 1792323152354,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792618610333,
+      "tag": "0001_lethal_triathlon",
+      "breakpoints": true
     }
   ]
 }

@@ -81,7 +81,7 @@ export function Toolbar({ editor }: { editor: Editor }) {
       <span className="mx-1.5 h-6 w-px bg-line" />
       <button
         type="button"
-        className={`${btn('ghost', 'sm')} border border-[#C7D0F2] bg-accent-soft text-accent`}
+        className={`${btn('ghost', 'sm')} border border-accent bg-accent-soft text-accent`}
         onClick={() => editor.chain().focus().insertFormula().run()}
       >
         <span className="font-serif text-[17px] italic">∑</span>
@@ -108,6 +108,13 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
   const [title, setTitle] = useState(page?.title ?? '')
   const [courseId, setCourseId] = useState(page?.courseId ?? defaultCourseId ?? '')
   const [type, setType] = useState<PageType>(page?.type ?? 'lecture')
+  const [lectureNumber, setLectureNumber] = useState(page?.lectureNumber?.toString() ?? '')
+  const parsedLectureNumber = lectureNumber.trim() ? Number(lectureNumber) : null
+  const lectureNumberValid =
+    parsedLectureNumber === null ||
+    (Number.isSafeInteger(parsedLectureNumber) &&
+      parsedLectureNumber > 0 &&
+      parsedLectureNumber <= 2_147_483_647)
   const [tags, setTags] = useState(page?.tags.join(', ') ?? '')
   const [aiVisible, setAiVisible] = useState(page?.aiVisible ?? true)
   const [message, setMessage] = useState('')
@@ -138,6 +145,7 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
       const body = {
         title: title.trim() || t('common.untitled'),
         type,
+        lectureNumber: parsedLectureNumber,
         tags: tags
           .split(',')
           .map((s) => s.trim())
@@ -179,7 +187,7 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
           <button
             type="button"
             className={btn('primary')}
-            disabled={save.isPending || !courseId}
+            disabled={save.isPending || !courseId || !lectureNumberValid}
             onClick={() => save.mutate()}
           >
             {t('editor.publish')}
@@ -252,6 +260,23 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
                   </option>
                 ))}
               </select>
+            </Field>
+            <Field label={t('editor.lectureNumber')} htmlFor="lecture-number">
+              <input
+                id="lecture-number"
+                className={inputCls}
+                type="number"
+                min={1}
+                max={2_147_483_647}
+                step={1}
+                value={lectureNumber}
+                aria-invalid={!lectureNumberValid}
+                onChange={(e) => {
+                  setLectureNumber(e.target.value)
+                  setDirty(true)
+                }}
+              />
+              <p className="m-0 text-xs text-muted">{t('editor.lectureNumberHint')}</p>
             </Field>
             <Field label={t('editor.tags')} htmlFor="tags">
               <input

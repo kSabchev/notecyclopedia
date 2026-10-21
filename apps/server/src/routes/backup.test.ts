@@ -63,6 +63,41 @@ test('validates export manifests after serializing database date values', () => 
   assert.equal(validateBackupManifest(JSON.stringify(manifest)).success, true)
 })
 
+test('preserves lecture numbers and defaults them for older backups', () => {
+  const id = '22222222-2222-4222-8222-222222222222'
+  const courseId = '11111111-1111-4111-8111-111111111111'
+  const page = {
+    id,
+    courseId,
+    title: 'Natural environment',
+    type: 'lecture',
+    tags: [],
+    content: { type: 'doc', content: [] },
+    aiVisible: true,
+    revision: 1,
+    createdAt,
+    updatedAt: createdAt,
+    revisions: [
+      {
+        revision: 1,
+        title: 'Natural environment',
+        content: { type: 'doc', content: [] },
+        message: 'Created',
+        createdAt,
+      },
+    ],
+  }
+  const numbered = validateBackupManifest(
+    JSON.stringify({ ...emptyBackup(), pages: [{ ...page, lectureNumber: 3 }] }),
+  )
+  const legacy = validateBackupManifest(JSON.stringify({ ...emptyBackup(), pages: [page] }))
+
+  assert.equal(numbered.success, true)
+  if (numbered.success) assert.equal(numbered.data.pages[0]?.lectureNumber, 3)
+  assert.equal(legacy.success, true)
+  if (legacy.success) assert.equal(legacy.data.pages[0]?.lectureNumber, null)
+})
+
 test('rejects unsupported backup formats', async (t) => {
   const filePath = await makeArchive(t, { ...emptyBackup(), format: 'other' })
   await assert.rejects(readBackupArchive(filePath), { status: 400 })

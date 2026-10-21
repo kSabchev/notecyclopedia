@@ -171,7 +171,7 @@ export function AiPortal() {
           <div
             role="tablist"
             aria-label="Mode"
-            className="flex flex-wrap gap-1 rounded-[12px] bg-[#E6E7E2] p-1"
+            className="flex flex-wrap gap-1 rounded-[12px] bg-line-soft p-1"
           >
             {MODES.map((m) => (
               <button
@@ -180,7 +180,7 @@ export function AiPortal() {
                 role="tab"
                 aria-selected={m === mode}
                 onClick={() => setMode(m)}
-                className={`min-h-10 cursor-pointer rounded-[9px] px-3.5 text-sm font-semibold ${m === mode ? 'bg-surface text-ai-text shadow-sm' : 'text-[#3F434C]'}`}
+                className={`min-h-10 cursor-pointer rounded-[9px] px-3.5 text-sm font-semibold ${m === mode ? 'bg-surface text-ai-text shadow-sm' : 'text-muted'}`}
               >
                 {t(`modes.${m}`)}
               </button>
@@ -194,7 +194,7 @@ export function AiPortal() {
           m.role === 'user' ? (
             <div
               key={m.id}
-              className="max-w-[620px] self-end whitespace-pre-wrap rounded-[14px_14px_4px_14px] bg-ink px-5 py-4 text-base text-white"
+              className="max-w-[620px] self-end whitespace-pre-wrap rounded-[14px_14px_4px_14px] bg-inverse px-5 py-4 text-base text-inverse-ink"
             >
               {m.content}
             </div>
@@ -335,7 +335,7 @@ export function AiPortal() {
 
         <section
           aria-labelledby="h-recent"
-          className="flex flex-col gap-1 rounded-[14px] bg-ink p-5 text-white"
+          className="flex flex-col gap-1 rounded-[14px] bg-inverse p-5 text-inverse-ink"
         >
           <div className="mb-2 flex items-center justify-between">
             <h2 id="h-recent" className="m-0 text-base font-bold">
@@ -354,7 +354,7 @@ export function AiPortal() {
               key={th.id}
               to="/ai"
               search={{ thread: th.id }}
-              className={`flex min-h-11 items-center truncate rounded-[9px] px-3 text-sm text-white no-underline hover:bg-ink-2 hover:text-white ${th.id === threadId ? 'bg-ink-2 font-semibold' : ''}`}
+              className={`flex min-h-11 items-center truncate rounded-[9px] px-3 text-sm text-inverse-ink no-underline hover:bg-inverse-2 hover:text-inverse-ink ${th.id === threadId ? 'bg-inverse-2 font-semibold' : ''}`}
             >
               {th.title}
             </Link>

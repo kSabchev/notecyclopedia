@@ -12,12 +12,14 @@ export const formulas = Router()
 
 const docSchema = z.object({ type: z.literal('doc'), content: z.array(z.unknown()).optional() }).passthrough()
 const pageType = z.enum(['lecture', 'note', 'seminar', 'source'])
+const lectureNumberSchema = z.number().int().positive().max(2_147_483_647)
 
 const summary = {
   id: schema.pages.id,
   courseId: schema.pages.courseId,
   title: schema.pages.title,
   type: schema.pages.type,
+  lectureNumber: schema.pages.lectureNumber,
   tags: schema.pages.tags,
   updatedAt: schema.pages.updatedAt,
   revision: schema.pages.revision,
@@ -65,6 +67,7 @@ pages.post('/', async (req, res) => {
       sourceFileId: z.string().uuid().optional(),
       title: z.string().trim().min(1).max(200),
       type: pageType.default('note'),
+      lectureNumber: lectureNumberSchema.nullable().default(null),
       tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
       content: docSchema.default({ type: 'doc', content: [] }),
       aiVisible: z.boolean().default(true),
@@ -181,6 +184,7 @@ pages.put('/:id', async (req, res) => {
     .object({
       title: z.string().trim().min(1).max(200),
       type: pageType,
+      lectureNumber: lectureNumberSchema.nullable(),
       tags: z.array(z.string().trim().min(1).max(40)).max(20),
       content: docSchema,
       aiVisible: z.boolean(),
@@ -199,6 +203,7 @@ pages.put('/:id', async (req, res) => {
       .set({
         title: body.title,
         type: body.type,
+        lectureNumber: body.lectureNumber,
         tags: body.tags,
         aiVisible: body.aiVisible,
         content,

@@ -20,6 +20,7 @@ export interface PageSummary {
   courseId: string
   title: string
   type: PageType
+  lectureNumber: number | null
   tags: string[]
   updatedAt: string
   revision: number

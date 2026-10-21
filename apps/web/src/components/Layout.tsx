@@ -18,6 +18,7 @@ import {
 } from './Icons'
 import { SearchDialog } from './SearchDialog'
 import { SymbolPalette } from './SymbolPalette'
+import { ThemeToggle } from './ThemeToggle'
 import { btn, inputCls } from './ui'
 
 const COLORS = ['#1F3FBF', '#B85C00', '#16181D', '#2F7D4F', '#7A3FB8']
@@ -30,7 +31,7 @@ export function Brand() {
   return (
     <div className="flex items-center gap-3 px-2">
       <div
-        className="flex h-9 w-9 items-center justify-center rounded-[9px] bg-ink font-serif text-[22px] italic text-white"
+        className="flex h-9 w-9 items-center justify-center rounded-[9px] bg-inverse font-serif text-[22px] italic text-inverse-ink"
         aria-hidden="true"
       >
         ∑
@@ -198,6 +199,7 @@ export function Layout() {
             <PlusIcon />
             {t('nav.newPage')}
           </Link>
+          <ThemeToggle />
           <div className="flex items-center justify-between gap-2 text-sm">
             <button
               type="button"

@@ -190,7 +190,7 @@ export function SymbolPalette() {
         aria-expanded={open}
         aria-controls="math-symbol-palette"
         onClick={() => setOpen((current) => !current)}
-        className="fixed bottom-5 right-5 z-40 flex min-h-12 cursor-pointer items-center gap-2 rounded-full bg-ink px-4 font-semibold text-white shadow-lg hover:bg-ink-2"
+        className="fixed bottom-5 right-5 z-40 flex min-h-12 cursor-pointer items-center gap-2 rounded-full bg-inverse px-4 font-semibold text-inverse-ink shadow-lg hover:bg-inverse-2"
       >
         <SigmaIcon size={20} />
         {t('symbols.open')}
@@ -222,7 +222,7 @@ export function SymbolPalette() {
             {storageError && (
               <p
                 role="alert"
-                className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-danger"
+                className="mb-4 rounded-lg border border-danger-line bg-danger-soft p-3 text-sm text-danger"
               >
                 {t(storageError === 'invalid' ? 'symbols.invalidStorage' : 'symbols.storageFailed')}
               </p>
@@ -262,7 +262,7 @@ export function SymbolPalette() {
                             type="button"
                             aria-label={t('symbols.remove', { label: symbol.label })}
                             onClick={() => removeSymbol(symbol.id)}
-                            className="flex w-9 shrink-0 cursor-pointer items-center justify-center border-l border-line text-muted hover:bg-red-50 hover:text-danger"
+                            className="flex w-9 shrink-0 cursor-pointer items-center justify-center border-l border-line text-muted hover:bg-danger-soft hover:text-danger"
                           >
                             <TrashIcon size={15} />
                           </button>

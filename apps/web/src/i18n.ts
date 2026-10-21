@@ -3,6 +3,12 @@ import { initReactI18next } from 'react-i18next'
 
 const en = {
   app: { name: 'Notecyclopedia', tagline: "Master's workbook" },
+  theme: {
+    dark: 'Dark mode',
+    light: 'Light mode',
+    switchToDark: 'Switch to dark mode',
+    switchToLight: 'Switch to light mode',
+  },
   backup: {
     title: 'Data backup',
     subtitle: 'Download a copy of your workbook or import a backup as a separate copy.',
@@ -147,6 +153,7 @@ const en = {
     practice: 'Practice problems',
     buildCalcs: 'Build calculators from formulas',
     files: 'Source files',
+    lectureNumber: 'Lecture {{n}}',
     attach: '+ Attach file',
     revision: 'Revision {{n}}',
     edited: 'Edited {{when}}',
@@ -180,6 +187,8 @@ const en = {
     note: 'My note',
     course: 'Course',
     type: 'Page type',
+    lectureNumber: 'Lecture number (optional)',
+    lectureNumberHint: 'Leave blank or enter a positive whole number.',
     tags: 'Tags (comma separated)',
     aiVisible: 'AI may use this page and its files as sources',
     settings: 'Page settings',
@@ -278,6 +287,12 @@ type Dict = typeof en
 
 const bg: Dict = {
   app: { name: 'Notecyclopedia', tagline: 'Магистърска тетрадка' },
+  theme: {
+    dark: 'Тъмен режим',
+    light: 'Светъл режим',
+    switchToDark: 'Включи тъмен режим',
+    switchToLight: 'Включи светъл режим',
+  },
   backup: {
     title: 'Архив на данните',
     subtitle: 'Изтегли копие на тетрадката или импортирай архив като отделно копие.',
@@ -421,6 +436,7 @@ const bg: Dict = {
     practice: 'Задачи за упражнение',
     buildCalcs: 'Калкулатори от формулите',
     files: 'Файлове',
+    lectureNumber: 'Лекция {{n}}',
     attach: '+ Прикачи файл',
     revision: 'Версия {{n}}',
     edited: 'Редактирано {{when}}',
@@ -454,6 +470,8 @@ const bg: Dict = {
     note: 'Моя бележка',
     course: 'Курс',
     type: 'Вид страница',
+    lectureNumber: 'Номер на лекция (по избор)',
+    lectureNumberHint: 'Остави празно или въведи положително цяло число.',
     tags: 'Етикети (със запетая)',
     aiVisible: 'AI може да ползва страницата и файловете ѝ',
     settings: 'Настройки',

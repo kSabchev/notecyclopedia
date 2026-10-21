@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Brand } from '../components/Layout'
+import { ThemeToggle } from '../components/ThemeToggle'
 import { ErrorNote, Field, btn, inputCls } from '../components/ui'
 import { signIn, signUp } from '../lib/auth'
 
@@ -35,7 +36,10 @@ export function Login() {
         onSubmit={submit}
         className="flex w-full max-w-[400px] flex-col gap-5 rounded-[16px] border border-line bg-surface p-8"
       >
-        <Brand />
+        <div className="flex items-center justify-between gap-3">
+          <Brand />
+          <ThemeToggle />
+        </div>
         <div>
           <h1 className="m-0 text-[28px] font-extrabold tracking-[-0.02em]">
             {mode === 'in' ? t('auth.signIn') : t('auth.signUp')}

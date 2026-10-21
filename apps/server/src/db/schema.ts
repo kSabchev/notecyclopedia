@@ -107,6 +107,7 @@ export const pages = pgTable(
     type: text('type', { enum: ['lecture', 'note', 'seminar', 'source'] })
       .notNull()
       .default('note'),
+    lectureNumber: integer('lecture_number'),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
     content: jsonb('content').$type<DocJSON>().notNull(),
     contentText: text('content_text').notNull().default(''),

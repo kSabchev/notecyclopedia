@@ -30,6 +30,7 @@ const docSchema = z
   .object({ type: z.literal('doc'), content: z.array(z.unknown()).optional() })
   .passthrough()
   .transform((doc) => doc as DocJSON)
+const lectureNumberSchema = z.number().int().positive().max(2_147_483_647)
 
 const timestampSchema = z
   .string()
@@ -57,6 +58,7 @@ const backupSchema = z.object({
         courseId: z.string().uuid(),
         title: z.string().min(1).max(200),
         type: z.enum(['lecture', 'note', 'seminar', 'source']),
+        lectureNumber: lectureNumberSchema.nullable().optional().default(null),
         tags: z.array(z.string().min(1).max(40)).max(20),
         content: docSchema,
         aiVisible: z.boolean(),
@@ -318,11 +320,24 @@ backup.get('/export', async (req, res) => {
       createdAt,
     })),
     pages: pages.map(
-      ({ id, courseId, title, type, tags, content, aiVisible, revision, createdAt, updatedAt }) => ({
+      ({
         id,
         courseId,
         title,
         type,
+        lectureNumber,
+        tags,
+        content,
+        aiVisible,
+        revision,
+        createdAt,
+        updatedAt,
+      }) => ({
+        id,
+        courseId,
+        title,
+        type,
+        lectureNumber,
         tags,
         content,
         aiVisible,
@@ -495,6 +510,7 @@ backup.post('/import', receiveArchive, async (req, res) => {
               courseId: courseMap.get(page.courseId) as string,
               title: page.title,
               type: page.type,
+              lectureNumber: page.lectureNumber,
               tags: page.tags,
               content: page.content,
               contentText: docToText(page.content),

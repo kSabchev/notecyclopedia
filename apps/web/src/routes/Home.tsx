@@ -134,7 +134,7 @@ export function Home() {
         <aside className="flex min-w-0 flex-[1_1_320px] flex-col gap-6">
           <section
             aria-labelledby="h-ask"
-            className="flex flex-col gap-4 rounded-[14px] bg-ink p-6 text-white"
+            className="flex flex-col gap-4 rounded-[14px] bg-inverse p-6 text-inverse-ink"
           >
             <div className="flex items-center gap-2.5">
               <SparkIcon className="text-ai-on-dark" size={20} />
@@ -149,7 +149,7 @@ export function Home() {
                   type="button"
                   aria-pressed={m === mode}
                   onClick={() => setMode(m)}
-                  className={`min-h-10 cursor-pointer rounded-full px-3.5 text-sm font-semibold ${m === mode ? 'border border-ai-on-dark bg-ai-on-dark text-ink' : 'border border-[#4A4F59] bg-transparent text-white'}`}
+                  className={`min-h-10 cursor-pointer rounded-full px-3.5 text-sm font-semibold ${m === mode ? 'border border-ai-on-dark bg-ai-on-dark text-inverse' : 'border border-inverse-chip-line bg-transparent text-inverse-ink'}`}
                 >
                   {t(`modes.${m}`)}
                 </button>
@@ -162,7 +162,7 @@ export function Home() {
                 if (q.trim()) navigate({ to: '/ai', search: { mode, q } })
               }}
             >
-              <label htmlFor="ask-box" className="text-[13px] text-[#C4C7CE]">
+              <label htmlFor="ask-box" className="text-[13px] text-inverse-muted">
                 {t(`modes.${mode}Hint`)}
               </label>
               <textarea
@@ -170,11 +170,11 @@ export function Home() {
                 rows={4}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                className="box-border w-full resize-y rounded-[10px] border border-[#3A3E47] bg-ink-2 p-3.5 text-[15px] text-white"
+                className="box-border w-full resize-y rounded-[10px] border border-inverse-line bg-inverse-2 p-3.5 text-[15px] text-inverse-ink"
               />
               <button
                 type="submit"
-                className="min-h-11 cursor-pointer self-end rounded-[10px] bg-ai-on-dark px-5 font-bold text-ink"
+                className="min-h-11 cursor-pointer self-end rounded-[10px] bg-ai-on-dark px-5 font-bold text-inverse"
               >
                 {t('home.run')}
               </button>

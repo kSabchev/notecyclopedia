@@ -8,6 +8,12 @@
   --color-surface-2: #fafaf8;
   --color-ink: #16181d;
   --color-ink-2: #22252c;
+  --color-inverse: #16181d;
+  --color-inverse-2: #22252c;
+  --color-inverse-ink: #ffffff;
+  --color-inverse-muted: #c4c7ce;
+  --color-inverse-line: #3a3e47;
+  --color-inverse-chip-line: #4a4f59;
   --color-muted: #565b66;
   --color-line: #dddfd8;
   --color-line-strong: #c9ccc4;
@@ -23,10 +29,50 @@
   --color-note-line: #ead9a8;
   --color-ok: #2f7d4f;
   --color-danger: #b42318;
+  --color-danger-soft: #fef2f2;
+  --color-danger-line: #fecaca;
+  --color-graph-line: #eef0ea;
 
   --font-sans: "Schibsted Grotesk", system-ui, sans-serif;
   --font-serif: "Source Serif 4", Georgia, serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #111318;
+  --color-surface: #1b1e24;
+  --color-surface-2: #22262e;
+  --color-ink: #e8eaf0;
+  --color-ink-2: #d2d5dd;
+  --color-inverse: #090b0f;
+  --color-inverse-2: #171a20;
+  --color-inverse-ink: #e8eaf0;
+  --color-inverse-muted: #c4c7ce;
+  --color-inverse-line: #343944;
+  --color-inverse-chip-line: #454c58;
+  --color-muted: #a3a9b5;
+  --color-line: #343944;
+  --color-line-strong: #454c58;
+  --color-line-soft: #292e37;
+  --color-accent: #8fa5ff;
+  --color-accent-hover: #afbdff;
+  --color-accent-soft: #27335a;
+  --color-ai: #9a4a00;
+  --color-ai-text: #ffc27a;
+  --color-ai-soft: #3a2b1d;
+  --color-ai-on-dark: #f2b66d;
+  --color-note: #332b1d;
+  --color-note-line: #69542e;
+  --color-ok: #75d49d;
+  --color-danger: #ff7b72;
+  --color-danger-soft: #3a2022;
+  --color-danger-line: #713438;
+  --color-graph-line: #292e37;
+}
+
+:root {
+  color-scheme: light;
 }
 
 /* Base styles live in the base layer so Tailwind utilities (e.g. text-ink on a link) win. */
@@ -50,9 +96,13 @@
 }
 
 .graph-paper {
-  background-image: linear-gradient(#eef0ea 1px, transparent 1px),
-    linear-gradient(90deg, #eef0ea 1px, transparent 1px);
+  background-image: linear-gradient(var(--color-graph-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-graph-line) 1px, transparent 1px);
   background-size: 16px 16px;
+}
+
+:root[data-theme="dark"] .bg-accent.text-white {
+  color: var(--color-bg);
 }
 
 /* Reading typography for wiki pages and the editor */
@@ -102,8 +152,8 @@
   border-radius: 4px;
 }
 .prose-nc pre {
-  background: var(--color-ink);
-  color: #e6e8ec;
+  background: var(--color-inverse);
+  color: var(--color-inverse-ink);
   padding: 1rem;
   border-radius: 10px;
   overflow-x: auto;
@@ -126,7 +176,7 @@
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #6a6f79;
+  color: var(--color-muted);
   pointer-events: none;
   height: 0;
 }

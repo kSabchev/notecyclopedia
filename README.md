@@ -31,6 +31,8 @@ pnpm dev                      # web on http://localhost:5173, API on :3001
 Open http://localhost:5173, create an account, create a course, and add pages.
 To share a course with classmates, they sign up first, then the course owner invites them by email
 (as editor or viewer) from the course page.
+Use the theme control in the navigation or sign-in screen to switch between light and dark mode;
+your choice is saved in this browser.
 
 ## Course protocols
 
@@ -80,8 +82,9 @@ Generate a secret with `openssl rand -base64 32`.
 ## How it fits together
 
 - **Courses** are the unit of sharing. Members are `owner`, `editor` or `viewer`; every API route checks membership.
-- **Pages** store TipTap JSON. Each save creates a revision (with conflict detection), re-extracts formula blocks
-  into the formula index, and re-chunks the text for AI retrieval (unless the page is hidden from AI).
+- **Pages** store TipTap JSON and can optionally be assigned a lecture number, shown in the wiki and article.
+  Each save creates a revision (with conflict detection), re-extracts formula blocks into the formula index,
+  and re-chunks the text for AI retrieval (unless the page is hidden from AI).
 - **Pages** can be moved between courses where you have editor access. Attached files and calculators sourced
   from the page move with it, and AI retrieval indexes are updated.
 - **Files** upload to `UPLOAD_DIR`, then a background job extracts text and indexes it.

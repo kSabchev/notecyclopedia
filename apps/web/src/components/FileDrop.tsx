@@ -37,7 +37,7 @@ export function FileDrop({
           setOver(false)
           send(e.dataTransfer.files)
         }}
-        className={`flex cursor-pointer flex-col items-center gap-2 rounded-[12px] border-[1.5px] border-dashed text-center ${compact ? 'p-5' : 'px-5 py-7'} ${over ? 'border-accent bg-accent-soft' : 'border-[#A9ADA4] bg-surface-2'}`}
+        className={`flex cursor-pointer flex-col items-center gap-2 rounded-[12px] border-[1.5px] border-dashed text-center ${compact ? 'p-5' : 'px-5 py-7'} ${over ? 'border-accent bg-accent-soft' : 'border-line-strong bg-surface-2'}`}
       >
         <UploadIcon size={26} className="text-muted" />
         <span className="font-semibold">{upload.isPending ? t('common.loading') : t('files.drop')}</span>

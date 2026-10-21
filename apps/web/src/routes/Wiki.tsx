@@ -20,7 +20,14 @@ function PageList({ courseId }: { courseId?: string }) {
             params={{ pageId: p.id }}
             className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5 text-ink no-underline hover:bg-surface-2"
           >
-            <span className="min-w-0 flex-1 font-serif text-lg font-semibold">{p.title}</span>
+            <span className="min-w-0 flex-1 font-serif text-lg font-semibold">
+              {p.lectureNumber !== null && (
+                <span className="mr-2 text-sm font-semibold text-muted">
+                  {t('page.lectureNumber', { n: p.lectureNumber })}
+                </span>
+              )}
+              {p.title}
+            </span>
             <span className="text-[13px] text-muted">{t(`editor.types.${p.type}`)}</span>
             {p.tags.map((tag) => (
               <span key={tag} className="rounded-md bg-line-soft px-2 py-0.5 text-xs">
