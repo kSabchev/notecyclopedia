@@ -91,6 +91,7 @@ export const courseMembers = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     role: text('role', { enum: ['owner', 'editor', 'viewer'] }).notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.courseId, t.userId] })],
@@ -108,6 +109,7 @@ export const pages = pgTable(
       .notNull()
       .default('note'),
     lectureNumber: integer('lecture_number'),
+    sortOrder: integer('sort_order').notNull().default(0),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
     content: jsonb('content').$type<DocJSON>().notNull(),
     contentText: text('content_text').notNull().default(''),

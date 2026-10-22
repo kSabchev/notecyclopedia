@@ -1,5 +1,5 @@
 import { type DocJSON, docToText, extractFormulas } from '@nc/shared'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
 import { assertCourse, loadPage, memberCourseIds } from '../access'
@@ -43,7 +43,11 @@ pages.get('/', async (req, res) => {
     .select(summary)
     .from(schema.pages)
     .where(inArray(schema.pages.courseId, ids))
-    .orderBy(desc(schema.pages.updatedAt))
+    .orderBy(
+      ...(courseId
+        ? [asc(schema.pages.sortOrder), desc(schema.pages.updatedAt)]
+        : [desc(schema.pages.updatedAt)]),
+    )
     .limit(limit)
   res.json(rows)
 })
@@ -78,10 +82,15 @@ pages.post('/', async (req, res) => {
   const { sourceFileId, ...pageBody } = body
   const content = body.content as DocJSON
   const page = await db.transaction(async (tx) => {
+    const [last] = await tx
+      .select({ sortOrder: sql<number>`coalesce(max(${schema.pages.sortOrder}), -1) + 1` })
+      .from(schema.pages)
+      .where(eq(schema.pages.courseId, body.courseId))
     const [p] = await tx
       .insert(schema.pages)
       .values({
         ...pageBody,
+        sortOrder: last?.sortOrder ?? 0,
         content,
         contentText: docToText(content),
         createdBy: user.id,
@@ -112,6 +121,33 @@ pages.get('/:id', async (req, res) => {
   res.json(rest)
 })
 
+pages.put('/order', async (req, res) => {
+  const user = me(req)
+  const { courseId, pageIds } = z
+    .object({
+      courseId: z.string().uuid(),
+      pageIds: z.array(z.string().uuid()).max(500),
+    })
+    .parse(req.body)
+  await assertCourse(courseId, user.id, 'editor')
+  if (new Set(pageIds).size !== pageIds.length) throw new HttpError(400, 'Page order contains duplicates')
+  const pagesInCourse = await db
+    .select({ id: schema.pages.id })
+    .from(schema.pages)
+    .where(eq(schema.pages.courseId, courseId))
+  if (pagesInCourse.length !== pageIds.length || pagesInCourse.some((page) => !pageIds.includes(page.id)))
+    throw new HttpError(400, 'Page order must include all pages in this course')
+
+  await db.transaction(async (tx) => {
+    for (const [sortOrder, pageId] of pageIds.entries())
+      await tx
+        .update(schema.pages)
+        .set({ sortOrder })
+        .where(and(eq(schema.pages.id, pageId), eq(schema.pages.courseId, courseId)))
+  })
+  res.status(204).end()
+})
+
 pages.post('/:id/move', async (req, res) => {
   const user = me(req)
   const current = await loadPage(param(req, 'id'), user.id, 'editor')
@@ -120,6 +156,10 @@ pages.post('/:id/move', async (req, res) => {
   await assertCourse(courseId, user.id, 'editor')
 
   const moved = await db.transaction(async (tx) => {
+    const [last] = await tx
+      .select({ sortOrder: sql<number>`coalesce(max(${schema.pages.sortOrder}), -1) + 1` })
+      .from(schema.pages)
+      .where(eq(schema.pages.courseId, courseId))
     const linkedFiles = await tx
       .select({ id: schema.files.id })
       .from(schema.files)
@@ -127,7 +167,7 @@ pages.post('/:id/move', async (req, res) => {
     const linkedFileIds = linkedFiles.map((file) => file.id)
     const [page] = await tx
       .update(schema.pages)
-      .set({ courseId, updatedAt: new Date(), updatedBy: user.id })
+      .set({ courseId, sortOrder: last?.sortOrder ?? 0, updatedAt: new Date(), updatedBy: user.id })
       .where(
         and(
           eq(schema.pages.id, current.id),

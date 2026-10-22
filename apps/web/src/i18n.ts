@@ -167,6 +167,8 @@ const en = {
     moving: 'Moving…',
     confirmMove: 'Move this article and its attached files to {{course}}?',
     moveHint: 'Attached files and calculators sourced from this page move with it.',
+    moveUp: 'Move {{name}} up',
+    moveDown: 'Move {{name}} down',
   },
   editor: {
     title: 'Page title',
@@ -273,6 +275,10 @@ const en = {
     role: { owner: 'Owner', editor: 'Editor', viewer: 'Viewer' },
     pages: 'Pages',
     none: 'Create your first course to start.',
+    editOrdering: 'Edit order',
+    doneOrdering: 'Done',
+    moveUp: 'Move {{name}} up',
+    moveDown: 'Move {{name}} down',
   },
   common: {
     loading: 'Loading…',
@@ -450,6 +456,8 @@ const bg: Dict = {
     moving: 'Преместване…',
     confirmMove: 'Да преместя ли тази статия и прикачените файлове в {{course}}?',
     moveHint: 'Прикачените файлове и калкулаторите, създадени от тази страница, се преместват с нея.',
+    moveUp: 'Премести {{name}} нагоре',
+    moveDown: 'Премести {{name}} надолу',
   },
   editor: {
     title: 'Заглавие',
@@ -556,6 +564,10 @@ const bg: Dict = {
     role: { owner: 'Собственик', editor: 'Редактор', viewer: 'Читател' },
     pages: 'Страници',
     none: 'Създай първия си курс, за да започнеш.',
+    editOrdering: 'Подреди',
+    doneOrdering: 'Готово',
+    moveUp: 'Премести {{name}} нагоре',
+    moveDown: 'Премести {{name}} надолу',
   },
   common: {
     loading: 'Зареждане…',

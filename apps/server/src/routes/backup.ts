@@ -7,7 +7,7 @@ import { Transform, Writable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { type DocJSON, calculatorSpecSchema, docToText, extractFormulas } from '@nc/shared'
 import { ZipArchive } from 'archiver'
-import { and, eq, inArray, isNull, or } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
 import { type Request, type RequestHandler, Router } from 'express'
 import multer from 'multer'
 import unzipper from 'unzipper'
@@ -276,10 +276,25 @@ backup.get('/export', async (req, res) => {
   const user = me(req)
   const courseIds = await memberCourseIds(user.id)
   const courses = courseIds.length
-    ? await db.select().from(schema.courses).where(inArray(schema.courses.id, courseIds))
+    ? await db
+        .select({
+          id: schema.courses.id,
+          name: schema.courses.name,
+          color: schema.courses.color,
+          description: schema.courses.description,
+          createdAt: schema.courses.createdAt,
+        })
+        .from(schema.courseMembers)
+        .innerJoin(schema.courses, eq(schema.courses.id, schema.courseMembers.courseId))
+        .where(eq(schema.courseMembers.userId, user.id))
+        .orderBy(asc(schema.courseMembers.sortOrder), asc(schema.courses.name))
     : []
   const pages = courseIds.length
-    ? await db.select().from(schema.pages).where(inArray(schema.pages.courseId, courseIds))
+    ? await db
+        .select()
+        .from(schema.pages)
+        .where(inArray(schema.pages.courseId, courseIds))
+        .orderBy(asc(schema.pages.courseId), asc(schema.pages.sortOrder), asc(schema.pages.id))
     : []
   const pageIds = pages.map((page) => page.id)
   const revisions = pageIds.length
@@ -494,33 +509,40 @@ backup.post('/import', receiveArchive, async (req, res) => {
             (batch) => tx.insert(schema.courses).values(batch),
           )
           await insertBatches(
-            data.courses.map((course) => ({
+            data.courses.map((course, sortOrder) => ({
               courseId: courseMap.get(course.id) as string,
               userId: user.id,
               role: 'owner' as const,
+              sortOrder,
             })),
             (batch) => tx.insert(schema.courseMembers).values(batch),
           )
         }
 
         if (data.pages.length) {
+          const pageOrderByCourse = new Map<string, number>()
           await insertBatches(
-            data.pages.map((page) => ({
-              id: pageMap.get(page.id) as string,
-              courseId: courseMap.get(page.courseId) as string,
-              title: page.title,
-              type: page.type,
-              lectureNumber: page.lectureNumber,
-              tags: page.tags,
-              content: page.content,
-              contentText: docToText(page.content),
-              aiVisible: page.aiVisible,
-              revision: page.revision,
-              createdBy: user.id,
-              updatedBy: user.id,
-              createdAt: page.createdAt,
-              updatedAt: new Date(),
-            })),
+            data.pages.map((page) => {
+              const sortOrder = pageOrderByCourse.get(page.courseId) ?? 0
+              pageOrderByCourse.set(page.courseId, sortOrder + 1)
+              return {
+                id: pageMap.get(page.id) as string,
+                courseId: courseMap.get(page.courseId) as string,
+                title: page.title,
+                type: page.type,
+                lectureNumber: page.lectureNumber,
+                sortOrder,
+                tags: page.tags,
+                content: page.content,
+                contentText: docToText(page.content),
+                aiVisible: page.aiVisible,
+                revision: page.revision,
+                createdBy: user.id,
+                updatedBy: user.id,
+                createdAt: page.createdAt,
+                updatedAt: new Date(),
+              }
+            }),
             (batch) => tx.insert(schema.pages).values(batch),
           )
           await insertBatches(

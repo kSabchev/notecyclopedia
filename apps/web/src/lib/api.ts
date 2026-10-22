@@ -82,6 +82,7 @@ export interface ArticleDraft {
 export const api = {
   courses: {
     list: () => get<Course[]>('/courses'),
+    reorder: (courseIds: string[]) => request<void>('PUT', '/courses/order', { courseIds }),
     create: (b: { name: string; color?: string; description?: string }) =>
       request<Course>('POST', '/courses', b),
     members: (id: string) =>
@@ -90,7 +91,10 @@ export const api = {
       request('POST', `/courses/${id}/members`, b),
   },
   pages: {
-    list: (courseId?: string) => get<PageSummary[]>(`/pages${qs({ courseId })}`),
+    list: (courseId?: string) =>
+      get<PageSummary[]>(`/pages${qs({ courseId, limit: courseId ? '500' : undefined })}`),
+    reorder: (courseId: string, pageIds: string[]) =>
+      request<void>('PUT', '/pages/order', { courseId, pageIds }),
     get: (id: string) => get<Page>(`/pages/${id}`),
     create: (b: PageInput & { courseId: string; sourceFileId?: string }) =>
       request<Page>('POST', '/pages', b),

@@ -15,6 +15,13 @@
       "when": 1792618610333,
       "tag": "0001_lethal_triathlon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792702188814,
+      "tag": "0002_kind_centennial",
+      "breakpoints": true
     }
   ]
 }

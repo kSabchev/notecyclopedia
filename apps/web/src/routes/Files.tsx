@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { FileDrop } from '../components/FileDrop'
 import { TrashIcon } from '../components/Icons'
 import { editorExtensions } from '../components/extensions'
-import { Empty, ErrorNote, FileBadge, btn, inputCls } from '../components/ui'
+import { Empty, ErrorNote, Field, FileBadge, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 import type { ArticleDraft } from '../lib/api'
 import { bytes, timeAgo } from '../lib/format'
@@ -27,6 +27,13 @@ function ArticleDraftEditor({
   const qc = useQueryClient()
   const [title, setTitle] = useState(draft.title)
   const [tags, setTags] = useState(draft.tags.join(', '))
+  const [lectureNumber, setLectureNumber] = useState('')
+  const parsedLectureNumber = lectureNumber.trim() ? Number(lectureNumber) : null
+  const lectureNumberValid =
+    parsedLectureNumber === null ||
+    (Number.isSafeInteger(parsedLectureNumber) &&
+      parsedLectureNumber > 0 &&
+      parsedLectureNumber <= 2_147_483_647)
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const courseName = courses.data?.find((course) => course.id === file.courseId)?.name
   const editor = useEditor({
@@ -42,7 +49,7 @@ function ArticleDraftEditor({
         sourceFileId: file.id,
         title: title.trim(),
         type: 'lecture',
-        lectureNumber: null,
+        lectureNumber: parsedLectureNumber,
         tags: tags
           .split(',')
           .map((tag) => tag.trim())
@@ -70,7 +77,7 @@ function ArticleDraftEditor({
         <button
           type="button"
           className={btn('primary')}
-          disabled={save.isPending || !editor || !title.trim()}
+          disabled={save.isPending || !editor || !title.trim() || !lectureNumberValid}
           onClick={() => save.mutate()}
         >
           {save.isPending ? t('common.loading') : t('files.acceptArticle')}
@@ -91,6 +98,20 @@ function ArticleDraftEditor({
           placeholder={t('editor.tags')}
           className={inputCls}
         />
+        <Field label={t('editor.lectureNumber')} htmlFor="article-lecture-number">
+          <input
+            id="article-lecture-number"
+            className={inputCls}
+            type="number"
+            min={1}
+            max={2_147_483_647}
+            step={1}
+            value={lectureNumber}
+            aria-invalid={!lectureNumberValid}
+            onChange={(event) => setLectureNumber(event.target.value)}
+          />
+          <p className="m-0 text-xs text-muted">{t('editor.lectureNumberHint')}</p>
+        </Field>
         <section className="overflow-clip rounded-[14px] border border-line bg-surface">
           {editor && <Toolbar editor={editor} />}
           <div className="px-6 py-8 md:px-12">

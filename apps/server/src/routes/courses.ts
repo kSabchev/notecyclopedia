@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
 import { assertCourse } from '../access'
@@ -20,8 +20,33 @@ courses.get('/', async (req, res) => {
     .from(schema.courseMembers)
     .innerJoin(schema.courses, eq(schema.courses.id, schema.courseMembers.courseId))
     .where(eq(schema.courseMembers.userId, me(req).id))
-    .orderBy(schema.courses.name)
+    .orderBy(asc(schema.courseMembers.sortOrder), asc(schema.courses.name))
   res.json(rows)
+})
+
+courses.put('/order', async (req, res) => {
+  const user = me(req)
+  const { courseIds } = z.object({ courseIds: z.array(z.string().uuid()).min(1).max(500) }).parse(req.body)
+  if (new Set(courseIds).size !== courseIds.length)
+    throw new HttpError(400, 'Course order contains duplicates')
+  const memberships = await db
+    .select({ courseId: schema.courseMembers.courseId })
+    .from(schema.courseMembers)
+    .where(eq(schema.courseMembers.userId, user.id))
+  if (
+    memberships.length !== courseIds.length ||
+    memberships.some((membership) => !courseIds.includes(membership.courseId))
+  )
+    throw new HttpError(400, 'Course order must include all of your courses')
+
+  await db.transaction(async (tx) => {
+    for (const [sortOrder, courseId] of courseIds.entries())
+      await tx
+        .update(schema.courseMembers)
+        .set({ sortOrder })
+        .where(and(eq(schema.courseMembers.userId, user.id), eq(schema.courseMembers.courseId, courseId)))
+  })
+  res.status(204).end()
 })
 
 const courseInput = z.object({
@@ -42,7 +67,13 @@ courses.post('/', async (req, res) => {
       .values({ ...body, createdBy: user.id })
       .returning()
     if (!c) throw new Error('insert failed')
-    await tx.insert(schema.courseMembers).values({ courseId: c.id, userId: user.id, role: 'owner' })
+    const [last] = await tx
+      .select({ sortOrder: sql<number>`coalesce(max(${schema.courseMembers.sortOrder}), -1) + 1` })
+      .from(schema.courseMembers)
+      .where(eq(schema.courseMembers.userId, user.id))
+    await tx
+      .insert(schema.courseMembers)
+      .values({ courseId: c.id, userId: user.id, role: 'owner', sortOrder: last?.sortOrder ?? 0 })
     return c
   })
   res.status(201).json({ ...course, role: 'owner' })
@@ -87,9 +118,18 @@ courses.post('/:id/members', async (req, res) => {
     .parse(req.body)
   const [u] = await db.select().from(schema.user).where(sql`lower(${schema.user.email}) = lower(${email})`)
   if (!u) throw new HttpError(404, 'No account with that email yet — ask them to sign up first')
+  const [last] = await db
+    .select({ sortOrder: sql<number>`coalesce(max(${schema.courseMembers.sortOrder}), -1) + 1` })
+    .from(schema.courseMembers)
+    .where(eq(schema.courseMembers.userId, u.id))
   await db
     .insert(schema.courseMembers)
-    .values({ courseId: id, userId: u.id, role })
+    .values({
+      courseId: id,
+      userId: u.id,
+      role,
+      sortOrder: last?.sortOrder ?? 0,
+    })
     .onConflictDoUpdate({
       target: [schema.courseMembers.courseId, schema.courseMembers.userId],
       set: { role },
