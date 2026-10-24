@@ -21,17 +21,19 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'pnpm --filter @nc/server dev',
+      command: 'pnpm --filter @nc/server exec tsx src/index.ts',
       cwd: here,
       url: 'http://127.0.0.1:3001/api/health',
       reuseExistingServer: false,
       timeout: 120_000,
+      stdout: 'pipe',
       env: {
         ...process.env,
         DATABASE_URL: databaseUrl ?? process.env.DATABASE_URL,
         BETTER_AUTH_SECRET: 'dedicated-browser-test-secret-at-least-32-characters',
         BETTER_AUTH_URL: 'http://127.0.0.1:5173',
         WEB_ORIGIN: 'http://127.0.0.1:5173',
+        NC_DISABLE_BACKGROUND_JOBS: 'true',
         PORT: '3001',
         UPLOAD_DIR: path.join(here, '.playwright-uploads'),
       },
