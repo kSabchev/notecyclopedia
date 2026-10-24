@@ -74,7 +74,7 @@ test(
         headers: { 'content-type': 'application/json', origin },
         body: JSON.stringify({ name: label, email, password: 'integration-test-password' }),
       })
-      assert.ok(response.ok, `Sign-up failed: ${response.status} ${await response.text()}`)
+      if (!response.ok) throw new Error(`Sign-up failed: ${response.status} ${await response.text()}`)
       const cookies = response.headers
         .getSetCookie()
         .map((cookie) => cookie.split(';', 1)[0])
