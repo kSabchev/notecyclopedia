@@ -75,6 +75,7 @@ export const TrashIcon = icon(
   </>,
 )
 export const CloseIcon = icon(<path d="M6 6l12 12M18 6 6 18" />)
+export const MenuIcon = icon(<path d="M4 6h16M4 12h16M4 18h16" />)
 export const UsersIcon = icon(
   <>
     <circle cx="9" cy="8" r="3.5" />
