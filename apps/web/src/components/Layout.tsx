@@ -8,7 +8,9 @@ import { signOut, useSession } from '../lib/auth'
 import {
   BookIcon,
   CalcIcon,
+  CloseIcon,
   HomeIcon,
+  MenuIcon,
   PlusIcon,
   SearchIcon,
   SigmaIcon,
@@ -99,6 +101,7 @@ export function Layout() {
   const navigate = useNavigate()
   const [searchOpen, setSearchOpen] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list, enabled: !!session })
 
   useEffect(() => {
@@ -107,6 +110,7 @@ export function Layout() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileNavOpen(false)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setSearchOpen(true)
@@ -119,15 +123,40 @@ export function Layout() {
   if (isPending || !session) return <div className="p-10 text-muted">{t('common.loading')}</div>
 
   return (
-    <div className="flex min-h-screen flex-wrap items-stretch">
-      <nav
-        aria-label="Main"
-        className="box-border flex flex-[1_1_248px] flex-col gap-6 border-r border-line bg-surface px-4 py-6 md:max-w-[280px]"
-      >
-        <Brand />
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <div className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2.5 md:hidden">
         <button
           type="button"
-          onClick={() => setSearchOpen(true)}
+          aria-label={t(mobileNavOpen ? 'nav.closeMenu' : 'nav.openMenu')}
+          aria-expanded={mobileNavOpen}
+          aria-controls="main-navigation"
+          onClick={() => setMobileNavOpen((open) => !open)}
+          className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-ink hover:bg-bg"
+        >
+          {mobileNavOpen ? <CloseIcon /> : <MenuIcon />}
+        </button>
+        <Brand />
+        <ThemeToggle />
+      </div>
+      {mobileNavOpen && (
+        <button
+          type="button"
+          aria-label={t('nav.closeMenu')}
+          onClick={() => setMobileNavOpen(false)}
+          className="fixed inset-0 z-40 cursor-pointer border-0 bg-black/40 md:hidden"
+        />
+      )}
+      <nav
+        id="main-navigation"
+        aria-label="Main"
+        className={`${mobileNavOpen ? 'flex' : 'hidden'} fixed inset-y-0 left-0 z-50 box-border w-[280px] max-w-[85vw] flex-col gap-6 overflow-y-auto border-r border-line bg-surface px-4 py-6 md:sticky md:top-0 md:flex md:h-screen md:max-w-none md:flex-none`}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setSearchOpen(true)
+            setMobileNavOpen(false)
+          }}
           className="flex h-11 cursor-pointer items-center gap-2.5 rounded-[10px] border border-line bg-bg px-3 text-left text-sm text-muted"
         >
           <SearchIcon />
@@ -135,31 +164,36 @@ export function Layout() {
           <kbd className="rounded-[5px] border border-line bg-surface px-1.5 font-mono text-xs">Ctrl K</kbd>
         </button>
         <div className="flex flex-col gap-0.5">
-          <Link to="/" className={navCls} activeOptions={{ exact: true }}>
+          <Link
+            to="/"
+            className={navCls}
+            activeOptions={{ exact: true }}
+            onClick={() => setMobileNavOpen(false)}
+          >
             <HomeIcon />
             {t('nav.home')}
           </Link>
-          <Link to="/wiki" className={navCls}>
+          <Link to="/wiki" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <BookIcon />
             {t('nav.wiki')}
           </Link>
-          <Link to="/formulas" className={navCls}>
+          <Link to="/formulas" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <SigmaIcon />
             {t('nav.formulas')}
           </Link>
-          <Link to="/calculators" className={navCls}>
+          <Link to="/calculators" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <CalcIcon />
             {t('nav.calculators')}
           </Link>
-          <Link to="/ai" className={navCls}>
+          <Link to="/ai" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <SparkIcon />
             {t('nav.ai')}
           </Link>
-          <Link to="/files" className={navCls}>
+          <Link to="/files" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <UploadIcon />
             {t('nav.files')}
           </Link>
-          <Link to="/profile" className={navCls}>
+          <Link to="/profile" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <UserIcon />
             {t('nav.profile')}
           </Link>
@@ -185,6 +219,7 @@ export function Layout() {
               to="/courses/$courseId"
               params={{ courseId: c.id }}
               className="flex min-h-10 items-center gap-2.5 rounded-lg px-3 text-ink no-underline hover:bg-bg data-[status=active]:font-semibold"
+              onClick={() => setMobileNavOpen(false)}
             >
               <span className="h-2 w-2 rounded-[2px]" style={{ background: c.color }} />
               {c.name}
@@ -195,7 +230,7 @@ export function Layout() {
           )}
         </div>
         <div className="mt-auto flex flex-col gap-2 px-2">
-          <Link to="/pages/new" className={btn('dark')}>
+          <Link to="/pages/new" className={btn('dark')} onClick={() => setMobileNavOpen(false)}>
             <PlusIcon />
             {t('nav.newPage')}
           </Link>

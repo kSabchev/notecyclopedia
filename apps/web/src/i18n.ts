@@ -52,6 +52,8 @@ const en = {
     signOut: 'Sign out',
     profile: 'Profile',
     newCourse: 'New course',
+    openMenu: 'Open navigation',
+    closeMenu: 'Close navigation',
     language: 'Език: Български',
   },
   symbols: {
@@ -341,6 +343,8 @@ const bg: Dict = {
     signOut: 'Изход',
     profile: 'Профил',
     newCourse: 'Нов курс',
+    openMenu: 'Отвори навигацията',
+    closeMenu: 'Затвори навигацията',
     language: 'Language: English',
   },
   symbols: {
