@@ -39,7 +39,7 @@ export default defineConfig({
       },
     },
     {
-      command: 'pnpm --filter @nc/web dev -- --host 127.0.0.1',
+      command: 'pnpm --filter @nc/web exec vite --host 127.0.0.1',
       cwd: here,
       url: 'http://127.0.0.1:5173/login',
       reuseExistingServer: false,
