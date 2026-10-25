@@ -13,6 +13,7 @@ import { courses } from './routes/courses'
 import { files } from './routes/files'
 import { formulas, pages } from './routes/pages'
 import { search } from './routes/search'
+import { admin } from './services/claude-usage'
 import { startJobs, stopJobs } from './services/jobs'
 
 const app = express()
@@ -36,6 +37,7 @@ api.use('/calculators', calculators)
 api.use('/backup', backup)
 api.use('/search', search)
 api.use('/ai', ai)
+api.use('/admin', admin)
 app.use('/api', api)
 
 // In production the server also serves the built web app.

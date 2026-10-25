@@ -118,7 +118,8 @@ files.get('/:id/download', async (req, res) => {
 })
 
 files.post('/:id/article-draft', async (req, res) => {
-  const file = await loadFile(param(req, 'id'), me(req).id, 'editor')
+  const userId = me(req).id
+  const file = await loadFile(param(req, 'id'), userId, 'editor')
   if (!file.name.toLowerCase().endsWith('.pdf') && file.mime !== 'application/pdf')
     throw new HttpError(400, 'Only PDF files can be turned into article drafts')
   if (file.status !== 'indexed' || !file.text?.trim())
@@ -130,7 +131,7 @@ files.post('/:id/article-draft', async (req, res) => {
       'This PDF is too long to turn into one article. Use a shorter PDF or split it into sections.',
     )
 
-  res.json(await generateArticleDraft(file.name, file.text))
+  res.json(await generateArticleDraft(file.name, file.text, userId))
 })
 
 files.patch('/:id', async (req, res) => {

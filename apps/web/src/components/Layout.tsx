@@ -100,6 +100,11 @@ export function Layout() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [adding, setAdding] = useState(false)
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list, enabled: !!session })
+  const adminAccess = useQuery({
+    queryKey: ['admin', 'access'],
+    queryFn: api.admin.access,
+    enabled: !!session,
+  })
 
   useEffect(() => {
     if (!isPending && !session) navigate({ to: '/login' })
@@ -155,6 +160,11 @@ export function Layout() {
             <SparkIcon />
             {t('nav.ai')}
           </Link>
+          {adminAccess.data?.isAdmin && (
+            <Link to="/admin/claude-usage" className={navCls}>
+              {t('nav.admin')}
+            </Link>
+          )}
           <Link to="/files" className={navCls}>
             <UploadIcon />
             {t('nav.files')}

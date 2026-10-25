@@ -5,6 +5,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -255,4 +256,27 @@ export const aiMessages = pgTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [index('ai_messages_thread_idx').on(t.threadId)],
+)
+
+export const claudeApiCalls = pgTable(
+  'claude_api_calls',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+    operation: text('operation').notNull(),
+    model: text('model').notNull(),
+    request: jsonb('request').$type<Record<string, unknown>>().notNull(),
+    status: text('status', { enum: ['succeeded', 'failed'] }).notNull(),
+    inputTokens: integer('input_tokens'),
+    outputTokens: integer('output_tokens'),
+    cacheReadTokens: integer('cache_read_tokens'),
+    cacheWriteTokens: integer('cache_write_tokens'),
+    estimatedCostUsd: numeric('estimated_cost_usd', { precision: 14, scale: 8 }),
+    error: text('error'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('claude_api_calls_created_idx').on(t.createdAt),
+    index('claude_api_calls_user_idx').on(t.userId),
+  ],
 )

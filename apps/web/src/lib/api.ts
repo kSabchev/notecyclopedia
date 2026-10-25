@@ -79,6 +79,27 @@ export interface ArticleDraft {
   content: DocJSON
 }
 
+export interface ClaudeApiCall {
+  id: string
+  userEmail: string | null
+  operation: string
+  model: string
+  request: Record<string, unknown>
+  status: 'succeeded' | 'failed'
+  inputTokens: number | null
+  outputTokens: number | null
+  cacheReadTokens: number | null
+  cacheWriteTokens: number | null
+  estimatedCostUsd: string | null
+  error: string | null
+  createdAt: string
+}
+
+export interface ClaudeApiCallsPage {
+  calls: ClaudeApiCall[]
+  hasMore: boolean
+}
+
 export const api = {
   courses: {
     list: () => get<Course[]>('/courses'),
@@ -152,6 +173,11 @@ export const api = {
     threads: () => get<AiThread[]>('/ai/threads'),
     thread: (id: string) => get<{ thread: AiThread; messages: AiMessage[] }>(`/ai/threads/${id}`),
     calculator: (context: string) => request<CalculatorSpec>('POST', '/ai/calculator', { context }),
+  },
+  admin: {
+    access: () => get<{ isAdmin: boolean }>('/admin/access'),
+    claudeCalls: (offset: number) =>
+      get<ClaudeApiCallsPage>(`/admin/claude-calls${qs({ limit: '50', offset: String(offset) })}`),
   },
 }
 

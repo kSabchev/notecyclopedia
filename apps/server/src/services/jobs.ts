@@ -29,7 +29,12 @@ async function ingestFile(fileId: string) {
   if (!file) return
   await db.update(schema.files).set({ status: 'processing', error: null }).where(eq(schema.files.id, fileId))
   try {
-    const text = await extractFileText(path.join(env.uploadDir, file.storageKey), file.mime, file.name)
+    const text = await extractFileText(
+      path.join(env.uploadDir, file.storageKey),
+      file.mime,
+      file.name,
+      file.uploadedBy,
+    )
     await db.update(schema.files).set({ text }).where(eq(schema.files.id, fileId))
     await reindexSource('file', file.id, file.courseId, file.name, text)
     await db.update(schema.files).set({ status: 'indexed' }).where(eq(schema.files.id, fileId))
