@@ -10,6 +10,7 @@ const INGEST = 'ingest-file'
 let boss: PgBoss | null = null
 
 export async function startJobs() {
+  if (process.env.NC_DISABLE_BACKGROUND_JOBS === 'true') return
   boss = new PgBoss(env.databaseUrl)
   boss.on('error', (e) => console.error('[jobs]', e))
   await boss.start()
@@ -20,6 +21,7 @@ export async function startJobs() {
 }
 
 export async function queueIngest(fileId: string) {
+  if (process.env.NC_DISABLE_BACKGROUND_JOBS === 'true') return
   if (!boss) throw new Error('Job queue not started')
   await boss.send(INGEST, { fileId })
 }

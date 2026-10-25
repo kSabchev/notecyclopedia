@@ -1,20 +1,30 @@
 import type { AiMode } from '@nc/shared'
-import { Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
+import {
+  Outlet,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  lazyRouteComponent,
+} from '@tanstack/react-router'
 import { Layout } from './components/Layout'
-import { AdminClaudeUsage } from './routes/AdminClaudeUsage'
-import { AiPortal, type AiSearch } from './routes/AiPortal'
-import { Backup } from './routes/Backup'
-import { Calculators } from './routes/Calculators'
-import { Files } from './routes/Files'
-import { Formulas } from './routes/Formulas'
-import { Home } from './routes/Home'
-import { Login } from './routes/Login'
-import { PageEdit, PageNew } from './routes/PageEdit'
-import { PageView } from './routes/PageView'
-import { Profile } from './routes/Profile'
-import { CourseView, Wiki } from './routes/Wiki'
+import type { AiSearch } from './routes/AiPortal'
 
 const rootRoute = createRootRoute({ component: Outlet })
+
+const Login = lazyRouteComponent(() => import('./routes/Login'), 'Login')
+const Home = lazyRouteComponent(() => import('./routes/Home'), 'Home')
+const Wiki = lazyRouteComponent(() => import('./routes/Wiki'), 'Wiki')
+const CourseView = lazyRouteComponent(() => import('./routes/Wiki'), 'CourseView')
+const PageEdit = lazyRouteComponent(() => import('./routes/PageEdit'), 'PageEdit')
+const PageNew = lazyRouteComponent(() => import('./routes/PageEdit'), 'PageNew')
+const PageView = lazyRouteComponent(() => import('./routes/PageView'), 'PageView')
+const Formulas = lazyRouteComponent(() => import('./routes/Formulas'), 'Formulas')
+const Calculators = lazyRouteComponent(() => import('./routes/Calculators'), 'Calculators')
+const AiPortal = lazyRouteComponent(() => import('./routes/AiPortal'), 'AiPortal')
+const Files = lazyRouteComponent(() => import('./routes/Files'), 'Files')
+const Profile = lazyRouteComponent(() => import('./routes/Profile'), 'Profile')
+const Backup = lazyRouteComponent(() => import('./routes/Backup'), 'Backup')
+const AdminClaudeUsage = lazyRouteComponent(() => import('./routes/AdminClaudeUsage'), 'AdminClaudeUsage')
 
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: '/login', component: Login })
 

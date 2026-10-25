@@ -88,16 +88,22 @@ Estimates are not billing records and calls for models without a configured rate
 |---|---|
 | `pnpm dev` | Run web and server in watch mode |
 | `pnpm typecheck` | Type-check all packages |
-| `pnpm test` | Unit tests and server backup tests |
+| `pnpm test` | Unit tests, database-backed API workflows, and Playwright browser journeys |
 | `pnpm lint` | Biome lint + format check |
 | `pnpm db:generate` | Create a migration after changing `apps/server/src/db/schema.ts` |
 | `pnpm db:migrate` | Apply migrations |
 | `pnpm build` | Build everything; `apps/server` then serves `apps/web/dist` in production |
 
+The API and browser tests require `NC_TEST_DATABASE_URL` to point to a dedicated PostgreSQL
+database whose name ends in `_test`; the API workflow test applies migrations to it. Install
+Playwright's Chromium browser with `pnpm --filter @nc/web exec playwright install chromium`.
+CI provisions the test database and browser automatically.
+
 ## How it fits together
 
 - **Courses** are the unit of sharing. Members are `owner`, `editor` or `viewer`; every API route checks membership.
 - **Pages** store TipTap JSON and can optionally be assigned a lecture number, shown in the wiki and article.
+- **Web navigation** loads route screens on demand, and the sidebar collapses into a mobile navigation drawer.
   Each save creates a revision (with conflict detection), re-extracts formula blocks into the formula index,
   and re-chunks the text for AI retrieval (unless the page is hidden from AI).
 - **Pages** can be moved between courses where you have editor access. Attached files and calculators sourced

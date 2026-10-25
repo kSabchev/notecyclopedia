@@ -7,7 +7,7 @@
     "dev": "pnpm -r --parallel --filter ./apps/* dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "test": "pnpm --filter @nc/server test && pnpm --filter @nc/web test",
     "lint": "biome check .",
     "format": "biome format --write .",
     "db:up": "docker compose up -d db",
