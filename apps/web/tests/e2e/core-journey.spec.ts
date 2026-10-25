@@ -44,7 +44,7 @@ test('sign in, create/edit/read an article, attach a source, and persist theme',
   await expect(page.getByRole('heading', { name: 'Edited browser article' })).toBeVisible()
   await expect(page.getByText('Updated article content.')).toBeVisible()
   await page.getByRole('tab', { name: 'Source files' }).click()
-  await expect(page.getByText('browser-source.txt')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('button', { name: 'browser-source.txt' })).toBeVisible({ timeout: 15_000 })
 
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(page.getByRole('navigation', { name: 'Main' })).toBeHidden()
