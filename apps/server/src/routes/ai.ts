@@ -131,6 +131,7 @@ ai.post('/chat', async (req, res) => {
       body.mode,
       [...previous, { role: 'user', content: body.message }],
       sources,
+      user.id,
     )) {
       if (aborted) break
       answer += text
@@ -138,7 +139,7 @@ ai.post('/chat', async (req, res) => {
     }
     if (!aborted && (body.mode === 'solve' || body.mode === 'calculator')) {
       try {
-        calculator = await generateCalculator(`Problem:\n${body.message}\n\nSolution:\n${answer}`)
+        calculator = await generateCalculator(`Problem:\n${body.message}\n\nSolution:\n${answer}`, user.id)
         send({ type: 'calculator', spec: calculator })
       } catch (e) {
         send({ type: 'error', message: `Calculator: ${(e as Error).message}` })
@@ -161,5 +162,5 @@ ai.post('/chat', async (req, res) => {
 /** Build a calculator from a description or a solved problem, without chatting. */
 ai.post('/calculator', async (req, res) => {
   const { context } = z.object({ context: z.string().trim().min(3).max(20000) }).parse(req.body)
-  res.json(await generateCalculator(context))
+  res.json(await generateCalculator(context, me(req).id))
 })

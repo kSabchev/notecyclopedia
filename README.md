@@ -67,6 +67,21 @@ Scanned PDFs without embedded text need OCR before they can be used for article 
 
 Generate a secret with `openssl rand -base64 32`.
 
+## Claude API usage administration
+
+Set `ADMIN_EMAILS` in the server environment to a comma-separated list of account emails that may open
+**Claude API usage** from the navigation. The admin-only page lists recent Claude requests and their
+full text prompts, status, model, token usage, and estimated USD cost. Image request payload bytes are
+omitted from stored prompts. Prompt logs can contain private questions and course materials, so only
+trusted administrators should be allowlisted.
+
+Calls are stored in the `claude_api_calls` table after applying the latest database migrations. Logs are automatically
+removed after `ANTHROPIC_LOG_RETENTION_DAYS` (90 days by default). The
+page loads the most recent calls in batches of 50. Estimated prices are based on input/output and
+prompt-cache token rates in `ANTHROPIC_PRICING_JSON`; add entries for every configured model and keep
+them aligned with [Anthropic's current pricing](https://platform.claude.com/docs/en/about-claude/pricing).
+Estimates are not billing records and calls for models without a configured rate show no cost.
+
 ## Scripts
 
 | Command | What it does |

@@ -24,6 +24,7 @@ const AiPortal = lazyRouteComponent(() => import('./routes/AiPortal'), 'AiPortal
 const Files = lazyRouteComponent(() => import('./routes/Files'), 'Files')
 const Profile = lazyRouteComponent(() => import('./routes/Profile'), 'Profile')
 const Backup = lazyRouteComponent(() => import('./routes/Backup'), 'Backup')
+const AdminClaudeUsage = lazyRouteComponent(() => import('./routes/AdminClaudeUsage'), 'AdminClaudeUsage')
 
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: '/login', component: Login })
 
@@ -62,6 +63,7 @@ const routes = [
   createRoute({ getParentRoute: () => appRoute, path: '/files', component: Files }),
   createRoute({ getParentRoute: () => appRoute, path: '/profile', component: Profile }),
   createRoute({ getParentRoute: () => appRoute, path: '/backup', component: Backup }),
+  createRoute({ getParentRoute: () => appRoute, path: '/admin/claude-usage', component: AdminClaudeUsage }),
 ] as const
 
 const routeTree = rootRoute.addChildren([loginRoute, appRoute.addChildren([...routes])])

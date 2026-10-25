@@ -39,15 +39,25 @@ function Detail({
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const [editing, setEditing] = useState(isNew)
   const [text, setText] = useState('')
+  const [advanced, setAdvanced] = useState(false)
+  const [visualSpec, setVisualSpec] = useState<CalculatorSpec>(calc?.spec ?? TEMPLATE)
   const [courseId, setCourseId] = useState<string | null>(calc?.courseId ?? null)
   useEffect(() => {
-    setText(JSON.stringify(calc?.spec ?? TEMPLATE, null, 2))
+    const initialSpec = calc?.spec ?? TEMPLATE
+    setText(JSON.stringify(initialSpec, null, 2))
+    setVisualSpec(initialSpec)
+    setAdvanced(false)
     setEditing(isNew)
     setCourseId(calc?.courseId ?? null)
   }, [calc, isNew])
 
   const parsed = parseSpec(text)
-  const spec = editing ? parsed.spec : calc?.spec
+  const spec = editing ? visualSpec : calc?.spec
+  const updateSpec = (update: (current: CalculatorSpec) => CalculatorSpec) => {
+    const next = update(visualSpec)
+    setVisualSpec(next)
+    setText(JSON.stringify(next, null, 2))
+  }
   const save = useMutation({
     mutationFn: () => {
       if (!parsed.spec) throw new Error(t('calc.invalid'))
@@ -132,17 +142,205 @@ function Detail({
 
       {editing && (
         <div className="flex flex-col gap-3 border-t border-line bg-surface-2 p-6">
-          <label htmlFor="spec" className="text-xs font-semibold uppercase tracking-[0.06em] text-muted">
-            {t('calc.definition')}
-          </label>
-          <textarea
-            id="spec"
-            rows={16}
-            spellCheck={false}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            className="rounded-[10px] border border-line-strong bg-surface p-3 font-mono text-[13px]"
-          />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.06em] text-muted">
+              {advanced ? t('calc.definition') : t('calc.editor')}
+            </span>
+            <button
+              type="button"
+              className={btn('secondary', 'sm')}
+              disabled={advanced && !parsed.spec}
+              onClick={() => {
+                if (advanced && parsed.spec) setVisualSpec(parsed.spec)
+                setAdvanced((value) => !value)
+              }}
+            >
+              {advanced ? t('calc.visualEditor') : t('calc.advancedEditor')}
+            </button>
+          </div>
+          {advanced ? (
+            <textarea
+              id="spec"
+              rows={16}
+              spellCheck={false}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              className="rounded-[10px] border border-line-strong bg-surface p-3 font-mono text-[13px]"
+            />
+          ) : (
+            <div className="flex flex-col gap-5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-muted">
+                  {t('calc.name')}
+                  <input
+                    className={inputCls}
+                    value={visualSpec.name}
+                    onChange={(e) => updateSpec((current) => ({ ...current, name: e.target.value }))}
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-muted">
+                  {t('calc.description')}
+                  <input
+                    className={inputCls}
+                    value={visualSpec.description ?? ''}
+                    onChange={(e) =>
+                      updateSpec((current) => ({
+                        ...current,
+                        description: e.target.value || undefined,
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+              <section className="flex flex-col gap-3">
+                <h3 className="m-0 text-base font-bold">{t('calc.inputs')}</h3>
+                {visualSpec.inputs.map((input, index) => (
+                  <div
+                    key={`${index}-${input.key}`}
+                    className="grid gap-2 rounded-[10px] border border-line bg-surface p-3 sm:grid-cols-2 lg:grid-cols-4"
+                  >
+                    {(
+                      [
+                        ['key', t('calc.key')],
+                        ['label', t('calc.label')],
+                        ['unit', t('calc.unit')],
+                        ['default', t('calc.defaultValue')],
+                        ['min', t('calc.minimum')],
+                        ['max', t('calc.maximum')],
+                        ['step', t('calc.step')],
+                      ] as const
+                    ).map(([field, label]) => (
+                      <label key={field} className="flex flex-col gap-1 text-xs font-semibold text-muted">
+                        {label}
+                        <input
+                          className={inputCls}
+                          type={['default', 'min', 'max', 'step'].includes(field) ? 'number' : 'text'}
+                          value={input[field] ?? ''}
+                          onChange={(e) =>
+                            updateSpec((current) => ({
+                              ...current,
+                              inputs: current.inputs.map((item, i) =>
+                                i !== index
+                                  ? item
+                                  : {
+                                      ...item,
+                                      [field]: ['default', 'min', 'max', 'step'].includes(field)
+                                        ? e.target.value === ''
+                                          ? undefined
+                                          : Number(e.target.value)
+                                        : e.target.value || (field === 'unit' ? undefined : ''),
+                                    },
+                              ),
+                            }))
+                          }
+                        />
+                      </label>
+                    ))}
+                    <button
+                      type="button"
+                      className={`${btn('danger', 'sm')} sm:col-span-2 lg:col-span-4 sm:justify-self-end`}
+                      disabled={visualSpec.inputs.length === 1}
+                      onClick={() =>
+                        updateSpec((current) => ({
+                          ...current,
+                          inputs: current.inputs.filter((_, i) => i !== index),
+                        }))
+                      }
+                    >
+                      {t('calc.removeInput')}
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className={`${btn('secondary', 'sm')} self-start`}
+                  onClick={() =>
+                    updateSpec((current) => ({
+                      ...current,
+                      inputs: [
+                        ...current.inputs,
+                        { key: `input${current.inputs.length + 1}`, label: t('calc.newInput') },
+                      ],
+                    }))
+                  }
+                >
+                  {t('calc.addInput')}
+                </button>
+              </section>
+              <section className="flex flex-col gap-3">
+                <h3 className="m-0 text-base font-bold">{t('calc.results')}</h3>
+                {visualSpec.outputs.map((output, index) => (
+                  <div
+                    key={`${index}-${output.key}`}
+                    className="grid gap-2 rounded-[10px] border border-line bg-surface p-3 sm:grid-cols-2"
+                  >
+                    {(
+                      [
+                        ['key', t('calc.key')],
+                        ['label', t('calc.label')],
+                        ['unit', t('calc.unit')],
+                        ['expr', t('calc.formula')],
+                      ] as const
+                    ).map(([field, label]) => (
+                      <label key={field} className="flex flex-col gap-1 text-xs font-semibold text-muted">
+                        {label}
+                        <input
+                          className={`${inputCls} ${field === 'expr' ? 'font-mono' : ''}`}
+                          value={output[field] ?? ''}
+                          onChange={(e) =>
+                            updateSpec((current) => ({
+                              ...current,
+                              outputs: current.outputs.map((item, i) =>
+                                i !== index
+                                  ? item
+                                  : {
+                                      ...item,
+                                      [field]: e.target.value || (field === 'unit' ? undefined : ''),
+                                    },
+                              ),
+                            }))
+                          }
+                        />
+                      </label>
+                    ))}
+                    <button
+                      type="button"
+                      className={`${btn('danger', 'sm')} sm:col-span-2 sm:justify-self-end`}
+                      disabled={visualSpec.outputs.length === 1}
+                      onClick={() =>
+                        updateSpec((current) => ({
+                          ...current,
+                          outputs: current.outputs.filter((_, i) => i !== index),
+                        }))
+                      }
+                    >
+                      {t('calc.removeOutput')}
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className={`${btn('secondary', 'sm')} self-start`}
+                  onClick={() =>
+                    updateSpec((current) => ({
+                      ...current,
+                      outputs: [
+                        ...current.outputs,
+                        {
+                          key: `output${current.outputs.length + 1}`,
+                          label: t('calc.newOutput'),
+                          expr: '',
+                        },
+                      ],
+                    }))
+                  }
+                >
+                  {t('calc.addOutput')}
+                </button>
+              </section>
+              <p className="m-0 text-sm text-muted">{t('calc.formulaHint')}</p>
+            </div>
+          )}
           {parsed.error && <ErrorNote error={`${t('calc.invalid')}: ${parsed.error}`} />}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="calc-course" className="text-[13px] font-semibold text-muted">

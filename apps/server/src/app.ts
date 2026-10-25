@@ -12,6 +12,7 @@ import { courses } from './routes/courses'
 import { files } from './routes/files'
 import { formulas, pages } from './routes/pages'
 import { search } from './routes/search'
+import { admin } from './services/claude-usage'
 
 export function createApp() {
   const app = express()
@@ -34,6 +35,7 @@ export function createApp() {
   api.use('/backup', backup)
   api.use('/search', search)
   api.use('/ai', ai)
+  api.use('/admin', admin)
   app.use('/api', api)
 
   const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist')
