@@ -83,6 +83,19 @@ export interface Calculator {
   updatedAt: string
 }
 
+export interface CourseConstant {
+  id: string
+  courseId: string
+  key: string
+  name: string
+  symbol: string
+  value: number
+  unit: string
+  description: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface SearchHit {
   kind: 'page' | 'file' | 'calculator'
   id: string

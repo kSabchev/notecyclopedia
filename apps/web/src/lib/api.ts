@@ -5,6 +5,7 @@ import type {
   Calculator,
   CalculatorSpec,
   Course,
+  CourseConstant,
   CourseRole,
   DocJSON,
   FileAsset,
@@ -61,6 +62,7 @@ export interface BackupSummary {
   pages: number
   revisions: number
   calculators: number
+  constants: number
   files: number
   createdAt: string
 }
@@ -69,6 +71,7 @@ export interface BackupImportResult {
   courses: number
   pages: number
   calculators: number
+  constants: number
   files: number
   warnings: string[]
 }
@@ -108,6 +111,16 @@ export const api = {
       request<Course>('POST', '/courses', b),
     members: (id: string) =>
       get<{ userId: string; name: string; email: string; role: CourseRole }[]>(`/courses/${id}/members`),
+    constants: (id: string) => get<CourseConstant[]>(`/courses/${id}/constants`),
+    createConstant: (id: string, body: Omit<CourseConstant, 'id' | 'courseId' | 'createdAt' | 'updatedAt'>) =>
+      request<CourseConstant>('POST', `/courses/${id}/constants`, body),
+    updateConstant: (
+      id: string,
+      constantId: string,
+      body: Omit<CourseConstant, 'id' | 'courseId' | 'createdAt' | 'updatedAt'>,
+    ) => request<CourseConstant>('PUT', `/courses/${id}/constants/${constantId}`, body),
+    removeConstant: (id: string, constantId: string) =>
+      request<void>('DELETE', `/courses/${id}/constants/${constantId}`),
     addMember: (id: string, b: { email: string; role: 'editor' | 'viewer' }) =>
       request('POST', `/courses/${id}/members`, b),
   },

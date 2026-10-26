@@ -16,6 +16,7 @@ const emptyBackup = () => ({
   courses: [],
   pages: [],
   calculators: [],
+  constants: [],
   files: [],
 })
 
@@ -96,6 +97,36 @@ test('preserves lecture numbers and defaults them for older backups', () => {
   if (numbered.success) assert.equal(numbered.data.pages[0]?.lectureNumber, 3)
   assert.equal(legacy.success, true)
   if (legacy.success) assert.equal(legacy.data.pages[0]?.lectureNumber, null)
+})
+
+test('validates and defaults course constants in backup manifests', () => {
+  const courseId = '11111111-1111-4111-8111-111111111111'
+  const constant = {
+    id: '22222222-2222-4222-8222-222222222222',
+    courseId,
+    key: 'SOUND_SPEED',
+    name: 'Speed of sound',
+    symbol: 'c_s',
+    value: 343,
+    unit: 'm/s',
+    description: null,
+    createdAt,
+    updatedAt: createdAt,
+  }
+  const manifest = {
+    ...emptyBackup(),
+    courses: [{ id: courseId, name: 'Physics', color: '#1F3FBF', description: null, createdAt }],
+    constants: [constant],
+  }
+  const parsed = validateBackupManifest(JSON.stringify(manifest))
+  const legacy = validateBackupManifest(JSON.stringify({ ...emptyBackup(), constants: undefined }))
+
+  assert.equal(parsed.success, true)
+  if (parsed.success) assert.equal(parsed.data.constants[0]?.unit, 'm/s')
+  assert.equal(legacy.success, true)
+  if (legacy.success) assert.deepEqual(legacy.data.constants, [])
+  const orphan = validateBackupManifest(JSON.stringify({ ...emptyBackup(), constants: [constant] }))
+  assert.equal(orphan.success, false)
 })
 
 test('rejects unsupported backup formats', async (t) => {

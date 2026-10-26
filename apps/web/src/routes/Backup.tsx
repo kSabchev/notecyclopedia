@@ -99,6 +99,7 @@ export function Backup() {
               <li>{t('backup.pages', { count: preview.pages })}</li>
               <li>{t('backup.revisions', { count: preview.revisions })}</li>
               <li>{t('backup.calculators', { count: preview.calculators })}</li>
+              <li>{t('backup.constants', { count: preview.constants })}</li>
               <li>{t('backup.files', { count: preview.files })}</li>
             </ul>
             <p className="m-0 text-sm font-semibold text-accent">{t('backup.copyNotice')}</p>
@@ -125,6 +126,7 @@ export function Backup() {
               <li>{t('backup.courses', { count: result.courses })}</li>
               <li>{t('backup.pages', { count: result.pages })}</li>
               <li>{t('backup.calculators', { count: result.calculators })}</li>
+              <li>{t('backup.constants', { count: result.constants })}</li>
               <li>{t('backup.files', { count: result.files })}</li>
             </ul>
             {result.warnings.map((warning) => (

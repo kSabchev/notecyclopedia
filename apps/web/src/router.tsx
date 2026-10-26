@@ -20,6 +20,7 @@ const PageNew = lazyRouteComponent(() => import('./routes/PageEdit'), 'PageNew')
 const PageView = lazyRouteComponent(() => import('./routes/PageView'), 'PageView')
 const Formulas = lazyRouteComponent(() => import('./routes/Formulas'), 'Formulas')
 const Calculators = lazyRouteComponent(() => import('./routes/Calculators'), 'Calculators')
+const Constants = lazyRouteComponent(() => import('./routes/Constants'), 'Constants')
 const AiPortal = lazyRouteComponent(() => import('./routes/AiPortal'), 'AiPortal')
 const Files = lazyRouteComponent(() => import('./routes/Files'), 'Files')
 const Profile = lazyRouteComponent(() => import('./routes/Profile'), 'Profile')
@@ -48,6 +49,11 @@ const routes = [
   createRoute({ getParentRoute: () => appRoute, path: '/pages/$pageId/edit', component: PageEdit }),
   createRoute({ getParentRoute: () => appRoute, path: '/formulas', component: Formulas }),
   createRoute({ getParentRoute: () => appRoute, path: '/calculators', component: Calculators }),
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: '/calculators/constants',
+    component: Constants,
+  }),
   createRoute({ getParentRoute: () => appRoute, path: '/calculators/$calcId', component: Calculators }),
   createRoute({
     getParentRoute: () => appRoute,

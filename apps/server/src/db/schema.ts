@@ -2,6 +2,7 @@ import type { AiCitation, CalculatorSpec, DocJSON } from '@nc/shared'
 import { sql } from 'drizzle-orm'
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -209,6 +210,31 @@ export const calculators = pgTable('calculators', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
+
+export const courseConstants = pgTable(
+  'course_constants',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    symbol: text('symbol').notNull(),
+    value: doublePrecision('value').notNull(),
+    unit: text('unit').notNull(),
+    description: text('description'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => user.id),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('course_constants_course_key_idx').on(t.courseId, t.key),
+    index('course_constants_course_idx').on(t.courseId),
+  ],
+)
 
 /** Text chunks of pages and files for retrieval. `embedding` stays null until an embedding key is configured. */
 export const chunks = pgTable(

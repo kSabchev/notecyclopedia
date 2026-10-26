@@ -1,4 +1,4 @@
-import { type Calculator, type CalculatorSpec, calculatorSpecSchema } from '@nc/shared'
+import { BUILT_IN_CONSTANTS, type Calculator, type CalculatorSpec, calculatorSpecSchema } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -40,8 +40,14 @@ function Detail({
   const [editing, setEditing] = useState(isNew)
   const [text, setText] = useState('')
   const [advanced, setAdvanced] = useState(false)
+  const [constantSelection, setConstantSelection] = useState('')
   const [visualSpec, setVisualSpec] = useState<CalculatorSpec>(calc?.spec ?? TEMPLATE)
   const [courseId, setCourseId] = useState<string | null>(calc?.courseId ?? null)
+  const courseConstants = useQuery({
+    queryKey: ['course-constants', courseId],
+    queryFn: () => api.courses.constants(courseId ?? ''),
+    enabled: !!courseId,
+  })
   useEffect(() => {
     const initialSpec = calc?.spec ?? TEMPLATE
     setText(JSON.stringify(initialSpec, null, 2))
@@ -57,6 +63,38 @@ function Detail({
     const next = update(visualSpec)
     setVisualSpec(next)
     setText(JSON.stringify(next, null, 2))
+  }
+  const constantOptions = [
+    ...BUILT_IN_CONSTANTS,
+    ...(courseConstants.data ?? []).map((constant) => ({
+      key: constant.key,
+      name: constant.name,
+      symbol: constant.symbol,
+      value: constant.value,
+      unit: constant.unit,
+      description: constant.description ?? '',
+      source: t('constants.courseSource'),
+    })),
+  ]
+  const selectedConstant = constantOptions.find((constant) => constant.key === constantSelection)
+  const collidingConstant =
+    selectedConstant &&
+    (visualSpec.inputs.some((input) => input.key === selectedConstant.key) ||
+      visualSpec.outputs.some((output) => output.key === selectedConstant.key))
+  const addConstant = () => {
+    if (!selectedConstant || collidingConstant) return
+    updateSpec((current) => ({
+      ...current,
+      constants: { ...current.constants, [selectedConstant.key]: selectedConstant.value },
+      constantMetadata: {
+        ...current.constantMetadata,
+        [selectedConstant.key]: {
+          name: selectedConstant.name,
+          symbol: selectedConstant.symbol,
+          unit: selectedConstant.unit,
+        },
+      },
+    }))
   }
   const save = useMutation({
     mutationFn: () => {
@@ -268,6 +306,74 @@ function Detail({
                 </button>
               </section>
               <section className="flex flex-col gap-3">
+                <div>
+                  <h3 className="m-0 text-base font-bold">{t('constants.title')}</h3>
+                  <p className="m-0 text-xs text-muted">{t('constants.calculatorHint')}</p>
+                </div>
+                {Object.entries(visualSpec.constants ?? {}).map(([key, value]) => {
+                  const metadata = visualSpec.constantMetadata?.[key]
+                  return (
+                    <div
+                      key={key}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface p-3"
+                    >
+                      <span>
+                        <strong>{metadata?.name ?? key}</strong>
+                        {metadata && <span className="ml-1 text-muted">({metadata.symbol})</span>}
+                        <span className="ml-2 font-mono text-sm">
+                          {value.toExponential(8)} {metadata?.unit ?? ''}
+                        </span>
+                        <span className="ml-2 font-mono text-xs text-muted">{key}</span>
+                      </span>
+                      <button
+                        type="button"
+                        className={btn('danger', 'sm')}
+                        onClick={() =>
+                          updateSpec((current) => {
+                            const constants = { ...current.constants }
+                            const constantMetadata = { ...current.constantMetadata }
+                            delete constants[key]
+                            delete constantMetadata[key]
+                            return { ...current, constants, constantMetadata }
+                          })
+                        }
+                      >
+                        {t('calc.removeConstant')}
+                      </button>
+                    </div>
+                  )
+                })}
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="flex min-w-[240px] flex-1 flex-col gap-1.5 text-xs font-semibold text-muted">
+                    {t('constants.pick')}
+                    <select
+                      className={inputCls}
+                      value={constantSelection}
+                      onChange={(event) => setConstantSelection(event.target.value)}
+                    >
+                      <option value="">{t('constants.choose')}</option>
+                      {constantOptions.map((constant) => (
+                        <option key={constant.key} value={constant.key}>
+                          {constant.name} ({constant.symbol}) · {constant.key} · {constant.unit}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className={btn('secondary', 'sm')}
+                    disabled={!selectedConstant || !!collidingConstant}
+                    onClick={addConstant}
+                  >
+                    {t('constants.useInCalculator')}
+                  </button>
+                </div>
+                {collidingConstant && (
+                  <ErrorNote error={t('constants.keyConflict', { key: selectedConstant.key })} />
+                )}
+                {courseId && <ErrorNote error={courseConstants.error} />}
+              </section>
+              <section className="flex flex-col gap-3">
                 <h3 className="m-0 text-base font-bold">{t('calc.results')}</h3>
                 {visualSpec.outputs.map((output, index) => (
                   <div
@@ -438,6 +544,24 @@ export function Calculators() {
           </button>
         </div>
       </header>
+      <div role="tablist" aria-label={t('constants.tabs')} className="flex gap-2 border-b border-line">
+        <Link
+          to="/calculators"
+          role="tab"
+          aria-selected={true}
+          className="border-b-2 border-ink px-3 py-2 text-sm font-bold text-ink no-underline"
+        >
+          {t('calc.title')}
+        </Link>
+        <Link
+          to="/calculators/constants"
+          role="tab"
+          aria-selected={false}
+          className="border-b-2 border-transparent px-3 py-2 text-sm font-semibold text-muted no-underline"
+        >
+          {t('constants.title')}
+        </Link>
+      </div>
       <ErrorNote error={importJson.error} />
 
       <div className="flex flex-wrap items-start gap-7">

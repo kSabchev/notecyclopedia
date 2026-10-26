@@ -1,3 +1,4 @@
+import { BUILT_IN_CONSTANTS } from '@nc/shared'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
@@ -6,6 +7,21 @@ import { db, schema } from '../db'
 import { HttpError, me, param } from '../http'
 
 export const courses = Router()
+
+const builtInConstantKeys = new Set(BUILT_IN_CONSTANTS.map((constant) => constant.key))
+const courseConstantInput = z
+  .object({
+    key: z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,31}$/),
+    name: z.string().trim().min(1).max(120),
+    symbol: z.string().trim().min(1).max(32),
+    value: z.number().finite(),
+    unit: z.string().trim().min(1).max(40),
+    description: z.string().trim().max(500).nullable().default(null),
+  })
+  .refine((constant) => !builtInConstantKeys.has(constant.key), {
+    message: 'This key is reserved for a built-in constant',
+    path: ['key'],
+  })
 
 courses.get('/', async (req, res) => {
   const rows = await db
@@ -108,6 +124,68 @@ courses.get('/:id/members', async (req, res) => {
     .innerJoin(schema.user, eq(schema.user.id, schema.courseMembers.userId))
     .where(eq(schema.courseMembers.courseId, id))
   res.json(rows)
+})
+
+courses.get('/:id/constants', async (req, res) => {
+  const id = param(req, 'id')
+  await assertCourse(id, me(req).id)
+  const rows = await db
+    .select()
+    .from(schema.courseConstants)
+    .where(eq(schema.courseConstants.courseId, id))
+    .orderBy(asc(schema.courseConstants.name))
+  res.json(rows)
+})
+
+courses.post('/:id/constants', async (req, res) => {
+  const id = param(req, 'id')
+  const user = me(req)
+  await assertCourse(id, user.id, 'editor')
+  const body = courseConstantInput.parse(req.body)
+  const [created] = await db
+    .insert(schema.courseConstants)
+    .values({ ...body, courseId: id, createdBy: user.id })
+    .onConflictDoNothing({ target: [schema.courseConstants.courseId, schema.courseConstants.key] })
+    .returning()
+  if (!created) throw new HttpError(409, 'A constant with that variable key already exists in this course')
+  res.status(201).json(created)
+})
+
+courses.put('/:id/constants/:constantId', async (req, res) => {
+  const id = param(req, 'id')
+  const constantId = param(req, 'constantId')
+  const user = me(req)
+  await assertCourse(id, user.id, 'editor')
+  const body = courseConstantInput.parse(req.body)
+  const [existing] = await db
+    .select({ id: schema.courseConstants.id })
+    .from(schema.courseConstants)
+    .where(and(eq(schema.courseConstants.id, constantId), eq(schema.courseConstants.courseId, id)))
+  if (!existing) throw new HttpError(404, 'Constant not found')
+  try {
+    const [updated] = await db
+      .update(schema.courseConstants)
+      .set({ ...body, updatedAt: new Date() })
+      .where(eq(schema.courseConstants.id, constantId))
+      .returning()
+    res.json(updated)
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505')
+      throw new HttpError(409, 'A constant with that variable key already exists in this course')
+    throw error
+  }
+})
+
+courses.delete('/:id/constants/:constantId', async (req, res) => {
+  const id = param(req, 'id')
+  const constantId = param(req, 'constantId')
+  await assertCourse(id, me(req).id, 'editor')
+  const [deleted] = await db
+    .delete(schema.courseConstants)
+    .where(and(eq(schema.courseConstants.id, constantId), eq(schema.courseConstants.courseId, id)))
+    .returning({ id: schema.courseConstants.id })
+  if (!deleted) throw new HttpError(404, 'Constant not found')
+  res.status(204).end()
 })
 
 courses.post('/:id/members', async (req, res) => {

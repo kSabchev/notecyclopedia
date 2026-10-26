@@ -49,7 +49,7 @@ docker compose stop db
 ## Data backup
 
 Open **Profile → Data backup** to download a versioned ZIP backup or restore one. Backups include
-courses you can access, pages and revision history, calculators, and uploaded file contents. They do
+courses you can access, pages and revision history, calculators, course constants, and uploaded file contents. They do
 not include sign-in credentials, sessions, AI conversations, or browser-local preferences. Import
 validates and previews the archive before creating new private copies owned by the signed-in user;
 it never merges with or overwrites existing data. Derived formula and search indexes are rebuilt,
@@ -124,11 +124,16 @@ CI provisions the test database and browser automatically.
               { "key": "R", "label": "Range", "unit": "m", "expr": "v0 * cos(theta deg) * T" }] }
 ```
 
+- **Constants** include built-in scientific references and course-shared definitions. Adding one to a
+  calculator copies its numeric value and unit metadata into that calculator; units are descriptive
+  and are not automatically converted.
+
 ## Next steps
 
-- Collapsible navigation on phones
-- Code-split the web bundle (math.js, TipTap and KaTeX load up front)
-- Image blocks and embedded calculators inside pages
+- Verify PDF-to-article generation against the specific PDF that previously failed; add a regression fixture if the mismatch can be reproduced.
+- Reduce the remaining large web chunks (especially the calculator runner and its math dependencies).
+- Add readable, read-only previews for text-based GMAT and FreeFlyer mission files. Display their contents as plain text in a lazily loaded code editor; do not execute or simulate them.
 - Revision diff and restore
-- Calculator builder UI (form instead of raw JSON) and plots
+- Image blocks and embedded calculators inside pages
+- Plots for calculators
 - Deployment config (e.g. Railway/Fly + managed Postgres + R2 for files)
