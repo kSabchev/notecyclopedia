@@ -25,7 +25,7 @@ test('sign in, create/edit/read an article, attach a source, and persist theme',
   await page.getByRole('link', { name: 'Calculators' }).click()
   await page.getByRole('tab', { name: 'Constants' }).click()
   await page.getByRole('button', { name: 'Add constant' }).click()
-  await page.getByLabel('Variable key').fill('SOUND_SPEED')
+  await page.getByRole('textbox', { name: 'Variable key', exact: true }).fill('SOUND_SPEED')
   await page.getByLabel('Name', { exact: true }).fill('Speed of sound')
   await page.getByLabel('Symbol').fill('c_s')
   await page.getByLabel('Value').fill('343')
