@@ -32,7 +32,7 @@ test('sign in, create/edit/read an article, attach a source, and persist theme',
   await page.getByRole('textbox', { name: 'Unit', exact: true }).fill('m/s')
   await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Approximate value in dry air.')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page.getByText('Speed of sound', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Speed of sound (c_s)', exact: true })).toBeVisible()
 
   await page.getByRole('tab', { name: 'Calculators' }).click()
   await page.getByRole('button', { name: 'New calculator' }).click()
