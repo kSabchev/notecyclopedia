@@ -48,14 +48,33 @@ export const calculatorSpecSchema = z
     constantMetadata: z.record(key, calculatorConstantMetadataSchema).optional(),
   })
   .superRefine((spec, ctx) => {
+    const keys = [...spec.inputs.map((input) => input.key), ...Object.keys(spec.constants ?? {})]
     const seen = new Set<string>()
-    for (const k of [
-      ...spec.inputs.map((i) => i.key),
-      ...Object.keys(spec.constants ?? {}),
-      ...spec.outputs.map((o) => o.key),
-    ]) {
-      if (seen.has(k)) ctx.addIssue({ code: 'custom', message: `Duplicate key "${k}"` })
-      seen.add(k)
+    for (const key of keys) {
+      if (seen.has(key)) ctx.addIssue({ code: 'custom', message: `Duplicate key "${key}"` })
+      seen.add(key)
+    }
+    const known = new Set(seen)
+    for (const [index, output] of spec.outputs.entries()) {
+      if (seen.has(output.key))
+        ctx.addIssue({
+          code: 'custom',
+          message: `Duplicate key "${output.key}"`,
+          path: ['outputs', index, 'key'],
+        })
+      seen.add(output.key)
+
+      try {
+        compileExpr(output.expr, 'py', known)
+        compileExpr(output.expr, 'js', known)
+      } catch (error) {
+        ctx.addIssue({
+          code: 'custom',
+          message: (error as Error).message,
+          path: ['outputs', index, 'expr'],
+        })
+      }
+      known.add(output.key)
     }
   })
 
@@ -195,6 +214,10 @@ function compileNode(node: MathNode, target: Target, known: Set<string>): string
   const n = node as MathNode & Record<string, unknown>
   switch (node.type) {
     case 'ConstantNode':
+      if (typeof n.value === 'boolean') {
+        if (target === 'py') return n.value ? 'True' : 'False'
+        return n.value ? 'true' : 'false'
+      }
       return String(n.value)
     case 'SymbolNode': {
       const name = n.name as string
@@ -212,18 +235,90 @@ function compileNode(node: MathNode, target: Target, known: Set<string>): string
         if (fn === 'unaryMinus') return `(-${args[0]})`
         if (fn === 'unaryPlus') return `(+${args[0]})`
         if (fn === 'factorial') throw new Error('factorial is not supported in export')
+        if (fn === 'not') return target === 'py' ? `(not ${args[0]})` : `(!${args[0]})`
       }
       const op = n.op as string
       const mapped = op === '^' ? '**' : op === '.*' ? '*' : op === './' ? '/' : op
-      if (!['+', '-', '*', '/', '**', '%'].includes(mapped))
-        throw new Error(`Operator "${op}" is not supported`)
-      return `(${args[0]} ${mapped} ${args[1]})`
+      if (args.length !== 2) throw new Error(`Operator "${op}" is not supported`)
+      const operators: Record<Target, Record<string, string>> = {
+        py: {
+          '+': '+',
+          '-': '-',
+          '*': '*',
+          '/': '/',
+          '**': '**',
+          '%': '%',
+          '<': '<',
+          '<=': '<=',
+          '>': '>',
+          '>=': '>=',
+          '==': '==',
+          '!=': '!=',
+          and: 'and',
+          or: 'or',
+        },
+        js: {
+          '+': '+',
+          '-': '-',
+          '*': '*',
+          '/': '/',
+          '**': '**',
+          '%': '%',
+          '<': '<',
+          '<=': '<=',
+          '>': '>',
+          '>=': '>=',
+          '==': '===',
+          '!=': '!==',
+          and: '&&',
+          or: '||',
+        },
+      }
+      if (mapped === 'xor') {
+        return target === 'py'
+          ? `(bool(${args[0]}) != bool(${args[1]}))`
+          : `(Boolean(${args[0]}) !== Boolean(${args[1]}))`
+      }
+      const exportOp = operators[target][mapped]
+      if (!exportOp) throw new Error(`Operator "${op}" is not supported`)
+      return `(${args[0]} ${exportOp} ${args[1]})`
+    }
+    case 'ConditionalNode': {
+      const condition = compileNode(n.condition as MathNode, target, known)
+      const trueExpr = compileNode(n.trueExpr as MathNode, target, known)
+      const falseExpr = compileNode(n.falseExpr as MathNode, target, known)
+      return target === 'py'
+        ? `(${trueExpr} if ${condition} else ${falseExpr})`
+        : `(${condition} ? ${trueExpr} : ${falseExpr})`
     }
     case 'FunctionNode': {
       const name = (n.fn as { name: string }).name
+      const args = (n.args as MathNode[]).map((a) => compileNode(a, target, known))
+      if (name === 'sign') {
+        if (args.length !== 1) throw new Error('Function "sign" expects 1 argument')
+        if (target === 'js') return `Math.sign(${args[0]})`
+        return `(1 if ${args[0]} > 0 else (-1 if ${args[0]} < 0 else 0))`
+      }
+      if (name === 'log') {
+        if (args.length < 1 || args.length > 2) throw new Error('Function "log" expects 1 or 2 arguments')
+        if (args.length === 2 && target === 'js') return `(Math.log(${args[0]}) / Math.log(${args[1]}))`
+      }
+      if (name === 'round') {
+        if (args.length < 1 || args.length > 2) throw new Error('Function "round" expects 1 or 2 arguments')
+        const value = args[0]
+        const factor = `10 ** ${args[1] ?? '0'}`
+        return target === 'js'
+          ? `(Math.sign(${value}) * Math.floor(Math.abs(${value}) * (${factor}) + 0.5) / (${factor}))`
+          : `(math.copysign(math.floor(abs(${value}) * (${factor}) + 0.5) / (${factor}), ${value}))`
+      }
       const f = FN_MAP[target][name]
       if (!f) throw new Error(`Function "${name}" is not supported in export`)
-      const args = (n.args as MathNode[]).map((a) => compileNode(a, target, known))
+      if (['atan2'].includes(name) && args.length !== 2)
+        throw new Error(`Function "${name}" expects 2 arguments`)
+      if (['min', 'max'].includes(name) && args.length < 1)
+        throw new Error(`Function "${name}" expects at least 1 argument`)
+      if (!['atan2', 'log', 'min', 'max'].includes(name) && args.length !== 1)
+        throw new Error(`Function "${name}" expects 1 argument`)
       return `${f}(${args.join(', ')})`
     }
     default:

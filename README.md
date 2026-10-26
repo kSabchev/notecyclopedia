@@ -124,6 +124,11 @@ CI provisions the test database and browser automatically.
               { "key": "R", "label": "Range", "unit": "m", "expr": "v0 * cos(theta deg) * T" }] }
 ```
 
+Calculator expressions are validated against the portable Python/JavaScript export subset when
+saved: arithmetic, comparisons, `and`/`or`/`not`, nested `condition ? value : value` expressions,
+and the math functions supported by both exporters. Unsupported syntax is rejected with its
+output formula identified rather than failing only when someone exports it.
+
 - **Constants** include built-in scientific references and course-shared definitions. Adding one to a
   calculator copies its numeric value and unit metadata into that calculator; units are descriptive
   and are not automatically converted.
