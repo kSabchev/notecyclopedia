@@ -123,6 +123,52 @@ test(
     })
     assert.equal(addEditorToTarget.status, 201)
 
+    const createConstant = await request(editor, `/courses/${sourceCourse.id}/constants`, {
+      method: 'POST',
+      body: json({
+        key: 'SOUND_SPEED',
+        name: 'Speed of sound',
+        symbol: 'c_s',
+        value: 343,
+        unit: 'm/s',
+        description: 'Approximate value in dry air at 20 °C.',
+      }),
+    })
+    assert.equal(createConstant.status, 201)
+    const courseConstant = (await createConstant.json()) as { id: string; value: number }
+    assert.equal(courseConstant.value, 343)
+    const visibleConstants = await request(viewer, `/courses/${sourceCourse.id}/constants`)
+    assert.equal(visibleConstants.status, 200)
+    assert.equal(((await visibleConstants.json()) as Array<{ id: string }>)[0]?.id, courseConstant.id)
+    const forbiddenConstant = await request(viewer, `/courses/${sourceCourse.id}/constants`, {
+      method: 'POST',
+      body: json({
+        key: 'FORBIDDEN',
+        name: 'Forbidden',
+        symbol: 'f',
+        value: 1,
+        unit: 'm',
+      }),
+    })
+    assert.equal(forbiddenConstant.status, 403)
+    const updateConstant = await request(
+      editor,
+      `/courses/${sourceCourse.id}/constants/${courseConstant.id}`,
+      {
+        method: 'PUT',
+        body: json({
+          key: 'SOUND_SPEED',
+          name: 'Speed of sound',
+          symbol: 'c_s',
+          value: 344,
+          unit: 'm/s',
+          description: 'Revised reference value.',
+        }),
+      },
+    )
+    assert.equal(updateConstant.status, 200)
+    assert.equal(((await updateConstant.json()) as { value: number }).value, 344)
+
     const uploadBody = new FormData()
     uploadBody.set('courseId', sourceCourse.id)
     uploadBody.append(
@@ -216,16 +262,18 @@ test(
     previewBody.set('archive', archive, 'backup.zip')
     const preview = await request(owner, '/backup/preview', { method: 'POST', body: previewBody })
     assert.equal(preview.status, 200)
-    const previewSummary = (await preview.json()) as { pages: number; files: number }
+    const previewSummary = (await preview.json()) as { pages: number; files: number; constants: number }
     assert.ok(previewSummary.pages >= 1)
     assert.ok(previewSummary.files >= 1)
+    assert.equal(previewSummary.constants, 1)
 
     const importBody = new FormData()
     importBody.set('archive', archive, 'backup.zip')
     const restored = await request(owner, '/backup/import', { method: 'POST', body: importBody })
     assert.equal(restored.status, 200)
-    const restoredSummary = (await restored.json()) as { pages: number; files: number }
+    const restoredSummary = (await restored.json()) as { pages: number; files: number; constants: number }
     assert.ok(restoredSummary.pages >= 1)
     assert.ok(restoredSummary.files >= 1)
+    assert.equal(restoredSummary.constants, 1)
   },
 )

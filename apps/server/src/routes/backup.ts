@@ -5,7 +5,13 @@ import os from 'node:os'
 import path from 'node:path'
 import { Transform, Writable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { type DocJSON, calculatorSpecSchema, docToText, extractFormulas } from '@nc/shared'
+import {
+  BUILT_IN_CONSTANTS,
+  type DocJSON,
+  calculatorSpecSchema,
+  docToText,
+  extractFormulas,
+} from '@nc/shared'
 import { ZipArchive } from 'archiver'
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
 import { type Request, type RequestHandler, Router } from 'express'
@@ -36,7 +42,7 @@ const timestampSchema = z
   .string()
   .datetime()
   .transform((value) => new Date(value))
-const backupSchema = z.object({
+const backupObjectSchema = z.object({
   format: z.literal(FORMAT),
   version: z.literal(VERSION),
   createdAt: timestampSchema,
@@ -94,6 +100,23 @@ const backupSchema = z.object({
       }),
     )
     .max(5000),
+  constants: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        courseId: z.string().uuid(),
+        key: z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,31}$/),
+        name: z.string().min(1).max(120),
+        symbol: z.string().min(1).max(32),
+        value: z.number().finite(),
+        unit: z.string().min(1).max(40),
+        description: z.string().max(500).nullable(),
+        createdAt: timestampSchema,
+        updatedAt: timestampSchema,
+      }),
+    )
+    .max(20_000)
+    .default([]),
   files: z
     .array(
       z.object({
@@ -108,6 +131,33 @@ const backupSchema = z.object({
       }),
     )
     .max(20_000),
+})
+const backupSchema = backupObjectSchema.superRefine((backup, ctx) => {
+  const courseIds = new Set(backup.courses.map((course) => course.id))
+  const keysByCourse = new Set<string>()
+  const builtInKeys = new Set(BUILT_IN_CONSTANTS.map((constant) => constant.key))
+  backup.constants.forEach((constant, index) => {
+    if (!courseIds.has(constant.courseId))
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Constant references a course not included in the backup',
+        path: ['constants', index, 'courseId'],
+      })
+    const scopedKey = `${constant.courseId}:${constant.key}`
+    if (keysByCourse.has(scopedKey))
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Duplicate constant key in a course',
+        path: ['constants', index, 'key'],
+      })
+    keysByCourse.add(scopedKey)
+    if (builtInKeys.has(constant.key))
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Constant key is reserved for a built-in constant',
+        path: ['constants', index, 'key'],
+      })
+  })
 })
 
 type BackupData = z.infer<typeof backupSchema>
@@ -316,6 +366,12 @@ backup.get('/export', async (req, res) => {
         courseIds.length ? inArray(schema.calculators.courseId, courseIds) : undefined,
       ),
     )
+  const constants = courseIds.length
+    ? await db
+        .select()
+        .from(schema.courseConstants)
+        .where(inArray(schema.courseConstants.courseId, courseIds))
+    : []
 
   const revisionsByPage = new Map<string, typeof revisions>()
   for (const revision of revisions) {
@@ -378,6 +434,20 @@ backup.get('/export', async (req, res) => {
         spec,
         origin,
         sourcePageId: sourcePageId && pageIds.includes(sourcePageId) ? sourcePageId : null,
+        createdAt,
+        updatedAt,
+      }),
+    ),
+    constants: constants.map(
+      ({ id, courseId, key, name, symbol, value, unit, description, createdAt, updatedAt }) => ({
+        id,
+        courseId,
+        key,
+        name,
+        symbol,
+        value,
+        unit,
+        description,
         createdAt,
         updatedAt,
       }),
@@ -453,6 +523,7 @@ backup.post('/preview', receiveArchive, async (req, res) => {
       pages: data.pages.length,
       revisions: data.pages.reduce((count, page) => count + page.revisions.length, 0),
       calculators: data.calculators.length,
+      constants: data.constants.length,
       files: data.files.length,
       createdAt: data.createdAt,
     })
@@ -602,6 +673,24 @@ backup.post('/import', receiveArchive, async (req, res) => {
             (batch) => tx.insert(schema.calculators).values(batch),
           )
         }
+
+        if (data.constants.length) {
+          await insertBatches(
+            data.constants.map((constant) => ({
+              courseId: courseMap.get(constant.courseId) as string,
+              key: constant.key,
+              name: constant.name,
+              symbol: constant.symbol,
+              value: constant.value,
+              unit: constant.unit,
+              description: constant.description,
+              createdBy: user.id,
+              createdAt: constant.createdAt,
+              updatedAt: new Date(),
+            })),
+            (batch) => tx.insert(schema.courseConstants).values(batch),
+          )
+        }
       })
       committed = true
 
@@ -645,6 +734,7 @@ backup.post('/import', receiveArchive, async (req, res) => {
         courses: data.courses.length,
         pages: data.pages.length,
         calculators: data.calculators.length,
+        constants: data.constants.length,
         files: data.files.length,
         warnings: [...new Set(warnings)],
       })

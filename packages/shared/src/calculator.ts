@@ -31,6 +31,12 @@ export const calculatorOutputSchema = z.object({
   precision: z.number().int().min(0).max(12).optional(),
 })
 
+const calculatorConstantMetadataSchema = z.object({
+  name: z.string().min(1).max(120),
+  symbol: z.string().min(1).max(32),
+  unit: z.string().min(1).max(40),
+})
+
 export const calculatorSpecSchema = z
   .object({
     version: z.literal(1).default(1),
@@ -39,6 +45,7 @@ export const calculatorSpecSchema = z
     inputs: z.array(calculatorInputSchema).min(1).max(30),
     outputs: z.array(calculatorOutputSchema).min(1).max(30),
     constants: z.record(key, z.number()).optional(),
+    constantMetadata: z.record(key, calculatorConstantMetadataSchema).optional(),
   })
   .superRefine((spec, ctx) => {
     const seen = new Set<string>()

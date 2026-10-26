@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { calculatorSpecSchema, evaluateCalculator, exportHTML, exportPython } from './calculator'
+import { BUILT_IN_CONSTANTS } from './constants'
 import { chunkText, docToText, extractFormulas } from './doc'
 
 const projectile = calculatorSpecSchema.parse({
@@ -38,6 +39,29 @@ describe('evaluateCalculator', () => {
       outputs: [{ key: 'v0', label: 'a', expr: '1' }],
     })
     expect(res.success).toBe(false)
+  })
+
+  it('uses a built-in constant by its key and preserves its unit metadata', () => {
+    const speedOfLight = BUILT_IN_CONSTANTS.find((constant) => constant.key === 'C_LIGHT')
+    expect(speedOfLight).toBeDefined()
+    if (!speedOfLight) return
+    const spec = calculatorSpecSchema.parse({
+      name: 'Light travel',
+      inputs: [{ key: 'distance', label: 'Distance', unit: 'm', default: speedOfLight.value }],
+      constants: { [speedOfLight.key]: speedOfLight.value },
+      constantMetadata: {
+        [speedOfLight.key]: {
+          name: speedOfLight.name,
+          symbol: speedOfLight.symbol,
+          unit: speedOfLight.unit,
+        },
+      },
+      outputs: [{ key: 'time', label: 'Travel time', unit: 's', expr: `distance / ${speedOfLight.key}` }],
+    })
+
+    expect(spec.constantMetadata?.C_LIGHT?.unit).toBe('m/s')
+    const result = evaluateCalculator(spec, { distance: speedOfLight.value * 2 })
+    expect(result).toEqual({ ok: true, values: { time: 2 } })
   })
 })
 

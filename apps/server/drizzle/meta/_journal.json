@@ -29,6 +29,13 @@
       "when": 1792939440906,
       "tag": "0003_furry_supreme_intelligence",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793005515250,
+      "tag": "0004_pale_mauler",
+      "breakpoints": true
     }
   ]
 }
