@@ -5,8 +5,9 @@ import { useTranslation } from 'react-i18next'
 import { DocView, docHeadings } from '../components/DocView'
 import { FileDrop } from '../components/FileDrop'
 import { PenIcon, SparkIcon } from '../components/Icons'
-import { Eyebrow, FileBadge, btn, inputCls } from '../components/ui'
-import { api } from '../lib/api'
+import { RevisionChanges } from '../components/RevisionChanges'
+import { ErrorNote, Eyebrow, FileBadge, btn, inputCls } from '../components/ui'
+import { ApiError, api } from '../lib/api'
 import { timeAgo } from '../lib/format'
 
 type Tab = 'read' | 'source' | 'history'
@@ -19,6 +20,7 @@ export function PageView() {
   const [tab, setTab] = useState<Tab>('read')
   const [openFile, setOpenFile] = useState<string | null>(null)
   const [moveTarget, setMoveTarget] = useState('')
+  const [openRevision, setOpenRevision] = useState<number | null>(null)
   const page = useQuery({ queryKey: ['page', pageId], queryFn: () => api.pages.get(pageId) })
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const files = useQuery({
@@ -37,6 +39,19 @@ export function PageView() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pages'] })
       navigate({ to: '/wiki' })
+    },
+  })
+  const restore = useMutation({
+    mutationFn: ({ rev, baseRevision }: { rev: number; baseRevision: number }) =>
+      api.pages.restore(pageId, rev, { baseRevision, message: t('page.restoredMessage', { n: rev }) }),
+    onSuccess: async (restored) => {
+      qc.setQueryData(['page', pageId], restored)
+      setOpenRevision(null)
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['revisions', pageId] }),
+        qc.invalidateQueries({ queryKey: ['pages'] }),
+        qc.invalidateQueries({ queryKey: ['formulas'] }),
+      ])
     },
   })
   const move = useMutation({
@@ -172,20 +187,72 @@ export function PageView() {
         )}
 
         {tab === 'history' && (
-          <ol className="m-0 flex list-none flex-col rounded-[12px] border border-line bg-surface p-0">
-            {revisions.data?.map((r, i) => (
-              <li
-                key={r.id}
-                className={`flex flex-wrap gap-x-5 gap-y-2 px-5 py-4 ${i ? 'border-t border-line-soft' : ''}`}
-              >
-                <span className="font-mono text-[13px] text-muted">r{r.revision}</span>
-                <span className="flex-1 font-medium">{r.message ?? r.title}</span>
-                <span className="text-sm text-muted">
-                  {timeAgo(r.createdAt)} · {r.authorName}
-                </span>
-              </li>
-            ))}
-          </ol>
+          <div className="flex flex-col gap-3">
+            {restore.error && (
+              <ErrorNote
+                error={
+                  restore.error instanceof ApiError && restore.error.status === 409
+                    ? t('page.restoreConflict')
+                    : restore.error
+                }
+              />
+            )}
+            <ol className="m-0 flex list-none flex-col rounded-[12px] border border-line bg-surface p-0">
+              {revisions.data?.map((r, i) => {
+                const open = openRevision === r.revision
+                const isCurrent = r.revision === p.revision
+                return (
+                  <li
+                    key={r.id}
+                    className={`flex flex-col gap-3 px-5 py-4 ${i ? 'border-t border-line-soft' : ''}`}
+                  >
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                      <span className="font-mono text-[13px] text-muted">r{r.revision}</span>
+                      <span className="min-w-0 flex-1 font-medium">
+                        {r.message ?? r.title}
+                        {isCurrent && (
+                          <span className="ml-2 rounded-md bg-accent-soft px-2 py-0.5 align-middle text-xs font-semibold text-accent">
+                            {t('page.current')}
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-sm text-muted">
+                        {timeAgo(r.createdAt)} · {r.authorName}
+                      </span>
+                      <button
+                        type="button"
+                        aria-expanded={open}
+                        className={btn('ghost', 'sm')}
+                        onClick={() => setOpenRevision(open ? null : r.revision)}
+                      >
+                        {open ? t('page.hideChanges') : t('page.showChanges')}
+                      </button>
+                    </div>
+                    {open && (
+                      <div className="flex flex-col gap-3 rounded-[10px] border border-line-soft bg-surface-2 p-4">
+                        <RevisionChanges pageId={p.id} rev={r.revision} />
+                        {canEdit && !isCurrent && (
+                          <div>
+                            <button
+                              type="button"
+                              className={btn('secondary', 'sm')}
+                              disabled={restore.isPending}
+                              onClick={() =>
+                                window.confirm(t('page.confirmRestore', { n: r.revision })) &&
+                                restore.mutate({ rev: r.revision, baseRevision: p.revision })
+                              }
+                            >
+                              {t('page.restore')}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ol>
+          </div>
         )}
 
         {canEdit && tab === 'read' && (

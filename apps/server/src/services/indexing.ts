@@ -34,6 +34,14 @@ export async function reindexSource(
   })
 }
 
+/** Rebuild the retrieval chunks of a page from its current content (or remove them if it is hidden from AI). */
+export async function reindexPage(pageId: string) {
+  const [page] = await db.select().from(schema.pages).where(eq(schema.pages.id, pageId))
+  if (!page) return removeSource('page', pageId)
+  if (page.aiVisible) await reindexSource('page', page.id, page.courseId, page.title, page.contentText)
+  else await removeSource('page', page.id)
+}
+
 export async function removeSource(sourceType: 'page' | 'file', sourceId: string) {
   await db
     .delete(schema.chunks)

@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { EditorContent, type JSONContent, useEditor } from '@tiptap/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { EditorToolbar } from '../components/EditorToolbar'
 import { FileDrop } from '../components/FileDrop'
 import { TrashIcon } from '../components/Icons'
 import { editorExtensions } from '../components/extensions'
@@ -11,7 +12,6 @@ import { Empty, ErrorNote, Field, FileBadge, btn, inputCls } from '../components
 import { api } from '../lib/api'
 import type { ArticleDraft } from '../lib/api'
 import { bytes, timeAgo } from '../lib/format'
-import { Toolbar } from './PageEdit'
 
 function ArticleDraftEditor({
   file,
@@ -113,7 +113,7 @@ function ArticleDraftEditor({
           <p className="m-0 text-xs text-muted">{t('editor.lectureNumberHint')}</p>
         </Field>
         <section className="overflow-clip rounded-[14px] border border-line bg-surface">
-          {editor && <Toolbar editor={editor} />}
+          {editor && <EditorToolbar editor={editor} />}
           <div className="px-6 py-8 md:px-12">
             <EditorContent editor={editor} className="prose-nc" />
           </div>

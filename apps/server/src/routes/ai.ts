@@ -6,6 +6,7 @@ import { loadPage } from '../access'
 import { db, schema } from '../db'
 import { HttpError, me, notFound, param } from '../http'
 import { aiConfigured, generateCalculator, streamAnswer, threadTitle } from '../services/claude'
+import { assertAiBudget } from '../services/claude-usage'
 import { generatePageReview } from '../services/page-review'
 import { type RetrievedChunk, retrieve } from '../services/retrieval'
 
@@ -78,6 +79,8 @@ ai.post('/chat', async (req, res) => {
   const body = chatInput.parse(req.body)
   const user = me(req)
   if (!aiConfigured()) throw new HttpError(503, 'AI is not configured. Add ANTHROPIC_API_KEY to .env')
+  // Checked again per Claude call; here so the error arrives as a status code rather than mid-stream.
+  await assertAiBudget(user.id)
 
   const thread = body.threadId
     ? await loadThread(body.threadId, user.id)

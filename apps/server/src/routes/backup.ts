@@ -11,6 +11,7 @@ import {
   calculatorSpecSchema,
   docToText,
   extractFormulas,
+  withFormulaIds,
 } from '@nc/shared'
 import { ZipArchive } from 'archiver'
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
@@ -22,8 +23,7 @@ import { memberCourseIds } from '../access'
 import { db, schema } from '../db'
 import { env } from '../env'
 import { HttpError, me } from '../http'
-import { reindexSource } from '../services/indexing'
-import { queueIngest } from '../services/jobs'
+import { queueIngest, queueReindexPage } from '../services/jobs'
 
 const FORMAT = 'notecyclopedia-backup'
 const VERSION = 1
@@ -591,6 +591,8 @@ backup.post('/import', receiveArchive, async (req, res) => {
         }
 
         if (data.pages.length) {
+          // Backups made before formula ids existed carry formula blocks without them.
+          for (const page of data.pages) page.content = withFormulaIds(page.content).doc
           const pageOrderByCourse = new Map<string, number>()
           await insertBatches(
             data.pages.map((page) => {
@@ -696,22 +698,12 @@ backup.post('/import', receiveArchive, async (req, res) => {
 
       const warnings: string[] = []
       let pageIndexError: unknown = null
-      for (let offset = 0; offset < data.pages.length; offset += 4) {
-        await Promise.all(
-          data.pages.slice(offset, offset + 4).map(async (page) => {
-            try {
-              await reindexSource(
-                'page',
-                pageMap.get(page.id) as string,
-                courseMap.get(page.courseId) as string,
-                page.title,
-                docToText(page.content),
-              )
-            } catch (error) {
-              pageIndexError ??= error
-            }
-          }),
-        )
+      for (const page of data.pages) {
+        try {
+          await queueReindexPage(pageMap.get(page.id) as string)
+        } catch (error) {
+          pageIndexError ??= error
+        }
       }
       if (pageIndexError) {
         console.error('[backup] Failed to rebuild one or more page indexes', pageIndexError)

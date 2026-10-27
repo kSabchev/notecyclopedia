@@ -1,3 +1,4 @@
+import { DEFAULT_TIME_ZONE } from '@nc/shared'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { db, schema } from './db'
@@ -21,6 +22,7 @@ export const auth = betterAuth({
   user: {
     additionalFields: {
       locale: { type: 'string', required: false, defaultValue: 'bg', input: true },
+      timezone: { type: 'string', required: false, defaultValue: DEFAULT_TIME_ZONE, input: false },
     },
   },
 })

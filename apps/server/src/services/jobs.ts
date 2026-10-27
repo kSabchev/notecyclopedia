@@ -4,9 +4,10 @@ import { PgBoss } from 'pg-boss'
 import { db, schema } from '../db'
 import { env } from '../env'
 import { extractFileText } from './extract'
-import { reindexSource } from './indexing'
+import { reindexPage, reindexSource } from './indexing'
 
 const INGEST = 'ingest-file'
+const REINDEX_PAGE = 'reindex-page'
 let boss: PgBoss | null = null
 
 export async function startJobs() {
@@ -15,9 +16,20 @@ export async function startJobs() {
   boss.on('error', (e) => console.error('[jobs]', e))
   await boss.start()
   await boss.createQueue(INGEST)
+  // One queued and one active job per page: the job reads the latest content, so extra saves are dropped.
+  await boss.createQueue(REINDEX_PAGE, { policy: 'stately' })
   await boss.work<{ fileId: string }>(INGEST, async (jobs) => {
     for (const job of jobs) await ingestFile(job.data.fileId)
   })
+  await boss.work<{ pageId: string }>(REINDEX_PAGE, async (jobs) => {
+    for (const job of jobs) await reindexPage(job.data.pageId)
+  })
+}
+
+/** Rebuild a page's retrieval chunks in the background; runs inline when no job worker is running. */
+export async function queueReindexPage(pageId: string) {
+  if (!boss) return reindexPage(pageId)
+  await boss.send(REINDEX_PAGE, { pageId }, { singletonKey: pageId })
 }
 
 export async function queueIngest(fileId: string) {

@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
+import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
+import { parseEnv } from 'node:util'
 
-const databaseUrl = process.env.NC_TEST_DATABASE_URL
+const rootEnv = path.resolve(import.meta.dirname, '../../../../.env')
+// Only the test database is read from .env; the dev database and API keys stay out of the test.
+const databaseUrl =
+  process.env.NC_TEST_DATABASE_URL ||
+  (existsSync(rootEnv) ? parseEnv(readFileSync(rootEnv, 'utf8')).NC_TEST_DATABASE_URL : undefined)
 
 test(
   'page, role, file indexing, move, and backup API workflows',
@@ -98,6 +104,11 @@ test(
     const editor = await signup('editor')
     const viewer = await signup('viewer')
     state.extraUserIds = [editor.id, viewer.id]
+    const [ownerRow] = await db
+      .select({ timezone: schema.user.timezone })
+      .from(schema.user)
+      .where(eq(schema.user.id, owner.id))
+    assert.equal(ownerRow?.timezone, 'Europe/Sofia', 'New accounts default to Eastern European Time')
 
     const createCourse = async (name: string) => {
       const response = await request(owner, '/courses', { method: 'POST', body: json({ name }) })
@@ -243,6 +254,96 @@ test(
     const updated = (await updatePage.json()) as { revision: number; lectureNumber: number }
     assert.equal(updated.revision, 2)
     assert.equal(updated.lectureNumber, 2)
+
+    type FormulaPage = { revision: number; content: { content: Array<{ attrs?: { id?: string } }> } }
+    const saveFormula = async (baseRevision: number, formula: Record<string, unknown>) => {
+      const response = await request(editor, `/pages/${page.id}`, {
+        method: 'PUT',
+        body: json({
+          ...updatedInput,
+          baseRevision,
+          content: {
+            type: 'doc',
+            content: [
+              { type: 'paragraph', content: [{ type: 'text', text: 'Kepler orbit notes' }] },
+              { type: 'formula', attrs: formula },
+            ],
+          },
+        }),
+      })
+      assert.equal(response.status, 200)
+      return (await response.json()) as FormulaPage
+    }
+    const indexedFormula = async () => {
+      const response = await request(viewer, '/formulas')
+      const rows = (await response.json()) as Array<{ id: string; pageId: string; latex: string }>
+      return rows.filter((row) => row.pageId === page.id)
+    }
+    const withFormula = await saveFormula(updated.revision, { latex: 'T = 2\\pi\\sqrt{a^3/\\mu}' })
+    const formulaId = withFormula.content.content[1]?.attrs?.id
+    assert.ok(formulaId, 'Saving should assign the formula block an id')
+    const [firstRow] = await indexedFormula()
+    assert.ok(firstRow)
+    const edited = await saveFormula(withFormula.revision, {
+      id: formulaId,
+      latex: 'T = 2\\pi\\sqrt{a^3/GM}',
+    })
+    assert.equal(edited.content.content[1]?.attrs?.id, formulaId)
+    assert.deepEqual(
+      (await indexedFormula()).map(({ id, latex }) => ({ id, latex })),
+      [{ id: firstRow.id, latex: 'T = 2\\pi\\sqrt{a^3/GM}' }],
+      'Editing a formula should keep its index row',
+    )
+
+    const restoreAsViewer = await request(
+      viewer,
+      `/pages/${page.id}/revisions/${withFormula.revision}/restore`,
+      {
+        method: 'POST',
+        body: json({ baseRevision: edited.revision }),
+      },
+    )
+    assert.equal(restoreAsViewer.status, 403)
+    const missingRevision = await request(viewer, `/pages/${page.id}/revisions/latest`)
+    assert.equal(missingRevision.status, 404)
+    const restoreResponse = await request(
+      editor,
+      `/pages/${page.id}/revisions/${withFormula.revision}/restore`,
+      {
+        method: 'POST',
+        body: json({ baseRevision: edited.revision }),
+      },
+    )
+    assert.equal(restoreResponse.status, 200)
+    const restoredPage = (await restoreResponse.json()) as FormulaPage
+    assert.equal(restoredPage.revision, edited.revision + 1)
+    assert.deepEqual(
+      (await indexedFormula()).map(({ id, latex }) => ({ id, latex })),
+      [{ id: firstRow.id, latex: 'T = 2\\pi\\sqrt{a^3/\\mu}' }],
+      'Restoring should bring back the old formula in the same index row',
+    )
+    const staleRestore = await request(
+      editor,
+      `/pages/${page.id}/revisions/${withFormula.revision}/restore`,
+      {
+        method: 'POST',
+        body: json({ baseRevision: edited.revision }),
+      },
+    )
+    assert.equal(staleRestore.status, 409)
+
+    await assert.doesNotReject(async () => {
+      const deadline = Date.now() + 30_000
+      while (Date.now() < deadline) {
+        const chunks = await db
+          .select({ text: schema.chunks.text })
+          .from(schema.chunks)
+          .where(eq(schema.chunks.sourceId, page.id))
+        if (chunks.some((chunk) => chunk.text.includes('Kepler orbit notes'))) return
+        await new Promise((resolve) => setTimeout(resolve, 250))
+      }
+      throw new Error('Saved page was not reindexed within 30 seconds')
+    })
 
     const movePage = await request(editor, `/pages/${page.id}/move`, {
       method: 'POST',

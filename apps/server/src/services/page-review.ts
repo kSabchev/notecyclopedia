@@ -1,8 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk'
+import type Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
 import { env } from '../env'
 import { HttpError } from '../http'
-import { recordClaudeCall } from './claude-usage'
+import { createMessage } from './claude-client'
 
 interface ReviewNode {
   type: string
@@ -179,10 +179,8 @@ export function parsePageReviewResponse(response: {
 }
 
 export async function generatePageReview(title: string, content: unknown, userId: string) {
-  const client = pageReviewClient
-  if (!client) throw new HttpError(503, 'AI is not configured. Add ANTHROPIC_API_KEY to .env')
   const request: Anthropic.MessageCreateParamsNonStreaming = {
-    model: pageReviewModel,
+    model: env.anthropicModel,
     max_tokens: 8192,
     tools: [reviewPageTool],
     tool_choice: { type: 'auto' },
@@ -201,44 +199,6 @@ ${JSON.stringify({ title, content })}`,
     ],
   }
 
-  let response: Anthropic.Message
-  try {
-    response = await client.messages.create(request)
-  } catch (error) {
-    await recordClaudeCall({
-      userId,
-      operation: 'page-review',
-      model: request.model,
-      request: { ...request },
-      status: 'failed',
-      error: (error as Error).message,
-    })
-    if (error instanceof Anthropic.APIConnectionError) {
-      console.error('[page-review] Could not connect to the Anthropic API:', error.message)
-      throw new HttpError(
-        502,
-        'Could not connect to Claude. Check the server internet connection and try reviewing the page again.',
-      )
-    }
-    if (error instanceof Anthropic.APIError) {
-      console.error(`[page-review] Claude API returned ${error.status}:`, error.message)
-      throw new HttpError(
-        502,
-        'Claude could not generate the page review. Check the server logs and try again.',
-      )
-    }
-    throw error
-  }
-  await recordClaudeCall({
-    userId,
-    operation: 'page-review',
-    model: response.model,
-    request: { ...request },
-    status: 'succeeded',
-    usage: response.usage,
-  })
+  const response = await createMessage(request, { operation: 'page-review', userId })
   return parsePageReviewResponse(response)
 }
-
-export const pageReviewClient = env.anthropicKey ? new Anthropic({ apiKey: env.anthropicKey }) : null
-export const pageReviewModel = env.anthropicModel
