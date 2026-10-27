@@ -18,6 +18,7 @@ const CourseView = lazyRouteComponent(() => import('./routes/Wiki'), 'CourseView
 const PageEdit = lazyRouteComponent(() => import('./routes/PageEdit'), 'PageEdit')
 const PageNew = lazyRouteComponent(() => import('./routes/PageEdit'), 'PageNew')
 const PageView = lazyRouteComponent(() => import('./routes/PageView'), 'PageView')
+const PageReview = lazyRouteComponent(() => import('./routes/PageReview'), 'PageReview')
 const Formulas = lazyRouteComponent(() => import('./routes/Formulas'), 'Formulas')
 const Calculators = lazyRouteComponent(() => import('./routes/Calculators'), 'Calculators')
 const Constants = lazyRouteComponent(() => import('./routes/Constants'), 'Constants')
@@ -46,6 +47,7 @@ const routes = [
     validateSearch: (s: Record<string, unknown>): { courseId?: string } => ({ courseId: str(s.courseId) }),
   }),
   createRoute({ getParentRoute: () => appRoute, path: '/pages/$pageId', component: PageView }),
+  createRoute({ getParentRoute: () => appRoute, path: '/pages/$pageId/review', component: PageReview }),
   createRoute({ getParentRoute: () => appRoute, path: '/pages/$pageId/edit', component: PageEdit }),
   createRoute({ getParentRoute: () => appRoute, path: '/formulas', component: Formulas }),
   createRoute({ getParentRoute: () => appRoute, path: '/calculators', component: Calculators }),

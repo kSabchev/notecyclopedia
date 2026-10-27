@@ -147,7 +147,6 @@ export function AiPortal() {
   }
 
   // Coming from Home or a page with a prepared question (runs once, guarded by autoSent).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional one-shot effect
   useEffect(() => {
     if (autoSent.current || !search.q || !status.data?.configured) return
     autoSent.current = true
