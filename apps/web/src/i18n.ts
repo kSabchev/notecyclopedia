@@ -183,7 +183,8 @@ const en = {
     reviewDiscard: 'Discard changes',
     reviewAccept: 'Accept changes',
     reviewSaving: 'Saving changes…',
-    reviewNotSaved: 'These proposed changes are not saved yet. Review the notes and updated page before accepting.',
+    reviewNotSaved:
+      'These proposed changes are not saved yet. Review the notes and updated page before accepting.',
     reviewFindings: 'Review notes',
     reviewNoFindings:
       'AI did not identify specific points to verify. Review the proposed changes before accepting.',
@@ -570,7 +571,8 @@ const bg: Dict = {
     reviewDiscard: 'Отхвърли промените',
     reviewAccept: 'Приеми промените',
     reviewSaving: 'Запазване на промените…',
-    reviewNotSaved: 'Предложените промени още не са запазени. Прегледай бележките и редактираната страница, преди да ги приемеш.',
+    reviewNotSaved:
+      'Предложените промени още не са запазени. Прегледай бележките и редактираната страница, преди да ги приемеш.',
     reviewFindings: 'Бележки от прегледа',
     reviewNoFindings:
       'AI не откри конкретни твърдения за проверка. Прегледай предложените промени, преди да ги приемеш.',

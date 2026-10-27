@@ -57,15 +57,9 @@ test('rejects invalid TipTap nodes and structure', () => {
 })
 
 test('rejects malformed or invalid document JSON', () => {
+  assert.throws(() => parsePageReviewResponse(response({ findings: [], content: '{' })), /invalid page draft/)
   assert.throws(
-    () => parsePageReviewResponse(response({ findings: [], content: '{' })),
-    /invalid page draft/,
-  )
-  assert.throws(
-    () =>
-      parsePageReviewResponse(
-        response({ findings: [], content: JSON.stringify({ type: 'doc' }) }),
-      ),
+    () => parsePageReviewResponse(response({ findings: [], content: JSON.stringify({ type: 'doc' }) })),
     /invalid page draft/,
   )
 })

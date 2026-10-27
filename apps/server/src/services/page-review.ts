@@ -222,7 +222,10 @@ ${JSON.stringify({ title, content })}`,
     }
     if (error instanceof Anthropic.APIError) {
       console.error(`[page-review] Claude API returned ${error.status}:`, error.message)
-      throw new HttpError(502, 'Claude could not generate the page review. Check the server logs and try again.')
+      throw new HttpError(
+        502,
+        'Claude could not generate the page review. Check the server logs and try again.',
+      )
     }
     throw error
   }
