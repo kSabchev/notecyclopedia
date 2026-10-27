@@ -6,12 +6,21 @@ import { loadPage } from '../access'
 import { db, schema } from '../db'
 import { HttpError, me, notFound, param } from '../http'
 import { aiConfigured, generateCalculator, streamAnswer, threadTitle } from '../services/claude'
+import { generatePageReview } from '../services/page-review'
 import { type RetrievedChunk, retrieve } from '../services/retrieval'
 
 export const ai = Router()
 
 ai.get('/status', (_req, res) => {
   res.json({ configured: aiConfigured() })
+})
+
+ai.post('/pages/:id/review', async (req, res) => {
+  const user = me(req)
+  const page = await loadPage(param(req, 'id'), user.id, 'editor')
+  const review = await generatePageReview(page.title, page.content, user.id)
+  const { contentText: _omit, ...pageData } = page
+  res.json({ page: pageData, review })
 })
 
 ai.get('/threads', async (req, res) => {

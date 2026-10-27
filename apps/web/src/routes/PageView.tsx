@@ -279,6 +279,15 @@ export function PageView() {
               {t(key)}
             </Link>
           ))}
+          {canEdit && (
+            <Link
+              to="/pages/$pageId/review"
+              params={{ pageId: p.id }}
+              className="flex min-h-10 items-center rounded-lg bg-inverse-2 px-3 text-sm text-inverse-ink no-underline hover:text-inverse-ink hover:brightness-125"
+            >
+              {t('page.reviewPolish')}
+            </Link>
+          )}
         </section>
         <section aria-labelledby="h-files" className="flex flex-col gap-2.5">
           <h2 id="h-files" className="m-0">

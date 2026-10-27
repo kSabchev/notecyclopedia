@@ -82,6 +82,14 @@ export interface ArticleDraft {
   content: DocJSON
 }
 
+export interface PageReview {
+  page: Page
+  review: {
+    findings: string[]
+    content: DocJSON
+  }
+}
+
 export interface ClaudeApiCall {
   id: string
   userEmail: string | null
@@ -183,6 +191,7 @@ export const api = {
   search: (q: string) => get<SearchHit[]>(`/search${qs({ q })}`),
   ai: {
     status: () => get<{ configured: boolean }>('/ai/status'),
+    reviewPage: (id: string) => request<PageReview>('POST', `/ai/pages/${id}/review`),
     threads: () => get<AiThread[]>('/ai/threads'),
     thread: (id: string) => get<{ thread: AiThread; messages: AiMessage[] }>(`/ai/threads/${id}`),
     calculator: (context: string) => request<CalculatorSpec>('POST', '/ai/calculator', { context }),
