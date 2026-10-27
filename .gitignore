@@ -4,3 +4,6 @@ dist
 uploads
 *.log
 .DS_Store
+test-results
+.playwright-uploads
+playwright-report

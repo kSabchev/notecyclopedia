@@ -1,11 +1,13 @@
-import { type DocJSON, docToText, extractFormulas } from '@nc/shared'
+import { type DocJSON, docToText, withFormulaIds } from '@nc/shared'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
 import { assertCourse, loadPage, memberCourseIds } from '../access'
 import { db, schema } from '../db'
 import { HttpError, me, param } from '../http'
-import { reindexSource, removeSource } from '../services/indexing'
+import { syncFormulas } from '../services/formula-index'
+import { removeSource } from '../services/indexing'
+import { queueReindexPage } from '../services/jobs'
 
 export const pages = Router()
 export const formulas = Router()
@@ -52,18 +54,6 @@ pages.get('/', async (req, res) => {
   res.json(rows)
 })
 
-/** Recompute derived data (formula index + retrieval chunks) after a save. */
-async function afterSave(page: typeof schema.pages.$inferSelect) {
-  const found = extractFormulas(page.content)
-  await db.transaction(async (tx) => {
-    await tx.delete(schema.formulas).where(eq(schema.formulas.pageId, page.id))
-    if (found.length)
-      await tx.insert(schema.formulas).values(found.map((f, i) => ({ ...f, pageId: page.id, position: i })))
-  })
-  if (page.aiVisible) await reindexSource('page', page.id, page.courseId, page.title, page.contentText)
-  else await removeSource('page', page.id)
-}
-
 pages.post('/', async (req, res) => {
   const body = z
     .object({
@@ -80,7 +70,7 @@ pages.post('/', async (req, res) => {
   const user = me(req)
   await assertCourse(body.courseId, user.id, 'editor')
   const { sourceFileId, ...pageBody } = body
-  const content = body.content as DocJSON
+  const content = withFormulaIds(body.content as DocJSON).doc
   const page = await db.transaction(async (tx) => {
     const [last] = await tx
       .select({ sortOrder: sql<number>`coalesce(max(${schema.pages.sortOrder}), -1) + 1` })
@@ -109,9 +99,10 @@ pages.post('/', async (req, res) => {
         .returning({ id: schema.files.id })
       if (!linkedFile) throw new HttpError(400, 'Source file is not in this course')
     }
+    await syncFormulas(tx, p.id, content)
     return p
   })
-  await afterSave(page)
+  await queueReindexPage(page.id)
   res.status(201).json(page)
 })
 
@@ -233,42 +224,66 @@ pages.put('/:id', async (req, res) => {
       baseRevision: z.number().int(),
     })
     .parse(req.body)
-  if (body.baseRevision !== current.revision)
-    throw new HttpError(409, 'This page was changed by someone else. Reload to see their version.')
-  const content = body.content as DocJSON
+  const { baseRevision, message, ...fields } = body
+  const page = await saveRevision(
+    current,
+    baseRevision,
+    { ...fields, content: body.content as DocJSON },
+    {
+      userId: user.id,
+      message: message ?? null,
+    },
+  )
+  const { contentText: _omit, ...rest } = page
+  res.json(rest)
+})
+
+const conflictMessage = 'This page was changed by someone else. Reload to see their version.'
+
+/**
+ * Save new page fields as the next revision: checks for conflicting saves, records the revision,
+ * updates the formula index and queues retrieval reindexing.
+ */
+async function saveRevision(
+  current: typeof schema.pages.$inferSelect,
+  baseRevision: number,
+  fields: Pick<
+    typeof schema.pages.$inferInsert,
+    'title' | 'type' | 'lectureNumber' | 'tags' | 'aiVisible'
+  > & { content: DocJSON },
+  meta: { userId: string; message: string | null },
+) {
+  if (baseRevision !== current.revision) throw new HttpError(409, conflictMessage)
+  const content = withFormulaIds(fields.content).doc
   const revision = current.revision + 1
   const page = await db.transaction(async (tx) => {
     const [p] = await tx
       .update(schema.pages)
       .set({
-        title: body.title,
-        type: body.type,
-        lectureNumber: body.lectureNumber,
-        tags: body.tags,
-        aiVisible: body.aiVisible,
+        ...fields,
         content,
         contentText: docToText(content),
         revision,
-        updatedBy: user.id,
+        updatedBy: meta.userId,
         updatedAt: new Date(),
       })
       .where(and(eq(schema.pages.id, current.id), eq(schema.pages.revision, current.revision)))
       .returning()
-    if (!p) throw new HttpError(409, 'This page was changed by someone else. Reload to see their version.')
+    if (!p) throw new HttpError(409, conflictMessage)
     await tx.insert(schema.pageRevisions).values({
       pageId: p.id,
       revision,
       title: p.title,
       content,
-      message: body.message ?? null,
-      authorId: user.id,
+      message: meta.message,
+      authorId: meta.userId,
     })
+    await syncFormulas(tx, p.id, content)
     return p
   })
-  await afterSave(page)
-  const { contentText: _omit, ...rest } = page
-  res.json(rest)
-})
+  await queueReindexPage(page.id)
+  return page
+}
 
 pages.delete('/:id', async (req, res) => {
   const page = await loadPage(param(req, 'id'), me(req).id, 'editor')
@@ -295,19 +310,45 @@ pages.get('/:id/revisions', async (req, res) => {
   res.json(rows)
 })
 
-pages.get('/:id/revisions/:rev', async (req, res) => {
-  const page = await loadPage(param(req, 'id'), me(req).id)
-  const [rev] = await db
+async function loadRevision(pageId: string, rev: string) {
+  const revision = z.coerce.number().int().positive().safeParse(rev)
+  if (!revision.success) throw new HttpError(404, 'Revision not found')
+  const [row] = await db
     .select()
     .from(schema.pageRevisions)
-    .where(
-      and(
-        eq(schema.pageRevisions.pageId, page.id),
-        eq(schema.pageRevisions.revision, Number(param(req, 'rev'))),
-      ),
-    )
-  if (!rev) throw new HttpError(404, 'Revision not found')
-  res.json(rev)
+    .where(and(eq(schema.pageRevisions.pageId, pageId), eq(schema.pageRevisions.revision, revision.data)))
+  if (!row) throw new HttpError(404, 'Revision not found')
+  return row
+}
+
+pages.get('/:id/revisions/:rev', async (req, res) => {
+  const page = await loadPage(param(req, 'id'), me(req).id)
+  res.json(await loadRevision(page.id, param(req, 'rev')))
+})
+
+/** Make an earlier revision's title and content current again, as a new revision. */
+pages.post('/:id/revisions/:rev/restore', async (req, res) => {
+  const user = me(req)
+  const current = await loadPage(param(req, 'id'), user.id, 'editor')
+  const body = z
+    .object({ baseRevision: z.number().int(), message: z.string().max(300).optional() })
+    .parse(req.body)
+  const old = await loadRevision(current.id, param(req, 'rev'))
+  const page = await saveRevision(
+    current,
+    body.baseRevision,
+    {
+      title: old.title,
+      type: current.type,
+      lectureNumber: current.lectureNumber,
+      tags: current.tags,
+      aiVisible: current.aiVisible,
+      content: old.content,
+    },
+    { userId: user.id, message: body.message ?? `Restored revision ${old.revision}` },
+  )
+  const { contentText: _omit, ...rest } = page
+  res.json(rest)
 })
 
 /** Formula index across all courses the user can read. */

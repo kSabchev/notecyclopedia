@@ -1,4 +1,4 @@
-import type { AiCitation, CalculatorSpec, DocJSON } from '@nc/shared'
+import { type AiCitation, type CalculatorSpec, DEFAULT_TIME_ZONE, type DocJSON } from '@nc/shared'
 import { sql } from 'drizzle-orm'
 import {
   boolean,
@@ -25,6 +25,8 @@ export const user = pgTable('user', {
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
   locale: text('locale').notNull().default('bg'),
+  /** IANA time zone that defines the user's "day" for daily topics and quizzes. */
+  timezone: text('timezone').notNull().default(DEFAULT_TIME_ZONE),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -160,13 +162,18 @@ export const formulas = pgTable(
     pageId: uuid('page_id')
       .notNull()
       .references(() => pages.id, { onDelete: 'cascade' }),
+    /** The formula block's `id` attribute in the page document; rows are upserted by it, so `id` stays stable. */
+    nodeId: text('node_id'),
     position: integer('position').notNull(),
     label: text('label'),
     latex: text('latex').notNull(),
     description: text('description'),
     pinned: boolean('pinned').notNull().default(false),
   },
-  (t) => [index('formulas_page_idx').on(t.pageId)],
+  (t) => [
+    index('formulas_page_idx').on(t.pageId),
+    uniqueIndex('formulas_page_node_idx').on(t.pageId, t.nodeId),
+  ],
 )
 
 export const files = pgTable(
@@ -303,6 +310,7 @@ export const claudeApiCalls = pgTable(
   },
   (t) => [
     index('claude_api_calls_created_idx').on(t.createdAt),
-    index('claude_api_calls_user_idx').on(t.userId),
+    // Covers per-user lookups and the daily budget check (user + time window).
+    index('claude_api_calls_user_created_idx').on(t.userId, t.createdAt),
   ],
 )

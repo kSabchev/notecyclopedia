@@ -36,6 +36,20 @@
       "when": 1793005515250,
       "tag": "0004_pale_mauler",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793131238015,
+      "tag": "0005_nosy_killraven",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793134009998,
+      "tag": "0006_dashing_wallflower",
+      "breakpoints": true
     }
   ]
 }

@@ -1,12 +1,20 @@
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseEnv } from 'node:util'
 import { defineConfig, devices } from '@playwright/test'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const databaseUrl = process.env.NC_TEST_DATABASE_URL
+const rootEnv = path.resolve(here, '../../.env')
+// Only the test database is read from .env, so the dev database and API keys never reach the test servers.
+const databaseUrl =
+  process.env.NC_TEST_DATABASE_URL ||
+  (existsSync(rootEnv) ? parseEnv(readFileSync(rootEnv, 'utf8')).NC_TEST_DATABASE_URL : undefined)
 
 if (!databaseUrl || !new URL(databaseUrl).pathname.endsWith('_test'))
-  throw new Error('NC_TEST_DATABASE_URL must point to a dedicated database ending in _test')
+  throw new Error(
+    'NC_TEST_DATABASE_URL must point to a dedicated database ending in _test. Set it in .env (see .env.example).',
+  )
 
 export default defineConfig({
   testDir: './tests/e2e',

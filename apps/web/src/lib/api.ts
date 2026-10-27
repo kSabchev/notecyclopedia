@@ -145,6 +145,10 @@ export const api = {
       request<Page>('PUT', `/pages/${id}`, b),
     remove: (id: string) => request<void>('DELETE', `/pages/${id}`),
     revisions: (id: string) => get<PageRevision[]>(`/pages/${id}/revisions`),
+    revision: (id: string, rev: number) =>
+      get<{ revision: number; title: string; content: DocJSON }>(`/pages/${id}/revisions/${rev}`),
+    restore: (id: string, rev: number, b: { baseRevision: number; message?: string }) =>
+      request<Page>('POST', `/pages/${id}/revisions/${rev}/restore`, b),
   },
   formulas: (pinned?: boolean) => get<Formula[]>(`/formulas${qs({ pinned: pinned ? '1' : undefined })}`),
   files: {

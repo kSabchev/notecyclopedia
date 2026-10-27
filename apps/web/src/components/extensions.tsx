@@ -116,6 +116,12 @@ export const Formula = Node.create({
   draggable: true,
   addAttributes() {
     return {
+      /** Stable id assigned by the server on save; kept so other features can reference the formula. */
+      id: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-formula-id'),
+        renderHTML: (attrs) => (attrs.id ? { 'data-formula-id': attrs.id } : {}),
+      },
       latex: { default: '' },
       label: { default: null },
       description: { default: null },

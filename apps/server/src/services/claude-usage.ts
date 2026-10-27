@@ -1,9 +1,9 @@
-import { desc, eq, lt } from 'drizzle-orm'
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
 import { db, schema } from '../db'
 import { env } from '../env'
-import { forbidden, me } from '../http'
+import { HttpError, forbidden, me } from '../http'
 
 export interface ClaudeUsage {
   input_tokens: number
@@ -71,6 +71,23 @@ export async function recordClaudeCall(input: {
   } catch (error) {
     console.error('[claude-usage] Could not record API call:', error)
   }
+}
+
+/**
+ * Throws 429 when the user has used their AI_DAILY_TOKEN_LIMIT in the last 24 hours. Input, output and
+ * cache-write tokens count; cache reads are cheap and do not.
+ */
+export async function assertAiBudget(userId: string) {
+  if (!env.aiDailyTokenLimit) return
+  const t = schema.claudeApiCalls
+  const [row] = await db
+    .select({
+      used: sql<string>`coalesce(sum(coalesce(${t.inputTokens}, 0) + coalesce(${t.outputTokens}, 0) + coalesce(${t.cacheWriteTokens}, 0)), 0)`,
+    })
+    .from(t)
+    .where(and(eq(t.userId, userId), gte(t.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000))))
+  if (Number(row?.used ?? 0) >= env.aiDailyTokenLimit)
+    throw new HttpError(429, 'You have reached your daily AI limit. Try again later.')
 }
 
 export function requireAdmin(email: string) {

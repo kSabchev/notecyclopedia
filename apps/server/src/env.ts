@@ -58,6 +58,12 @@ export const env = {
     .min(1)
     .max(3650)
     .parse(process.env.ANTHROPIC_LOG_RETENTION_DAYS ?? '90'),
+  /** Tokens (input + output + cache writes) each user may use per rolling 24 hours; 0 means no limit. */
+  aiDailyTokenLimit: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .parse(process.env.AI_DAILY_TOKEN_LIMIT || '0'),
   voyageKey: process.env.VOYAGE_API_KEY || null,
   voyageModel: process.env.VOYAGE_MODEL || 'voyage-3.5',
   /** Embedding size stored in the chunks table; voyage-3.5 defaults to 1024. */

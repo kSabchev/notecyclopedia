@@ -28,6 +28,7 @@
   --color-note: #fff8e8;
   --color-note-line: #ead9a8;
   --color-ok: #2f7d4f;
+  --color-ok-soft: #eaf6ee;
   --color-danger: #b42318;
   --color-danger-soft: #fef2f2;
   --color-danger-line: #fecaca;
@@ -65,6 +66,7 @@
   --color-note: #332b1d;
   --color-note-line: #69542e;
   --color-ok: #75d49d;
+  --color-ok-soft: #1c3326;
   --color-danger: #ff7b72;
   --color-danger-soft: #3a2022;
   --color-danger-line: #713438;

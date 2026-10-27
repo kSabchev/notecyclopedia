@@ -3,13 +3,14 @@ import { sql } from 'drizzle-orm'
 import { memberCourseIds } from '../access'
 import { db } from '../db'
 import { embed } from './embeddings'
+import { anyTermQuery } from './search-query'
 
 export interface RetrievedChunk extends AiCitation {
   text: string
 }
 
 /**
- * Hybrid retrieval: keyword search (works for Bulgarian and English via the 'simple' config)
+ * Hybrid retrieval: keyword search on any query term (works for Bulgarian and English via the 'simple' config)
  * plus vector search when embeddings are configured, merged with reciprocal-rank fusion.
  */
 export async function retrieve(
@@ -27,12 +28,15 @@ export async function retrieve(
   )}]::uuid[]`
 
   type Row = { id: string; source_type: 'page' | 'file'; source_id: string; text: string }
-  const keyword = await db.execute<Row>(sql`
+  const terms = anyTermQuery(query)
+  const keyword = terms
+    ? await db.execute<Row>(sql`
     SELECT id, source_type, source_id, text FROM chunks
     WHERE course_id = ANY(${ids})
-      AND to_tsvector('simple', text) @@ websearch_to_tsquery('simple', ${query})
-    ORDER BY ts_rank(to_tsvector('simple', text), websearch_to_tsquery('simple', ${query})) DESC
+      AND to_tsvector('simple', text) @@ to_tsquery('simple', ${terms})
+    ORDER BY ts_rank(to_tsvector('simple', text), to_tsquery('simple', ${terms})) DESC
     LIMIT ${limit * 2}`)
+    : { rows: [] as Row[] }
 
   let semantic: Row[] = []
   const qv = await embed([query], 'query').catch(() => null)

@@ -21,7 +21,40 @@ export function docToText(doc: DocJSON | null | undefined): string {
     .trim()
 }
 
+/**
+ * Give every formula block a stable `id` attribute so quizzes, calculators and diagrams can refer to it
+ * across edits. Existing ids are kept; a repeated id (e.g. from copy-paste) is replaced on the later block.
+ */
+export function withFormulaIds(
+  doc: DocJSON,
+  newId: () => string = () => crypto.randomUUID(),
+): { doc: DocJSON; changed: boolean } {
+  const seen = new Set<string>()
+  let changed = false
+  const walk = (n: Node): Node => {
+    let next = n
+    if (n.type === 'formula') {
+      const id = n.attrs?.id
+      if (typeof id === 'string' && id && !seen.has(id)) seen.add(id)
+      else {
+        const fresh = newId()
+        seen.add(fresh)
+        next = { ...n, attrs: { ...n.attrs, id: fresh } }
+        changed = true
+      }
+    }
+    if (!n.content) return next
+    const content = n.content.map(walk)
+    return content.some((c, i) => c !== n.content?.[i]) ? { ...next, content } : next
+  }
+  const content = (doc.content ?? []) as Node[]
+  const mapped = content.map(walk)
+  return { doc: changed ? { ...doc, content: mapped } : doc, changed }
+}
+
 export interface ExtractedFormula {
+  /** The formula block's `id` attribute; null only for documents not passed through `withFormulaIds`. */
+  nodeId: string | null
   latex: string
   label: string | null
   description: string | null
@@ -34,6 +67,7 @@ export function extractFormulas(doc: DocJSON | null | undefined): ExtractedFormu
   const walk = (n: Node) => {
     if (n.type === 'formula' && n.attrs?.latex) {
       found.push({
+        nodeId: typeof n.attrs.id === 'string' && n.attrs.id ? n.attrs.id : null,
         latex: String(n.attrs.latex),
         label: (n.attrs.label as string) || null,
         description: (n.attrs.description as string) || null,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { calculatorSpecSchema, evaluateCalculator, exportHTML, exportPython } from './calculator'
 import { BUILT_IN_CONSTANTS } from './constants'
-import { chunkText, docToText, extractFormulas } from './doc'
+import { chunkText, docToText, extractFormulas, withFormulaIds } from './doc'
 
 const projectile = calculatorSpecSchema.parse({
   name: 'Projectile motion',
@@ -160,8 +160,26 @@ describe('doc helpers', () => {
     expect(docToText(doc)).toContain('$v = v_0 + at$')
     expect(docToText(doc)).toContain('Ускорение.')
     expect(extractFormulas(doc)).toEqual([
-      { latex: 'v = v_0 + at', label: '4.1', description: null, pinned: true },
+      { nodeId: null, latex: 'v = v_0 + at', label: '4.1', description: null, pinned: true },
     ])
+  })
+  it('assigns missing and duplicate formula ids, keeping existing ones', () => {
+    const formula = (id?: string) => ({ type: 'formula', attrs: { latex: 'x', ...(id ? { id } : {}) } })
+    const input = {
+      type: 'doc' as const,
+      content: [
+        formula('keep'),
+        formula('keep'),
+        { type: 'blockquote', content: [formula()] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'x' }] },
+      ],
+    }
+    let n = 0
+    const { doc: out, changed } = withFormulaIds(input, () => `new-${++n}`)
+    expect(changed).toBe(true)
+    expect(extractFormulas(out).map((f) => f.nodeId)).toEqual(['keep', 'new-1', 'new-2'])
+    expect(out.content?.[3]).toBe(input.content[3])
+    expect(withFormulaIds(out)).toEqual({ doc: out, changed: false })
   })
   it('chunks long text', () => {
     const text = Array.from({ length: 30 }, (_, i) => `Paragraph ${i} `.repeat(20)).join('\n\n')

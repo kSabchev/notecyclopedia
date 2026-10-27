@@ -24,7 +24,7 @@ Requirements: Node 22+, pnpm 10+, Docker (for Postgres).
 pnpm install
 cp .env.example .env          # then set BETTER_AUTH_SECRET (and ANTHROPIC_API_KEY for AI)
 pnpm db:up                    # Postgres + pgvector in Docker
-pnpm db:migrate               # create tables
+pnpm db:migrate               # create tables (also gives existing formula blocks their ids)
 pnpm dev                      # web on http://localhost:5173, API on :3001
 ```
 
@@ -55,6 +55,23 @@ validates and previews the archive before creating new private copies owned by t
 it never merges with or overwrites existing data. Derived formula and search indexes are rebuilt,
 and uploaded files are queued for re-indexing.
 
+## Page history and AI review
+
+Open a page's **History** tab to see every saved revision. **Show changes** lists what that revision added and
+removed compared with the one before it, block by block (formulas appear as LaTeX), and collapses long unchanged
+stretches. Editors can **Restore this version**: the old title and content are saved as a new revision, so
+nothing in the history is lost, and a restore that races another save is rejected like a conflicting edit.
+
+**Review & polish** asks Claude to check a page and propose a revised version. The proposed version opens in an
+editor next to the current page, so you can adjust it before accepting; **Restore AI version** discards your
+edits to it. Nothing is saved until you choose **Accept changes**, which saves the edited version as a new revision.
+
+## Time zone
+
+Each account has a time zone (`user.timezone`) that defines its day for daily features. All accounts use
+`Europe/Sofia` (Eastern European Time, UTC+2, UTC+3 in summer) until a setting is added;
+`localDate()` in `packages/shared/src/time.ts` gives the date of a moment in a user's zone.
+
 ## Create wiki articles from PDFs
 
 After a text-based PDF finishes indexing, open **Uploads** and choose **Create wiki article**.
@@ -82,6 +99,10 @@ prompt-cache token rates in `ANTHROPIC_PRICING_JSON`; add entries for every conf
 them aligned with [Anthropic's current pricing](https://platform.claude.com/docs/en/about-claude/pricing).
 Estimates are not billing records and calls for models without a configured rate show no cost.
 
+Set `AI_DAILY_TOKEN_LIMIT` to cap how many tokens (input, output and cache writes) each user may use in a
+rolling 24 hours; further AI requests return an error until usage drops below the limit. `0` (the default)
+means no limit. The budget is computed from the same `claude_api_calls` log, so it also resets if logs are pruned.
+
 ## Scripts
 
 | Command | What it does |
@@ -95,8 +116,11 @@ Estimates are not billing records and calls for models without a configured rate
 | `pnpm build` | Build everything; `apps/server` then serves `apps/web/dist` in production |
 
 The API and browser tests require `NC_TEST_DATABASE_URL` to point to a dedicated PostgreSQL
-database whose name ends in `_test`; the API workflow test applies migrations to it. Install
-Playwright's Chromium browser with `pnpm --filter @nc/web exec playwright install chromium`.
+database whose name ends in `_test`, set in the environment or in `.env` (the tests read only that line
+from `.env`). Create it once with `docker compose exec db createdb -U nc notecyclopedia_test`; the API
+workflow test applies migrations to it. Stop `pnpm dev` first: the browser tests start their own servers on
+ports 3001 and 5173. Install Playwright's Chromium browser with
+`pnpm --filter @nc/web exec playwright install chromium`.
 CI provisions the test database and browser automatically.
 
 ## How it fits together
@@ -104,15 +128,19 @@ CI provisions the test database and browser automatically.
 - **Courses** are the unit of sharing. Members are `owner`, `editor` or `viewer`; every API route checks membership.
 - **Pages** store TipTap JSON and can optionally be assigned a lecture number, shown in the wiki and article.
 - **Web navigation** loads route screens on demand, and the sidebar collapses into a mobile navigation drawer.
-  Each save creates a revision (with conflict detection), re-extracts formula blocks into the formula index,
-  and re-chunks the text for AI retrieval (unless the page is hidden from AI).
+  Each save creates a revision (with conflict detection) and updates the formula index in the same transaction.
+  Formula blocks get a stable `id` on save, so a formula keeps its index row across edits. Re-chunking the text
+  for AI retrieval runs as a background job (unless the page is hidden from AI).
 - **Pages** can be moved between courses where you have editor access. Attached files and calculators sourced
   from the page move with it, and AI retrieval indexes are updated.
 - **Files** upload to `UPLOAD_DIR`, then a background job extracts text and indexes it.
 - **Search** uses Postgres full-text search with the `simple` config (works for Bulgarian and English).
-  The AI also uses vector search when `VOYAGE_API_KEY` is set.
+  The search box requires every word; AI retrieval matches any word of the question and ranks chunks
+  that match more words first. The AI also uses vector search when `VOYAGE_API_KEY` is set.
 - **AI portal** retrieves relevant chunks, streams Claude's answer with `[n]` citations, and in Solve/Build modes
   asks Claude for a calculator spec via tool use, then validates and test-runs it before showing it.
+  Chat sends the most recent turns that fit a size budget, with the retrieved sources attached to the
+  latest message only, so earlier turns are served from the prompt cache.
 - **Calculators** (`packages/shared/src/calculator.ts`) are plain JSON:
 
 ```json
@@ -133,12 +161,55 @@ output formula identified rather than failing only when someone exports it.
   calculator copies its numeric value and unit metadata into that calculator; units are descriptive
   and are not automatically converted.
 
-## Next steps
+## Roadmap
 
-- Verify PDF-to-article generation against the specific PDF that previously failed; add a regression fixture if the mismatch can be reproduced.
-- Reduce the remaining large web chunks (especially the calculator runner and its math dependencies).
-- Add readable, read-only previews for text-based GMAT and FreeFlyer mission files. Display their contents as plain text in a lazily loaded code editor; do not execute or simulate them.
-- Revision diff and restore
-- Image blocks and embedded calculators inside pages
-- Plots for calculators
-- Deployment config (e.g. Railway/Fly + managed Postgres + R2 for files)
+The phases build on each other: stable formula IDs and a general widget block are the foundation for
+interactive diagrams, quizzes and daily study content.
+
+### Phase 0: Foundations
+
+- [x] Keyword retrieval matches any query term (ranked), so natural-language questions find notes without embeddings.
+- [x] Formula blocks carry a stable `id`; the formula index is upserted by it instead of rebuilt on every save.
+- [x] Page retrieval indexing runs as a background job instead of inside the save request.
+- [x] One Claude call wrapper for logging, error mapping and a per-user daily token budget.
+- [x] Chat sends a bounded history with prompt caching; retrieved sources move out of the system prompt.
+- [x] Revision diff and restore.
+- [x] Per-user timezone (needed for "daily" features); every account defaults to `Europe/Sofia` (EET) for now.
+
+### Phase 1: Widget block
+
+- [ ] A `widget` editor node (`kind`, `params`) with lazily loaded kinds, described in `docToText` for search and AI.
+- [ ] `calculator` widget: embed a saved calculator inside a page.
+- [ ] `plot` widget: sweep one calculator input and plot an output (SVG).
+- [ ] Image blocks.
+
+### Phase 2: Orbit diagram (Kepler elements)
+
+- [ ] `packages/shared/src/orbit.ts`: Kepler's equation solver, elements ↔ state vectors, projection math, with tests.
+- [ ] `orbit` widget: sliders for a, e, i, Ω, ω, ν; orbital-plane view (foci, apsides, r/v vectors, true anomaly,
+      flight-path angle) and a rotatable 3D view (reference plane, line of nodes, Ω/i/ω arcs) in plain SVG.
+- [ ] Animation over time (mean → eccentric → true anomaly), optional equal-areas overlay; presets (LEO, GTO, GEO, Molniya, Tundra).
+- [ ] Derived values (rₚ, rₐ, p, T, h, ε, vis-viva speed) from a shared calculator spec.
+- [ ] Read-only GMAT/FreeFlyer previews, with "Open in orbit viewer" for Keplerian spacecraft definitions.
+- [ ] AI `create_widget` tool ("show me a Molniya orbit").
+
+### Phase 3: Quizzes and spaced repetition
+
+- [ ] Question bank per page (multiple choice, true/false, formula recall), generated in the background after saves
+      and marked stale when the page changes; editors can review and edit items.
+- [ ] Numeric questions generated from calculators with randomized inputs and exact answers (no AI call).
+- [ ] FSRS scheduling; a daily quiz of due items plus a few new ones from the latest lectures.
+
+### Phase 4: Daily topic and "Today"
+
+- [ ] One daily topic per user, chosen by lecture recency, weak quiz results and novelty; expanded by Claude,
+      grounded in the notes, with content beyond the notes labeled. Generated lazily on first visit of the day.
+- [ ] Check questions from the daily topic feed the quiz bank; "Save as note" goes through the review flow.
+- [ ] "Today" on the home page: daily topic, due quiz count, streak.
+
+### Phase 5: Delivery and polish
+
+- [ ] Storage interface for uploads (local disk / R2) and deployment config (e.g. Railway/Fly + managed Postgres).
+- [ ] Static read-only page renderer, so viewing a page does not load the editor; reduce the calculator runner chunk.
+- [ ] Backlinks between pages.
+- [ ] Verify PDF-to-article generation against the PDF that previously failed; add a regression fixture if reproducible.
