@@ -66,6 +66,24 @@ nothing in the history is lost, and a restore that races another save is rejecte
 editor next to the current page, so you can adjust it before accepting; **Restore AI version** discards your
 edits to it. Nothing is saved until you choose **Accept changes**, which saves the edited version as a new revision.
 
+## Calculators, plots and images in pages
+
+The editor toolbar's **Calculator** button inserts a calculator from the library into a page, shown either as an
+interactive calculator or as a **plot**: choose the input to sweep along the x-axis, its range, and up to four
+outputs. Outputs with different units get a chart each, so no chart has two y-scales. Readers can change the other
+inputs, read values with the pointer or the arrow keys, and open a table of the values.
+
+A block stores a copy of the calculator, so it works for everyone who can read the page (even when the library
+calculator is personal), survives backups, and is visible to search and the AI. Editors can choose
+**Update from library** to pull in later changes to the original. Blocks are validated when a page is saved.
+
+The **Image** button uploads a PNG, JPEG, GIF or WebP file to the page's course and shows it with an optional
+caption. Images are indexed like other uploads: with `ANTHROPIC_API_KEY` set, Claude transcribes each one for search,
+which is a paid API call per image.
+
+Uploaded files are served with the type that matches their extension, and only PDFs, images and plain text open in
+the browser; everything else downloads.
+
 ## Time zone
 
 Each account has a time zone (`user.timezone`) that defines its day for daily features. All accounts use
@@ -118,8 +136,8 @@ means no limit. The budget is computed from the same `claude_api_calls` log, so 
 The API and browser tests require `NC_TEST_DATABASE_URL` to point to a dedicated PostgreSQL
 database whose name ends in `_test`, set in the environment or in `.env` (the tests read only that line
 from `.env`). Create it once with `docker compose exec db createdb -U nc notecyclopedia_test`; the API
-workflow test applies migrations to it. Stop `pnpm dev` first: the browser tests start their own servers on
-ports 3001 and 5173. Install Playwright's Chromium browser with
+workflow test applies migrations to it. The browser tests start their own servers on ports 3101 and 5273, so
+they can run while `pnpm dev` is running. Install Playwright's Chromium browser with
 `pnpm --filter @nc/web exec playwright install chromium`.
 CI provisions the test database and browser automatically.
 
@@ -178,10 +196,10 @@ interactive diagrams, quizzes and daily study content.
 
 ### Phase 1: Widget block
 
-- [ ] A `widget` editor node (`kind`, `params`) with lazily loaded kinds, described in `docToText` for search and AI.
-- [ ] `calculator` widget: embed a saved calculator inside a page.
-- [ ] `plot` widget: sweep one calculator input and plot an output (SVG).
-- [ ] Image blocks.
+- [x] A `widget` editor node with lazily loaded kinds, validated on save and described in `docToText` for search and AI.
+- [x] `calculator` widget: embed a saved calculator inside a page.
+- [x] `plot` widget: sweep one calculator input and plot up to four outputs (SVG), one chart per unit.
+- [x] Image blocks.
 
 ### Phase 2: Orbit diagram (Kepler elements)
 
@@ -210,6 +228,7 @@ interactive diagrams, quizzes and daily study content.
 ### Phase 5: Delivery and polish
 
 - [ ] Storage interface for uploads (local disk / R2) and deployment config (e.g. Railway/Fly + managed Postgres).
-- [ ] Static read-only page renderer, so viewing a page does not load the editor; reduce the calculator runner chunk.
+- [ ] Static read-only page renderer, so viewing a page does not load the editor. (The calculator engine already
+      loads only on screens that compute something.)
 - [ ] Backlinks between pages.
 - [ ] Verify PDF-to-article generation against the PDF that previously failed; add a regression fixture if reproducible.

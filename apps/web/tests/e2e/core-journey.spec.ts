@@ -55,7 +55,8 @@ test('sign in, create/edit/read an article, attach a source, and persist theme',
   await page.getByRole('link', { name: 'Edit' }).click()
   await page.locator('#page-title').fill('Edited browser article')
   await page.locator('.ProseMirror').fill('Updated article content.')
-  await page.locator('input[type="file"]').setInputFiles({
+  // The attachments drop zone; the toolbar's image picker is the other file input.
+  await page.locator('input[type="file"]:not([accept^="image"])').setInputFiles({
     name: 'browser-source.txt',
     mimeType: 'text/plain',
     buffer: Buffer.from('A source attached in the browser test.'),

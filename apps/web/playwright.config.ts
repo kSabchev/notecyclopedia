@@ -11,6 +11,11 @@ const databaseUrl =
   process.env.NC_TEST_DATABASE_URL ||
   (existsSync(rootEnv) ? parseEnv(readFileSync(rootEnv, 'utf8')).NC_TEST_DATABASE_URL : undefined)
 
+// Not the dev ports (3001 / 5173), so the tests can run while `pnpm dev` is running.
+const API_PORT = 3101
+const WEB_PORT = 5273
+const webOrigin = `http://127.0.0.1:${WEB_PORT}`
+
 if (!databaseUrl || !new URL(databaseUrl).pathname.endsWith('_test'))
   throw new Error(
     'NC_TEST_DATABASE_URL must point to a dedicated database ending in _test. Set it in .env (see .env.example).',
@@ -23,7 +28,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: webOrigin,
     trace: 'retain-on-failure',
     ...devices['Desktop Chrome'],
   },
@@ -31,7 +36,7 @@ export default defineConfig({
     {
       command: 'pnpm --filter @nc/server exec tsx src/index.ts',
       cwd: here,
-      url: 'http://127.0.0.1:3001/api/health',
+      url: `http://127.0.0.1:${API_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 120_000,
       stdout: 'pipe',
@@ -39,17 +44,18 @@ export default defineConfig({
         ...process.env,
         DATABASE_URL: databaseUrl ?? process.env.DATABASE_URL,
         BETTER_AUTH_SECRET: 'dedicated-browser-test-secret-at-least-32-characters',
-        BETTER_AUTH_URL: 'http://127.0.0.1:5173',
-        WEB_ORIGIN: 'http://127.0.0.1:5173',
+        BETTER_AUTH_URL: webOrigin,
+        WEB_ORIGIN: webOrigin,
         NC_DISABLE_BACKGROUND_JOBS: 'true',
-        PORT: '3001',
+        PORT: String(API_PORT),
         UPLOAD_DIR: path.join(here, '.playwright-uploads'),
       },
     },
     {
-      command: 'pnpm --filter @nc/web exec vite --host 127.0.0.1',
+      command: `pnpm --filter @nc/web exec vite --host 127.0.0.1 --port ${WEB_PORT} --strictPort`,
       cwd: here,
-      url: 'http://127.0.0.1:5173/login',
+      url: `${webOrigin}/login`,
+      env: { ...process.env, NC_API_PORT: String(API_PORT) },
       reuseExistingServer: false,
       timeout: 120_000,
     },

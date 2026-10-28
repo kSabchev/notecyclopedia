@@ -1,11 +1,46 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { type Editor, useEditorState } from '@tiptap/react'
+import { Suspense, lazy, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { api } from '../lib/api'
 import { ListIcon } from './Icons'
-import { btn } from './ui'
+import { ErrorNote, btn } from './ui'
 
-/** Formatting toolbar shared by the page editor and the AI review draft. */
-export function EditorToolbar({ editor }: { editor: Editor }) {
+const WidgetDialog = lazy(() => import('./widgets/WidgetDialog').then((m) => ({ default: m.WidgetDialog })))
+
+const IMAGE_TYPES = 'image/png,image/jpeg,image/gif,image/webp'
+
+/**
+ * Formatting toolbar shared by the page editor and the AI review draft. Images need the page's course
+ * (they are uploaded to it), so the image button only appears when `courseId` is given.
+ */
+export function EditorToolbar({
+  editor,
+  courseId,
+  pageId,
+}: { editor: Editor; courseId?: string; pageId?: string }) {
   const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [inserting, setInserting] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<unknown>(null)
+  const picker = useRef<HTMLInputElement>(null)
+
+  const uploadImage = async (file: File) => {
+    if (!courseId) return
+    setUploading(true)
+    setUploadError(null)
+    try {
+      const [uploaded] = await api.files.upload(courseId, [file], pageId)
+      if (uploaded) editor.chain().focus().insertImage({ fileId: uploaded.id, alt: file.name }).run()
+      qc.invalidateQueries({ queryKey: ['files'] })
+    } catch (e) {
+      setUploadError(e)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const s = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -87,6 +122,48 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
       >
         {t('editor.note')}
       </button>
+      <button type="button" className={btn('secondary', 'sm')} onClick={() => setInserting(true)}>
+        {t('widget.calculator')}
+      </button>
+      {courseId && (
+        <>
+          <button
+            type="button"
+            className={btn('secondary', 'sm')}
+            disabled={uploading}
+            onClick={() => picker.current?.click()}
+          >
+            {uploading ? t('widget.uploading') : t('widget.image')}
+          </button>
+          <input
+            ref={picker}
+            type="file"
+            accept={IMAGE_TYPES}
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (file) uploadImage(file)
+            }}
+          />
+        </>
+      )}
+      {uploadError ? (
+        <div className="basis-full">
+          <ErrorNote error={uploadError} />
+        </div>
+      ) : null}
+      {inserting && (
+        <Suspense fallback={null}>
+          <WidgetDialog
+            onClose={() => setInserting(false)}
+            onSubmit={(attrs) => {
+              editor.chain().focus().insertWidget(attrs).run()
+              setInserting(false)
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }

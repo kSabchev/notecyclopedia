@@ -1,3 +1,4 @@
+import type { WidgetAttrs } from '@nc/shared'
 import { Node, mergeAttributes } from '@tiptap/core'
 import {
   NodeViewContent,
@@ -6,8 +7,9 @@ import {
   ReactNodeViewRenderer,
 } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { api } from '../lib/api'
 import { Tex } from './Tex'
 import { Button, inputCls } from './ui'
 
@@ -15,6 +17,8 @@ declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     formula: { insertFormula: (attrs?: { latex?: string }) => ReturnType }
     callout: { toggleCallout: () => ReturnType }
+    widget: { insertWidget: (attrs: WidgetAttrs) => ReturnType }
+    image: { insertImage: (attrs: { fileId: string; alt?: string }) => ReturnType }
   }
 }
 
@@ -137,8 +141,11 @@ export const Formula = Node.create({
     return {
       insertFormula:
         (attrs = {}) =>
-        ({ commands }) =>
-          commands.insertContent({ type: this.name, attrs: { latex: attrs.latex ?? '' } }),
+        ({ commands, state }) =>
+          commands.insertContentAt(state.selection.to, {
+            type: this.name,
+            attrs: { latex: attrs.latex ?? '' },
+          }),
     }
   },
 })
@@ -179,8 +186,148 @@ export const Callout = Node.create({
   },
 })
 
+// The calculator and plot code (math.js) loads only when a page contains one.
+const WidgetBlock = lazy(() => import('./widgets/WidgetBlock'))
+
+function WidgetView({ node, updateAttributes, deleteNode, editor }: ReactNodeViewProps) {
+  const { t } = useTranslation()
+  return (
+    <NodeViewWrapper className="my-5" data-type="widget" contentEditable={false}>
+      <Suspense
+        fallback={
+          <div className="rounded-[12px] border border-line bg-surface p-5 font-sans text-sm text-muted">
+            {t('common.loading')}
+          </div>
+        }
+      >
+        <WidgetBlock
+          attrs={node.attrs}
+          editable={editor.isEditable}
+          // A calculator block has no plot settings, so clear any left from a previous plot.
+          onChange={(attrs) => updateAttributes({ plot: null, ...attrs })}
+          onDelete={deleteNode}
+        />
+      </Suspense>
+    </NodeViewWrapper>
+  )
+}
+
+const objectAttr = { default: null, rendered: false }
+
+// Block commands insert after the selection: a block that was just inserted stays selected, and
+// inserting over a selected block would replace it.
+
+/** An embedded calculator or plot; see `WidgetAttrs` in @nc/shared. */
+export const Widget = Node.create({
+  name: 'widget',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      kind: { default: 'calculator', rendered: false },
+      spec: objectAttr,
+      sourceCalculatorId: objectAttr,
+      plot: objectAttr,
+    }
+  },
+  parseHTML: () => [{ tag: 'div[data-type="widget"]' }],
+  renderHTML: ({ HTMLAttributes }) => ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'widget' })],
+  addNodeView() {
+    return ReactNodeViewRenderer(WidgetView)
+  },
+  addCommands() {
+    return {
+      insertWidget:
+        (attrs) =>
+        ({ commands, state }) =>
+          commands.insertContentAt(state.selection.to, { type: this.name, attrs }),
+    }
+  },
+})
+
+function ImageView({ node, updateAttributes, deleteNode, editor, selected }: ReactNodeViewProps) {
+  const { t } = useTranslation()
+  const { fileId, alt, caption } = node.attrs as {
+    fileId: string
+    alt: string | null
+    caption: string | null
+  }
+  const [broken, setBroken] = useState(false)
+  const editable = editor.isEditable
+  return (
+    <NodeViewWrapper className="my-5" data-type="image" contentEditable={false}>
+      <figure
+        className={`m-0 flex flex-col gap-2 rounded-[12px] ${selected && editable ? 'outline-2 outline-accent' : ''}`}
+      >
+        {broken ? (
+          <div className="rounded-[12px] border border-dashed border-line-strong p-6 text-center font-sans text-sm text-muted">
+            {t('widget.imageMissing')}
+          </div>
+        ) : (
+          <img
+            src={api.files.url(fileId, true)}
+            alt={alt ?? caption ?? ''}
+            loading="lazy"
+            onError={() => setBroken(true)}
+            className="mx-auto block max-h-[70vh] max-w-full rounded-[12px] border border-line bg-surface"
+          />
+        )}
+        {editable ? (
+          <div className="flex flex-wrap items-center gap-2 font-sans">
+            <input
+              aria-label={t('widget.caption')}
+              placeholder={t('widget.caption')}
+              className={`${inputCls} min-w-48 flex-1 text-sm`}
+              value={caption ?? ''}
+              onChange={(e) => updateAttributes({ caption: e.target.value || null })}
+            />
+            <Button size="sm" variant="danger" onClick={deleteNode}>
+              {t('widget.remove')}
+            </Button>
+          </div>
+        ) : (
+          caption && <figcaption className="text-center font-sans text-sm text-muted">{caption}</figcaption>
+        )}
+      </figure>
+    </NodeViewWrapper>
+  )
+}
+
+/** An image block showing an uploaded file of the page's course. */
+export const ImageBlock = Node.create({
+  name: 'image',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      fileId: { default: null, rendered: false },
+      alt: { default: null, rendered: false },
+      caption: { default: null, rendered: false },
+    }
+  },
+  parseHTML: () => [{ tag: 'figure[data-type="image"]' }],
+  renderHTML: ({ HTMLAttributes }) => ['figure', mergeAttributes(HTMLAttributes, { 'data-type': 'image' })],
+  addNodeView() {
+    return ReactNodeViewRenderer(ImageView)
+  },
+  addCommands() {
+    return {
+      insertImage:
+        (attrs) =>
+        ({ commands, state }) =>
+          commands.insertContentAt(state.selection.to, { type: this.name, attrs }),
+    }
+  },
+})
+
 export const editorExtensions = [
   StarterKit.configure({ heading: { levels: [2, 3] }, link: { openOnClick: false } }),
   Formula,
   Callout,
+  Widget,
+  ImageBlock,
 ]

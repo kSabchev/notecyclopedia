@@ -2,7 +2,7 @@ import { type DocJSON, extractFormulas, withFormulaIds } from '@nc/shared'
 import { and, eq, isNull, notInArray, or, sql } from 'drizzle-orm'
 import { db, schema } from '../db'
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 /**
  * Update a page's rows in the formula index to match its document. Rows are matched by the

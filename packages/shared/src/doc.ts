@@ -1,4 +1,5 @@
 import type { DocJSON } from './types'
+import { describeWidget } from './widget'
 
 type Node = { type: string; text?: string; attrs?: Record<string, unknown>; content?: Node[] }
 
@@ -8,9 +9,21 @@ export function docToText(doc: DocJSON | null | undefined): string {
   const walk = (n: Node) => {
     if (n.type === 'text' && n.text) out.push(n.text)
     else if (n.type === 'formula') out.push(` $${String(n.attrs?.latex ?? '')}$ `)
+    else if (n.type === 'widget') out.push(describeWidget(n.attrs))
+    else if (n.type === 'image') out.push(`Image: ${String(n.attrs?.caption || n.attrs?.alt || '')}`.trim())
     for (const c of n.content ?? []) walk(c)
     if (
-      ['paragraph', 'heading', 'listItem', 'formula', 'callout', 'blockquote', 'codeBlock'].includes(n.type)
+      [
+        'paragraph',
+        'heading',
+        'listItem',
+        'formula',
+        'widget',
+        'image',
+        'callout',
+        'blockquote',
+        'codeBlock',
+      ].includes(n.type)
     )
       out.push('\n')
   }
@@ -50,6 +63,28 @@ export function withFormulaIds(
   const content = (doc.content ?? []) as Node[]
   const mapped = content.map(walk)
   return { doc: changed ? { ...doc, content: mapped } : doc, changed }
+}
+
+/** Ids of the uploaded files shown by image blocks, in order, without duplicates. */
+export function imageFileIds(doc: DocJSON | null | undefined): string[] {
+  const ids = new Set<string>()
+  const walk = (n: Node) => {
+    if (n.type === 'image' && typeof n.attrs?.fileId === 'string' && n.attrs.fileId) ids.add(n.attrs.fileId)
+    for (const c of n.content ?? []) walk(c)
+  }
+  for (const c of (doc?.content ?? []) as Node[]) walk(c)
+  return [...ids]
+}
+
+/** A copy of the document with each image block's `fileId` replaced by `map(fileId)` (kept when it returns undefined). */
+export function remapImageFiles(doc: DocJSON, map: (fileId: string) => string | undefined): DocJSON {
+  const walk = (n: Node): Node => {
+    const fileId = n.type === 'image' ? n.attrs?.fileId : undefined
+    const mapped = typeof fileId === 'string' ? map(fileId) : undefined
+    const next = mapped ? { ...n, attrs: { ...n.attrs, fileId: mapped } } : n
+    return n.content ? { ...next, content: n.content.map(walk) } : next
+  }
+  return { ...doc, content: ((doc.content ?? []) as Node[]).map(walk) }
 }
 
 export interface ExtractedFormula {
