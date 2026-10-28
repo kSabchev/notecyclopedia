@@ -11,6 +11,7 @@ import {
   calculatorSpecSchema,
   docToText,
   extractFormulas,
+  remapImageFiles,
   withFormulaIds,
 } from '@nc/shared'
 import { ZipArchive } from 'archiver'
@@ -23,6 +24,7 @@ import { memberCourseIds } from '../access'
 import { db, schema } from '../db'
 import { env } from '../env'
 import { HttpError, me } from '../http'
+import { fileType } from '../services/file-types'
 import { queueIngest, queueReindexPage } from '../services/jobs'
 
 const FORMAT = 'notecyclopedia-backup'
@@ -591,8 +593,14 @@ backup.post('/import', receiveArchive, async (req, res) => {
         }
 
         if (data.pages.length) {
-          // Backups made before formula ids existed carry formula blocks without them.
-          for (const page of data.pages) page.content = withFormulaIds(page.content).doc
+          // Image blocks point at the imported copies of their files. Backups made before formula ids
+          // existed carry formula blocks without them.
+          const toImportedFile = (id: string) => fileMap.get(id)
+          for (const page of data.pages) {
+            page.content = withFormulaIds(remapImageFiles(page.content, toImportedFile)).doc
+            for (const revision of page.revisions)
+              revision.content = remapImageFiles(revision.content, toImportedFile)
+          }
           const pageOrderByCourse = new Map<string, number>()
           await insertBatches(
             data.pages.map((page) => {
@@ -649,7 +657,7 @@ backup.post('/import', receiveArchive, async (req, res) => {
               courseId: courseMap.get(file.courseId) as string,
               pageId: file.pageId ? (pageMap.get(file.pageId) as string) : null,
               name: file.name,
-              mime: file.mime,
+              mime: fileType(file.name)?.mime ?? 'application/octet-stream',
               size: file.size,
               storageKey,
               status: 'uploaded' as const,

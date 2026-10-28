@@ -1,13 +1,13 @@
-import { type DocJSON, docToText, withFormulaIds } from '@nc/shared'
+import { type DocJSON, docToText } from '@nc/shared'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
 import { assertCourse, loadPage, memberCourseIds } from '../access'
 import { db, schema } from '../db'
 import { HttpError, me, param } from '../http'
-import { syncFormulas } from '../services/formula-index'
 import { removeSource } from '../services/indexing'
 import { queueReindexPage } from '../services/jobs'
+import { preparePageContent, syncPageContent } from '../services/page-content'
 
 export const pages = Router()
 export const formulas = Router()
@@ -70,7 +70,7 @@ pages.post('/', async (req, res) => {
   const user = me(req)
   await assertCourse(body.courseId, user.id, 'editor')
   const { sourceFileId, ...pageBody } = body
-  const content = withFormulaIds(body.content as DocJSON).doc
+  const content = preparePageContent(body.content as DocJSON)
   const page = await db.transaction(async (tx) => {
     const [last] = await tx
       .select({ sortOrder: sql<number>`coalesce(max(${schema.pages.sortOrder}), -1) + 1` })
@@ -99,7 +99,7 @@ pages.post('/', async (req, res) => {
         .returning({ id: schema.files.id })
       if (!linkedFile) throw new HttpError(400, 'Source file is not in this course')
     }
-    await syncFormulas(tx, p.id, content)
+    await syncPageContent(tx, p, content)
     return p
   })
   await queueReindexPage(page.id)
@@ -254,7 +254,7 @@ async function saveRevision(
   meta: { userId: string; message: string | null },
 ) {
   if (baseRevision !== current.revision) throw new HttpError(409, conflictMessage)
-  const content = withFormulaIds(fields.content).doc
+  const content = preparePageContent(fields.content)
   const revision = current.revision + 1
   const page = await db.transaction(async (tx) => {
     const [p] = await tx
@@ -278,7 +278,7 @@ async function saveRevision(
       message: meta.message,
       authorId: meta.userId,
     })
-    await syncFormulas(tx, p.id, content)
+    await syncPageContent(tx, p, content)
     return p
   })
   await queueReindexPage(page.id)

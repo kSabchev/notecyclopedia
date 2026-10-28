@@ -71,10 +71,20 @@
   --color-danger-soft: #3a2022;
   --color-danger-line: #713438;
   --color-graph-line: #292e37;
+  --color-series-1: #3987e5;
+  --color-series-2: #d95926;
+  --color-series-3: #199e70;
+  --color-series-4: #c98500;
 }
 
 :root {
   color-scheme: light;
+  /* Chart series, in fixed order (validated for colour-vision deficiency on the chart surface). Kept out
+     of @theme: Tailwind only emits theme variables that utilities use, and charts use these inline. */
+  --color-series-1: #2a78d6;
+  --color-series-2: #eb6834;
+  --color-series-3: #1baf7a;
+  --color-series-4: #eda100;
 }
 
 /* Base styles live in the base layer so Tailwind utilities (e.g. text-ink on a link) win. */

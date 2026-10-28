@@ -114,7 +114,7 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
           aria-label="Page editor"
           className="min-w-0 flex-[999_1_560px] overflow-clip rounded-[14px] border border-line bg-surface"
         >
-          {editor && <EditorToolbar editor={editor} />}
+          {editor && <EditorToolbar editor={editor} courseId={courseId || undefined} pageId={page?.id} />}
           <div className="mx-auto box-border flex w-full max-w-[820px] flex-col gap-5 px-6 pb-14 pt-10 md:px-14">
             <label htmlFor="page-title" className="sr-only">
               {t('editor.title')}

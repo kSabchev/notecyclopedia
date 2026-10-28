@@ -168,7 +168,7 @@ function ReviewDraft({ result }: { result: ReviewResult }) {
             )}
           </div>
           <div className="mt-4">
-            {editor && <EditorToolbar editor={editor} />}
+            {editor && <EditorToolbar editor={editor} courseId={page.courseId} pageId={page.id} />}
             <div className="px-5 pb-5 pt-4">
               <EditorContent editor={editor} className="prose-nc" />
             </div>

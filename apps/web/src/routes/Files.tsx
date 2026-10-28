@@ -113,7 +113,7 @@ function ArticleDraftEditor({
           <p className="m-0 text-xs text-muted">{t('editor.lectureNumberHint')}</p>
         </Field>
         <section className="overflow-clip rounded-[14px] border border-line bg-surface">
-          {editor && <EditorToolbar editor={editor} />}
+          {editor && <EditorToolbar editor={editor} courseId={file.courseId} />}
           <div className="px-6 py-8 md:px-12">
             <EditorContent editor={editor} className="prose-nc" />
           </div>

@@ -11,12 +11,11 @@ import { db, schema } from '../db'
 import { env } from '../env'
 import { HttpError, me, notFound, param } from '../http'
 import { aiConfigured, generateArticleDraft } from '../services/claude'
+import { fileType } from '../services/file-types'
 import { removeSource } from '../services/indexing'
 import { queueIngest } from '../services/jobs'
 
 mkdirSync(env.uploadDir, { recursive: true })
-
-const ALLOWED = /\.(pdf|docx?|pptx?|xlsx?|odt|odp|ods|rtf|txt|md|csv|png|jpe?g|gif|webp)$/i
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -25,7 +24,7 @@ const upload = multer({
   }),
   limits: { fileSize: 100 * 1024 * 1024, files: 20 },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED.test(file.originalname)) cb(null, true)
+    if (fileType(file.originalname)) cb(null, true)
     else cb(new HttpError(400, `File type not supported: ${file.originalname}`))
   },
 })
@@ -83,7 +82,7 @@ files.post('/', upload.array('files'), async (req, res) => {
           pageId: pageId ?? null,
           // multer decodes names as latin1; restore UTF-8 (Cyrillic file names)
           name: Buffer.from(f.originalname, 'latin1').toString('utf8'),
-          mime: f.mimetype,
+          mime: fileType(f.originalname)?.mime ?? 'application/octet-stream',
           size: f.size,
           storageKey: f.filename,
           uploadedBy: user.id,
@@ -107,14 +106,17 @@ async function loadFile(id: string, userId: string, min: 'viewer' | 'editor' = '
 
 files.get('/:id/download', async (req, res) => {
   const f = await loadFile(param(req, 'id'), me(req).id)
-  const inline = req.query.inline === '1'
-  res.setHeader('content-type', f.mime)
+  // Older rows store the type the browser claimed; serve by extension, and only safe types inline.
+  const type = fileType(f.storageKey)
+  const inline = req.query.inline === '1' && type?.inline === true
+  res.setHeader('content-type', type?.mime ?? 'application/octet-stream')
   res.setHeader(
     'content-disposition',
     `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(f.name)}`,
   )
   res.setHeader('x-content-type-options', 'nosniff')
-  res.sendFile(path.join(env.uploadDir, f.storageKey))
+  // The path is built from our own storage key; allow an upload directory with a dot in its path.
+  res.sendFile(path.join(env.uploadDir, f.storageKey), { dotfiles: 'allow' })
 })
 
 files.post('/:id/article-draft', async (req, res) => {

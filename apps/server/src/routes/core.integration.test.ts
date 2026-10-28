@@ -332,6 +332,91 @@ test(
     )
     assert.equal(staleRestore.status, 409)
 
+    // Widgets are validated on save; an image uploaded before it is placed gets linked to the page.
+    const orbitSpec = {
+      version: 1,
+      name: 'Circular orbit',
+      inputs: [
+        { key: 'r', label: 'Radius', unit: 'km', default: 7000 },
+        { key: 'mu', label: 'Gravitational parameter', unit: 'km3/s2', default: 398600 },
+      ],
+      outputs: [{ key: 'v', label: 'Speed', unit: 'km/s', expr: 'sqrt(mu / r)' }],
+    }
+    const imageUpload = new FormData()
+    imageUpload.set('courseId', sourceCourse.id)
+    imageUpload.append(
+      'files',
+      new Blob(
+        [
+          Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+            'base64',
+          ),
+        ],
+        {
+          type: 'image/png',
+        },
+      ),
+      'orbit.png',
+    )
+    const imageResponse = await request(editor, '/files', { method: 'POST', body: imageUpload })
+    assert.equal(imageResponse.status, 201)
+    const [image] = (await imageResponse.json()) as Array<{ id: string; pageId: string | null }>
+    assert.ok(image)
+    assert.equal(image.pageId, null)
+
+    const saveBlocks = (baseRevision: number, blocks: unknown[]) =>
+      request(editor, `/pages/${page.id}`, {
+        method: 'PUT',
+        body: json({
+          ...updatedInput,
+          baseRevision,
+          content: {
+            type: 'doc',
+            content: [
+              { type: 'paragraph', content: [{ type: 'text', text: 'Kepler orbit notes' }] },
+              ...blocks,
+            ],
+          },
+        }),
+      })
+    const invalidWidget = await saveBlocks(restoredPage.revision, [
+      {
+        type: 'widget',
+        attrs: { kind: 'plot', spec: orbitSpec, plot: { x: 'nope', y: ['v'], from: 1, to: 2 } },
+      },
+    ])
+    assert.equal(invalidWidget.status, 400)
+    assert.match(((await invalidWidget.json()) as { error: string }).error, /Unknown input "nope"/)
+    const withBlocks = await saveBlocks(restoredPage.revision, [
+      {
+        type: 'widget',
+        attrs: { kind: 'plot', spec: orbitSpec, plot: { x: 'r', y: ['v'], from: 6500, to: 42000 } },
+      },
+      { type: 'image', attrs: { fileId: image.id, caption: 'Orbit sketch' } },
+    ])
+    assert.equal(withBlocks.status, 200)
+    const imageFiles = await request(editor, `/files?pageId=${page.id}`)
+    assert.ok(
+      ((await imageFiles.json()) as Array<{ id: string }>).some((file) => file.id === image.id),
+      'Saving a page should link the files its image blocks show',
+    )
+
+    // Files are served by their extension's type, whatever the browser claimed at upload.
+    const disguised = new FormData()
+    disguised.set('courseId', sourceCourse.id)
+    disguised.append('files', new Blob(['<script>alert(1)</script>'], { type: 'text/html' }), 'notes.txt')
+    const disguisedResponse = await request(editor, '/files', { method: 'POST', body: disguised })
+    assert.equal(disguisedResponse.status, 201)
+    const [disguisedFile] = (await disguisedResponse.json()) as Array<{ id: string; mime: string }>
+    assert.ok(disguisedFile)
+    assert.equal(disguisedFile.mime, 'text/plain; charset=utf-8')
+    const served = await request(viewer, `/files/${disguisedFile.id}/download?inline=1`)
+    assert.equal(served.headers.get('content-type'), 'text/plain; charset=utf-8')
+    const servedImage = await request(viewer, `/files/${image.id}/download?inline=1`)
+    assert.equal(servedImage.headers.get('content-type'), 'image/png')
+    assert.match(servedImage.headers.get('content-disposition') ?? '', /^inline/)
+
     await assert.doesNotReject(async () => {
       const deadline = Date.now() + 30_000
       while (Date.now() < deadline) {
@@ -339,7 +424,13 @@ test(
           .select({ text: schema.chunks.text })
           .from(schema.chunks)
           .where(eq(schema.chunks.sourceId, page.id))
-        if (chunks.some((chunk) => chunk.text.includes('Kepler orbit notes'))) return
+        // The latest save also has a plot widget, whose description is indexed with the text.
+        if (
+          chunks.some(
+            (chunk) => chunk.text.includes('Kepler orbit notes') && chunk.text.includes('Plot of Speed'),
+          )
+        )
+          return
         await new Promise((resolve) => setTimeout(resolve, 250))
       }
       throw new Error('Saved page was not reindexed within 30 seconds')
@@ -355,6 +446,10 @@ test(
     const movedFilesResponse = await request(editor, `/files?courseId=${targetCourse.id}&pageId=${page.id}`)
     const movedFiles = (await movedFilesResponse.json()) as Array<{ id: string }>
     assert.ok(movedFiles.some((file) => file.id === uploaded.id))
+    assert.ok(
+      movedFiles.some((file) => file.id === image.id),
+      'An image shown on the page should move with it',
+    )
 
     const backup = await request(owner, '/backup/export')
     assert.equal(backup.status, 200)
