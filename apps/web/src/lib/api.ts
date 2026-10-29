@@ -176,7 +176,7 @@ export const api = {
     update: (id: string, b: { spec: CalculatorSpec; courseId: string | null }) =>
       request<Calculator>('PUT', `/calculators/${id}`, b),
     remove: (id: string) => request<void>('DELETE', `/calculators/${id}`),
-    exportUrl: (id: string, format: 'json' | 'py' | 'html') =>
+    exportUrl: (id: string, format: 'json' | 'py' | 'html' | 'xlsx') =>
       `/api/calculators/${id}/export?format=${format}`,
   },
   backup: {

@@ -451,6 +451,55 @@ test(
       'An image shown on the page should move with it',
     )
 
+    // Calculator exports: theory and steps in HTML and Python, formulas in Excel.
+    const created = await request(editor, '/calculators', {
+      method: 'POST',
+      body: json({
+        courseId: sourceCourse.id,
+        spec: {
+          version: 1,
+          name: 'Circular orbit',
+          theory: 'Gravity provides the centripetal force: μ/r² = v²/r.',
+          inputs: [
+            { key: 'r', label: 'Radius', unit: 'km', default: 7000 },
+            { key: 'mu', label: 'Gravitational parameter', unit: 'km3/s2', default: 398600 },
+          ],
+          outputs: [
+            {
+              key: 'v',
+              label: 'Speed',
+              unit: 'km/s',
+              expr: 'sqrt(mu / r)',
+              explanation: 'Solve μ/r² = v²/r for v.',
+            },
+          ],
+        },
+      }),
+    })
+    assert.equal(created.status, 201)
+    const calculator = (await created.json()) as { id: string }
+    const exported = async (format: string) => {
+      const response = await request(viewer, `/calculators/${calculator.id}/export?format=${format}`)
+      assert.equal(response.status, 200, `export ${format}`)
+      return response
+    }
+    const html = await (await exported('html')).text()
+    assert.match(html, /<h2>Step-by-step solution<\/h2>/)
+    assert.match(html, /Gravity provides the centripetal force/)
+    assert.match(await (await exported('py')).text(), /# Solve μ\/r² = v²\/r for v\./)
+    const xlsxResponse = await exported('xlsx')
+    assert.equal(
+      xlsxResponse.headers.get('content-type'),
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    assert.match(xlsxResponse.headers.get('content-disposition') ?? '', /circular-orbit\.xlsx/)
+    const { default: unzipper } = await import('unzipper')
+    const workbook = await unzipper.Open.buffer(Buffer.from(await xlsxResponse.arrayBuffer()))
+    const entry = (name: string) => workbook.files.find((f) => f.path === name)
+    assert.ok(entry('[Content_Types].xml') && entry('xl/workbook.xml') && entry('xl/worksheets/sheet2.xml'))
+    const sheet = (await entry('xl/worksheets/sheet1.xml')?.buffer())?.toString('utf8') ?? ''
+    assert.match(sheet, /<f>SQRT\(\(\$B\$5\/\$B\$4\)\)<\/f><v>7\.54/)
+
     const backup = await request(owner, '/backup/export')
     assert.equal(backup.status, 200)
     const archive = await backup.blob()

@@ -1,4 +1,5 @@
-import { calculatorSpecSchema, exportHTML, exportJSON, exportPython } from '@nc/shared'
+import { calculatorSpecSchema, calculatorWorkbook, exportHTML, exportJSON, exportPython } from '@nc/shared'
+import { ZipArchive } from 'archiver'
 import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
@@ -73,23 +74,50 @@ calculators.delete('/:id', async (req, res) => {
   res.status(204).end()
 })
 
+/** The files of an .xlsx workbook, zipped in memory. */
+async function zipped(files: { path: string; content: string }[]): Promise<Buffer> {
+  const archive = new ZipArchive({ zlib: { level: 6 } })
+  const chunks: Buffer[] = []
+  archive.on('data', (chunk: Buffer) => chunks.push(chunk))
+  const ended = new Promise<void>((resolve, reject) => {
+    archive.on('end', () => resolve())
+    archive.on('error', reject)
+  })
+  for (const file of files) archive.append(file.content, { name: file.path })
+  await archive.finalize()
+  await ended
+  return Buffer.concat(chunks)
+}
+
+const EXPORT_TYPES = {
+  json: 'application/json; charset=utf-8',
+  py: 'text/x-python; charset=utf-8',
+  html: 'text/html; charset=utf-8',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+} as const
+
 calculators.get('/:id/export', async (req, res) => {
   const c = await loadCalc(param(req, 'id'), me(req).id)
-  const { format } = z.object({ format: z.enum(['json', 'py', 'html']) }).parse(req.query)
+  const { format } = z.object({ format: z.enum(['json', 'py', 'html', 'xlsx']) }).parse(req.query)
   const base =
     c.name
       .replace(/[^\p{L}\p{N}]+/gu, '-')
       .replace(/^-|-$/g, '')
       .toLowerCase() || 'calculator'
-  let body: string
+  let body: string | Buffer
   try {
     body =
-      format === 'json' ? exportJSON(c.spec) : format === 'py' ? exportPython(c.spec) : exportHTML(c.spec)
+      format === 'json'
+        ? exportJSON(c.spec)
+        : format === 'py'
+          ? exportPython(c.spec)
+          : format === 'html'
+            ? exportHTML(c.spec)
+            : await zipped(calculatorWorkbook(c.spec))
   } catch (e) {
     throw new HttpError(422, `Cannot export: ${(e as Error).message}`)
   }
-  const type = { json: 'application/json', py: 'text/x-python', html: 'text/html' }[format]
-  res.setHeader('content-type', `${type}; charset=utf-8`)
+  res.setHeader('content-type', EXPORT_TYPES[format])
   res.setHeader(
     'content-disposition',
     `attachment; filename*=UTF-8''${encodeURIComponent(`${base}.${format}`)}`,
