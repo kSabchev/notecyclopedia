@@ -1,9 +1,15 @@
-import { type CalculatorSpec, defaultInputs, evaluateCalculator, formatValue } from '@nc/shared'
+import {
+  type CalculatorSpec,
+  calculationSteps,
+  defaultInputs,
+  evaluateCalculator,
+  formatValue,
+} from '@nc/shared'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Eyebrow } from './ui'
 
-/** Live calculator UI for any spec. */
+/** Live calculator UI for any spec. The full view also shows the theory and a step-by-step solution. */
 export function CalculatorRunner({ spec, compact = false }: { spec: CalculatorSpec; compact?: boolean }) {
   const { t } = useTranslation()
   const [values, setValues] = useState<Record<string, string>>(() =>
@@ -13,16 +19,18 @@ export function CalculatorRunner({ spec, compact = false }: { spec: CalculatorSp
     setValues(Object.fromEntries(Object.entries(defaultInputs(spec)).map(([k, v]) => [k, String(v)])))
   }, [spec])
 
-  const result = useMemo(
-    () =>
-      evaluateCalculator(
-        spec,
-        Object.fromEntries(Object.entries(values).map(([k, v]) => [k, Number.parseFloat(v)])),
-      ),
-    [spec, values],
+  const numbers = useMemo(
+    () => Object.fromEntries(Object.entries(values).map(([k, v]) => [k, Number.parseFloat(v)])),
+    [values],
   )
+  const result = useMemo(() => evaluateCalculator(spec, numbers), [spec, numbers])
+  const steps = useMemo(() => (compact ? [] : calculationSteps(spec, numbers)), [spec, numbers, compact])
+  const theory = (spec.theory ?? '')
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean)
 
-  return (
+  const runner = (
     <div className={`flex flex-wrap ${compact ? 'gap-5' : ''}`}>
       <div
         className={`flex flex-col gap-4 ${compact ? 'flex-[2_1_320px] flex-row flex-wrap' : 'flex-[1_1_240px] border-line-soft p-6 sm:border-r'}`}
@@ -73,16 +81,60 @@ export function CalculatorRunner({ spec, compact = false }: { spec: CalculatorSp
           ))}
         </div>
         {!result.ok && <p className="m-0 text-sm text-danger">{result.error}</p>}
-        {!compact && (
-          <div className="flex flex-col gap-1 font-mono text-[13px] text-muted">
-            {spec.outputs.map((o) => (
-              <span key={o.key}>
-                {o.key} = {o.expr}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
+    </div>
+  )
+  if (compact) return runner
+
+  return (
+    <div className="flex flex-col">
+      {runner}
+      {theory.length > 0 && (
+        <section
+          aria-labelledby="calc-theory"
+          className="flex flex-col gap-2 border-t border-line-soft px-6 py-5"
+        >
+          <h3 id="calc-theory" className="m-0 text-base font-bold">
+            {t('calc.theory')}
+          </h3>
+          {theory.map((paragraph) => (
+            <p
+              key={paragraph}
+              className="m-0 max-w-[70ch] whitespace-pre-line font-serif text-[16px] leading-relaxed"
+            >
+              {paragraph}
+            </p>
+          ))}
+        </section>
+      )}
+      <section
+        aria-labelledby="calc-steps"
+        className="flex flex-col gap-3 border-t border-line-soft px-6 py-5"
+      >
+        <h3 id="calc-steps" className="m-0 text-base font-bold">
+          {t('calc.steps')}
+        </h3>
+        <ol className="m-0 flex flex-col gap-4 pl-5">
+          {steps.map((step) => (
+            <li key={step.key} className="flex flex-col gap-1">
+              <span className="font-semibold">{step.label}</span>
+              {step.explanation && <span className="text-sm text-muted">{step.explanation}</span>}
+              <span className="font-mono text-[13px] [overflow-wrap:anywhere]">{step.formula}</span>
+              {step.substituted !== null ? (
+                <span className="font-mono text-[13px] [overflow-wrap:anywhere]">= {step.substituted}</span>
+              ) : (
+                <span className="text-sm text-muted">{t('calc.stepUnavailable')}</span>
+              )}
+              {step.value !== null && (
+                <span className="font-mono text-[13px] font-semibold">
+                  = {formatValue(step.value, spec.outputs.find((o) => o.key === step.key)?.precision ?? 3)}
+                  {step.unit ? ` ${step.unit}` : ''}
+                </span>
+              )}
+            </li>
+          ))}
+        </ol>
+      </section>
     </div>
   )
 }

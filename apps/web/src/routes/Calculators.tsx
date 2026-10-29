@@ -230,6 +230,18 @@ function Detail({
                   />
                 </label>
               </div>
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-muted">
+                {t('calc.theory')}
+                <textarea
+                  rows={4}
+                  className="rounded-[10px] border border-line-strong bg-surface p-3 text-[15px] font-normal text-ink"
+                  value={visualSpec.theory ?? ''}
+                  onChange={(e) =>
+                    updateSpec((current) => ({ ...current, theory: e.target.value || undefined }))
+                  }
+                />
+                <span className="text-xs font-normal">{t('calc.theoryHint')}</span>
+              </label>
               <section className="flex flex-col gap-3">
                 <h3 className="m-0 text-base font-bold">{t('calc.inputs')}</h3>
                 {visualSpec.inputs.map((input, index) => (
@@ -409,6 +421,22 @@ function Detail({
                         />
                       </label>
                     ))}
+                    <label className="flex flex-col gap-1 text-xs font-semibold text-muted sm:col-span-2">
+                      {t('calc.explanation')}
+                      <textarea
+                        rows={2}
+                        className="rounded-[10px] border border-line-strong bg-surface p-2.5 text-sm font-normal text-ink"
+                        value={output.explanation ?? ''}
+                        onChange={(e) =>
+                          updateSpec((current) => ({
+                            ...current,
+                            outputs: current.outputs.map((item, i) =>
+                              i !== index ? item : { ...item, explanation: e.target.value || undefined },
+                            ),
+                          }))
+                        }
+                      />
+                    </label>
                     <button
                       type="button"
                       className={`${btn('danger', 'sm')} sm:col-span-2 sm:justify-self-end`}
@@ -475,7 +503,7 @@ function Detail({
       {calc && !editing && (
         <div className="flex flex-wrap items-center gap-4 border-t border-line bg-surface-2 px-6 py-5">
           <Eyebrow>{t('calc.export')}</Eyebrow>
-          {(['json', 'py', 'html'] as const).map((f) => (
+          {(['json', 'py', 'html', 'xlsx'] as const).map((f) => (
             <a
               key={f}
               href={api.calculators.exportUrl(calc.id, f)}

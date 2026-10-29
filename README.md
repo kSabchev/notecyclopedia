@@ -14,7 +14,7 @@ Design reference: [`design/`](design/README.md).
 | Server | Node 22, Express 5, Drizzle ORM, PostgreSQL 16 + pgvector, Better Auth (email + password), pg-boss jobs, multer uploads |
 | Files | unpdf (PDF), officeparser (DOCX/PPTX/XLSX/ODF), Claude vision for photos |
 | AI | Claude API (`@anthropic-ai/sdk`), streamed over SSE; Voyage embeddings (optional) |
-| Calculators | JSON spec validated with zod, evaluated with a sandboxed math.js; export to .json / .py / .html |
+| Calculators | JSON spec validated with zod, evaluated with a sandboxed math.js; export to .json / .py / .html / .xlsx |
 
 ## Getting started
 
@@ -193,12 +193,27 @@ CI provisions the test database and browser automatically.
 
 ```json
 { "version": 1, "name": "Projectile motion",
+  "theory": "Horizontal speed is constant; vertically the projectile accelerates downward at g.",
   "inputs":  [{ "key": "v0", "label": "Initial speed", "unit": "m/s", "default": 20 },
               { "key": "theta", "label": "Angle", "unit": "deg", "default": 30 },
               { "key": "g", "label": "Gravity", "unit": "m/s²", "default": 9.81 }],
-  "outputs": [{ "key": "T", "label": "Flight time", "unit": "s", "expr": "2 * v0 * sin(theta deg) / g" },
+  "outputs": [{ "key": "T", "label": "Flight time", "unit": "s", "expr": "2 * v0 * sin(theta deg) / g",
+                "explanation": "Twice the time to reach the top." },
               { "key": "R", "label": "Range", "unit": "m", "expr": "v0 * cos(theta deg) * T" }] }
 ```
+
+`theory` (paragraphs separated by blank lines) and each output's `explanation` are optional. A calculator's page
+shows the theory and a **step-by-step solution**: each result's formula, the same formula with the current values
+and units filled in, and the result. AI-made calculators are asked to include both.
+
+Exports:
+
+| Format | What you get |
+|---|---|
+| `.json` | The calculator definition, for import elsewhere. |
+| `.py` | A Python function; the theory goes in the docstring and each explanation above its step. |
+| `.html` | A standalone page that works offline: the calculator, the theory and a live step-by-step solution. |
+| `.xlsx` | An Excel workbook: yellow input cells, each result an Excel formula over them with its formula text and explanation, and the theory on a second sheet. Excel recalculates when inputs change; values are also stored for viewers that do not recalculate. |
 
 Calculator expressions are validated against the portable Python/JavaScript export subset when
 saved: arithmetic, comparisons, `and`/`or`/`not`, nested `condition ? value : value` expressions,

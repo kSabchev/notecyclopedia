@@ -231,6 +231,11 @@ const calculatorTool: Anthropic.Tool = {
     properties: {
       name: { type: 'string', description: 'Short name, in the language of the conversation' },
       description: { type: 'string' },
+      theory: {
+        type: 'string',
+        description:
+          'The theory behind the calculation, in the language of the conversation: the principle or law used, its assumptions and when it applies. One to three short paragraphs separated by blank lines.',
+      },
       inputs: {
         type: 'array',
         items: {
@@ -264,6 +269,10 @@ const calculatorTool: Anthropic.Tool = {
                 'math.js expression using input keys, constants and earlier output keys. Use ^ for powers, sqrt(), sin() etc. For an input in degrees write `sin(theta deg)`. Convert units explicitly (e.g. v_kmh / 3.6).',
             },
             precision: { type: 'integer' },
+            explanation: {
+              type: 'string',
+              description: 'One sentence: what this step computes and why it is needed.',
+            },
           },
         },
       },
@@ -277,7 +286,7 @@ export async function generateCalculator(context: string, userId: string): Promi
   const messages: Anthropic.MessageParam[] = [
     {
       role: 'user',
-      content: `Create a reusable calculator for the following. Inputs are the given quantities; outputs are what is asked, plus useful intermediate results.\n\n${context}`,
+      content: `Create a reusable calculator for the following. Inputs are the given quantities; outputs are what is asked, plus useful intermediate results, in the order they are computed. Write the theory behind the solution and explain each step, so a student can follow it.\n\n${context}`,
     },
   ]
   for (let attempt = 0; attempt < 2; attempt++) {
