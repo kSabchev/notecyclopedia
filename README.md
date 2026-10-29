@@ -106,6 +106,11 @@ other files. **Preview** shows them as read-only text (nothing is executed) and 
 orbit the file defines, as Keplerian elements or as a Cartesian state, with **Open in orbit viewer**. GMAT spacecraft
 in a lunar or Martian coordinate system orbit that body; others orbit Earth.
 
+The files are read with an independent parser of their plain-text property assignments; no GMAT or FreeFlyer code,
+libraries or documentation are included, and neither program is needed. FreeFlyer is a trademark of a.i. solutions, Inc.
+GMAT (General Mission Analysis Tool) is developed by NASA. Notecyclopedia is not affiliated with or endorsed by
+a.i. solutions or NASA.
+
 **AI.** In the AI portal, Claude can show an orbit diagram with its answer (for example "show me a Molniya orbit"); the
 diagram is interactive and can be opened in the orbit viewer.
 
