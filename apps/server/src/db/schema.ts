@@ -1,4 +1,10 @@
-import { type AiCitation, type CalculatorSpec, DEFAULT_TIME_ZONE, type DocJSON } from '@nc/shared'
+import {
+  type AiCitation,
+  type CalculatorSpec,
+  DEFAULT_TIME_ZONE,
+  type DocJSON,
+  type WidgetAttrs,
+} from '@nc/shared'
 import { sql } from 'drizzle-orm'
 import {
   boolean,
@@ -286,6 +292,8 @@ export const aiMessages = pgTable(
     content: text('content').notNull(),
     citations: jsonb('citations').$type<AiCitation[]>().notNull().default([]),
     calculator: jsonb('calculator').$type<CalculatorSpec>(),
+    /** Interactive blocks shown with the answer (e.g. orbit diagrams from the show_orbit tool). */
+    widgets: jsonb('widgets').$type<WidgetAttrs[]>().notNull().default([]),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [index('ai_messages_thread_idx').on(t.threadId)],

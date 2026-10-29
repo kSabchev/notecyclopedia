@@ -50,6 +50,13 @@
       "when": 1793134009998,
       "tag": "0006_dashing_wallflower",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793231798694,
+      "tag": "0007_workable_shinko_yamashiro",
+      "breakpoints": true
     }
   ]
 }

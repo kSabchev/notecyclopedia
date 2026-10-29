@@ -35,6 +35,12 @@ export const CalcIcon = icon(
     <path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01" />
   </>,
 )
+export const OrbitIcon = icon(
+  <>
+    <circle cx="12" cy="12" r="2.5" />
+    <ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-25 12 12)" />
+  </>,
+)
 export const SparkIcon = icon(<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />)
 export const UploadIcon = icon(
   <>

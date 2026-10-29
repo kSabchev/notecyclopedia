@@ -1,4 +1,4 @@
-import type { AiCitation, AiMode, CalculatorSpec } from '@nc/shared'
+import type { AiCitation, AiMode, CalculatorSpec, WidgetAttrs } from '@nc/shared'
 import { exportJSON } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
@@ -8,6 +8,7 @@ import { CalculatorRunner } from '../components/CalculatorRunner'
 import { SparkIcon } from '../components/Icons'
 import { Markdown } from '../components/Markdown'
 import { ErrorNote, btn } from '../components/ui'
+import { OrbitView } from '../components/widgets/OrbitView'
 import { api, streamChat } from '../lib/api'
 import { MODES } from './Home'
 
@@ -17,6 +18,7 @@ interface Msg {
   content: string
   citations: AiCitation[]
   calculator: CalculatorSpec | null
+  widgets: WidgetAttrs[]
 }
 
 export interface AiSearch {
@@ -24,6 +26,26 @@ export interface AiSearch {
   q?: string
   pageId?: string
   thread?: string
+}
+
+/** An orbit diagram the AI showed with its answer, with a link to explore it in the orbit viewer. */
+function ShownOrbit({ widget }: { widget: Extract<WidgetAttrs, { kind: 'orbit' }> }) {
+  const { t } = useTranslation()
+  return (
+    <section className="overflow-hidden rounded-[14px] border border-line bg-surface">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line-soft bg-surface-2 px-5 py-3">
+        <span className="flex-1 font-semibold">{t('widget.orbit')}</span>
+        <Link
+          to="/orbit"
+          search={{ body: widget.body, ...widget.elements }}
+          className={btn('secondary', 'sm')}
+        >
+          {t('files.openInViewer')}
+        </Link>
+      </div>
+      <OrbitView body={widget.body} elements={widget.elements} view={widget.view ?? undefined} />
+    </section>
+  )
 }
 
 function GeneratedCalculator({ spec }: { spec: CalculatorSpec }) {
@@ -120,8 +142,8 @@ export function AiPortal() {
     const assistantId = crypto.randomUUID()
     setMessages((m) => [
       ...m,
-      { id: crypto.randomUUID(), role: 'user', content: text, citations: [], calculator: null },
-      { id: assistantId, role: 'assistant', content: '', citations: [], calculator: null },
+      { id: crypto.randomUUID(), role: 'user', content: text, citations: [], calculator: null, widgets: [] },
+      { id: assistantId, role: 'assistant', content: '', citations: [], calculator: null, widgets: [] },
     ])
     const patch = (fn: (m: Msg) => Msg) =>
       setMessages((all) => all.map((m) => (m.id === assistantId ? fn(m) : m)))
@@ -136,6 +158,7 @@ export function AiPortal() {
         else if (ev.type === 'citations') patch((m) => ({ ...m, citations: ev.citations }))
         else if (ev.type === 'text') patch((m) => ({ ...m, content: m.content + ev.text }))
         else if (ev.type === 'calculator') patch((m) => ({ ...m, calculator: ev.spec }))
+        else if (ev.type === 'widget') patch((m) => ({ ...m, widgets: [...m.widgets, ev.widget] }))
         else if (ev.type === 'error') setError(ev.message)
       }
     } catch (e) {
@@ -236,6 +259,9 @@ export function AiPortal() {
                   </div>
                 )}
               </article>
+              {m.widgets?.map((w) =>
+                w.kind === 'orbit' ? <ShownOrbit key={JSON.stringify(w.elements)} widget={w} /> : null,
+              )}
               {m.calculator && <GeneratedCalculator spec={m.calculator} />}
             </div>
           ),

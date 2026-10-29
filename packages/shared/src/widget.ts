@@ -1,4 +1,5 @@
 import type { CalculatorSpec } from './calculator'
+import { type OrbitalElements, type ViewAngles, bodyByKey } from './orbit'
 
 /**
  * Widgets are interactive blocks inside a page. Each one stores a copy of the calculator spec it was
@@ -21,6 +22,14 @@ export interface PlotConfig {
 export type WidgetAttrs =
   | { kind: 'calculator'; spec: CalculatorSpec; sourceCalculatorId: string | null }
   | { kind: 'plot'; spec: CalculatorSpec; sourceCalculatorId: string | null; plot: PlotConfig }
+  | {
+      kind: 'orbit'
+      /** Central body key, see CENTRAL_BODIES. */
+      body: string
+      elements: OrbitalElements
+      /** Starting direction of the 3D view. */
+      view?: ViewAngles | null
+    }
 
 export type WidgetKind = WidgetAttrs['kind']
 
@@ -28,6 +37,11 @@ const withUnit = (label: string, unit?: string) => (unit ? `${label} [${unit}]` 
 
 /** A plain-text description of a widget for search, AI context and revision diffs. */
 export function describeWidget(attrs: Record<string, unknown> | undefined): string {
+  if (attrs?.kind === 'orbit') {
+    const el = attrs.elements as OrbitalElements | undefined
+    if (!el) return 'Orbit diagram'
+    return `Orbit diagram around ${bodyByKey(attrs.body as string).name}: semi-major axis a = ${el.a} km, eccentricity e = ${el.e}, inclination i = ${el.i}°, right ascension of the ascending node Ω = ${el.raan}°, argument of periapsis ω = ${el.argp}°, true anomaly ν = ${el.nu}°`
+  }
   const spec = attrs?.spec as CalculatorSpec | undefined
   if (!spec?.inputs || !spec.outputs) return 'Widget'
   if (attrs?.kind === 'plot') {

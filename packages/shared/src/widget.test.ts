@@ -65,3 +65,30 @@ describe('widgets', () => {
     expect(text).toContain('Image: Hohmann transfer')
   })
 })
+
+describe('orbit widgets', () => {
+  const orbit = (elements: object, body = 'earth') =>
+    doc({
+      kind: 'orbit',
+      body,
+      elements: { a: 26600, e: 0.74, i: 63.4, raan: 0, argp: 270, nu: 0, ...elements },
+    })
+
+  it('accepts closed orbits around a known body', () => {
+    expect(invalidWidget(orbit({}))).toBeNull()
+    expect(invalidWidget(orbit({}, 'mars'))).toBeNull()
+  })
+
+  it('rejects open orbits, out-of-range angles and unknown bodies', () => {
+    expect(invalidWidget(orbit({ e: 1.2 }))).toContain('elements.e')
+    expect(invalidWidget(orbit({ i: 200 }))).toContain('elements.i')
+    expect(invalidWidget(orbit({ a: -1 }))).toContain('elements.a')
+    expect(invalidWidget(orbit({}, 'pluto'))).toContain('body')
+  })
+
+  it('describes the elements in page text', () => {
+    expect(docToText(orbit({}))).toContain(
+      'Orbit diagram around Earth: semi-major axis a = 26600 km, eccentricity e = 0.74, inclination i = 63.4°',
+    )
+  })
+})

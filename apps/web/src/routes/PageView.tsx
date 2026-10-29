@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DocView, docHeadings } from '../components/DocView'
 import { FileDrop } from '../components/FileDrop'
+import { FilePreview, isTextPreviewable } from '../components/FilePreview'
 import { PenIcon, SparkIcon } from '../components/Icons'
 import { RevisionChanges } from '../components/RevisionChanges'
 import { ErrorNote, Eyebrow, FileBadge, btn, inputCls } from '../components/ui'
@@ -182,6 +183,10 @@ export function PageView() {
                 className="max-w-full rounded-[12px] border border-line"
               />
             )}
+            {(() => {
+              const opened = files.data?.find((f) => f.id === openFile)
+              return opened && isTextPreviewable(opened.name) ? <FilePreview file={opened} /> : null
+            })()}
             {canEdit && <FileDrop courseId={p.courseId} pageId={p.id} compact />}
           </div>
         )}

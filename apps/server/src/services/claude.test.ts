@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { type ChatTurn, boundHistory } from './claude'
+import { type ChatTurn, boundHistory, orbitFromTool } from './claude'
 
 const user = (content: string): ChatTurn => ({ role: 'user', content })
 const assistant = (content: string): ChatTurn => ({ role: 'assistant', content })
@@ -23,4 +23,17 @@ test('caps the number of turns and starts with a user turn', () => {
 test('drops empty turns, which the API rejects', () => {
   const turns = [user('question'), assistant(''), user('again')]
   assert.deepEqual(boundHistory(turns), [turns[0], turns[2]])
+})
+
+test('accepts a valid show_orbit call as an orbit widget', () => {
+  const result = orbitFromTool({ body: 'earth', a: 26600, e: 0.74, i: 63.4, raan: 0, argp: 270, nu: 0 })
+  assert.ok('widget' in result)
+  assert.equal(result.widget.kind, 'orbit')
+})
+
+test('explains an invalid show_orbit call so Claude can retry', () => {
+  const result = orbitFromTool({ body: 'earth', a: 7000, e: 1.3, i: 10, raan: 0, argp: 0, nu: 0 })
+  assert.ok('error' in result)
+  assert.match(result.error, /elements\.e/)
+  assert.match(result.error, /closed orbits/)
 })

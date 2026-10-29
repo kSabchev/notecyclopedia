@@ -204,7 +204,7 @@ function WidgetView({ node, updateAttributes, deleteNode, editor }: ReactNodeVie
           attrs={node.attrs}
           editable={editor.isEditable}
           // A calculator block has no plot settings, so clear any left from a previous plot.
-          onChange={(attrs) => updateAttributes({ plot: null, ...attrs })}
+          onChange={(attrs) => updateAttributes({ plot: null, view: null, ...attrs })}
           onDelete={deleteNode}
         />
       </Suspense>
@@ -230,6 +230,10 @@ export const Widget = Node.create({
       spec: objectAttr,
       sourceCalculatorId: objectAttr,
       plot: objectAttr,
+      // Orbit diagrams. Every attribute of every kind must be declared, or TipTap drops it.
+      body: objectAttr,
+      elements: objectAttr,
+      view: objectAttr,
     }
   },
   parseHTML: () => [{ tag: 'div[data-type="widget"]' }],

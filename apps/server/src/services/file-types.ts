@@ -16,6 +16,9 @@ const FILE_TYPES: Record<string, { mime: string; inline: boolean }> = {
   txt: { mime: text, inline: true },
   md: { mime: text, inline: true },
   csv: { mime: text, inline: true },
+  // GMAT scripts and FreeFlyer mission plans: plain text, previewed and indexed, never executed.
+  script: { mime: text, inline: true },
+  missionplan: { mime: text, inline: true },
   rtf: { mime: 'application/rtf', inline: false },
   doc: { mime: 'application/msword', inline: false },
   docx: { mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', inline: false },
