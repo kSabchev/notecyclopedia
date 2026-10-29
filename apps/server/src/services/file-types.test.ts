@@ -6,6 +6,8 @@ test('derives the served type from the extension', () => {
   assert.deepEqual(fileType('Orbit.PNG'), { mime: 'image/png', inline: true })
   assert.equal(fileType('notes.md')?.mime, 'text/plain; charset=utf-8')
   assert.equal(fileType('slides.pptx')?.inline, false)
+  assert.equal(fileType('Hohmann.script')?.mime, 'text/plain; charset=utf-8')
+  assert.equal(fileType('LEO.MissionPlan')?.mime, 'text/plain; charset=utf-8')
 })
 
 test('rejects extensions that may not be uploaded, including web content', () => {

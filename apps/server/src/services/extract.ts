@@ -18,7 +18,8 @@ export async function extractFileText(
   if (mime.startsWith('image/')) {
     return (await describeImage(buf, mime, userId)) ?? ''
   }
-  if (mime.startsWith('text/') || /\.(md|txt|csv)$/i.test(name)) return buf.toString('utf8')
+  if (mime.startsWith('text/') || /\.(md|txt|csv|script|missionplan)$/i.test(name))
+    return buf.toString('utf8')
   const ast = await OfficeParser.parseOffice(buf)
   const out = await ast.to('text')
   return String((out as { value: unknown }).value ?? '')

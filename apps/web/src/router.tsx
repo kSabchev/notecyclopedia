@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router'
 import { Layout } from './components/Layout'
 import type { AiSearch } from './routes/AiPortal'
+import type { OrbitSearch } from './routes/OrbitViewer'
 
 const rootRoute = createRootRoute({ component: Outlet })
 
@@ -23,6 +24,7 @@ const Formulas = lazyRouteComponent(() => import('./routes/Formulas'), 'Formulas
 const Calculators = lazyRouteComponent(() => import('./routes/Calculators'), 'Calculators')
 const Constants = lazyRouteComponent(() => import('./routes/Constants'), 'Constants')
 const AiPortal = lazyRouteComponent(() => import('./routes/AiPortal'), 'AiPortal')
+const OrbitViewer = lazyRouteComponent(() => import('./routes/OrbitViewer'), 'OrbitViewer')
 const Files = lazyRouteComponent(() => import('./routes/Files'), 'Files')
 const Profile = lazyRouteComponent(() => import('./routes/Profile'), 'Profile')
 const Backup = lazyRouteComponent(() => import('./routes/Backup'), 'Backup')
@@ -67,6 +69,23 @@ const routes = [
       pageId: str(s.pageId),
       thread: str(s.thread),
     }),
+  }),
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: '/orbit',
+    component: OrbitViewer,
+    validateSearch: (s: Record<string, unknown>): OrbitSearch => {
+      const num = (v: unknown) => (v === undefined || v === '' ? undefined : Number(v))
+      return {
+        body: str(s.body),
+        a: num(s.a),
+        e: num(s.e),
+        i: num(s.i),
+        raan: num(s.raan),
+        argp: num(s.argp),
+        nu: num(s.nu),
+      }
+    },
   }),
   createRoute({ getParentRoute: () => appRoute, path: '/files', component: Files }),
   createRoute({ getParentRoute: () => appRoute, path: '/profile', component: Profile }),

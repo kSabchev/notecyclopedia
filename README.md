@@ -84,6 +84,31 @@ which is a paid API call per image.
 Uploaded files are served with the type that matches their extension, and only PDFs, images and plain text open in
 the browser; everything else downloads.
 
+## Orbit diagrams
+
+Choose **Orbit diagram** in the toolbar's **Calculator** dialog to add an interactive two-body orbit to a page, or open
+**Orbits** in the navigation for a standalone viewer (its URL takes the elements, e.g. `/orbit?a=26600&e=0.74&i=63.4&argp=270`).
+
+- Set the six classical elements (a, e, i, Ω, ω, ν) with sliders or numbers, pick a preset, or change the central body.
+- The **orbital plane** view shows the body at a focus, periapsis and apoapsis, the position and velocity vectors, the
+  true anomaly and the flight-path angle. **Equal areas** shades sectors swept in equal times (Kepler's second law).
+- The **3D view** shows the orbit against the reference plane (the part behind it dashed), the line of nodes and the
+  Ω, i and ω angles. Drag it, or use the Turn and Tilt sliders, to rotate.
+- **Play** animates the motion at a steady mean anomaly, so the satellite speeds up near periapsis.
+- Derived values come from the same formulas as the built-in *Elliptical orbit* calculator
+  (`ORBIT_CALCULATOR` in `packages/shared/src/orbit.ts`).
+
+Readers can explore freely; in the editor, **Save orbit** stores the current elements as the block's starting orbit.
+Only closed orbits are supported (eccentricity below 0.99).
+
+**GMAT and FreeFlyer files.** GMAT scripts (`.script`) and FreeFlyer mission plans (`.MissionPlan`) can be uploaded like
+other files. **Preview** shows them as read-only text (nothing is executed) and lists each spacecraft whose initial
+orbit the file defines, as Keplerian elements or as a Cartesian state, with **Open in orbit viewer**. GMAT spacecraft
+in a lunar or Martian coordinate system orbit that body; others orbit Earth.
+
+**AI.** In the AI portal, Claude can show an orbit diagram with its answer (for example "show me a Molniya orbit"); the
+diagram is interactive and can be opened in the orbit viewer.
+
 ## Time zone
 
 Each account has a time zone (`user.timezone`) that defines its day for daily features. All accounts use
@@ -203,13 +228,15 @@ interactive diagrams, quizzes and daily study content.
 
 ### Phase 2: Orbit diagram (Kepler elements)
 
-- [ ] `packages/shared/src/orbit.ts`: Kepler's equation solver, elements ↔ state vectors, projection math, with tests.
-- [ ] `orbit` widget: sliders for a, e, i, Ω, ω, ν; orbital-plane view (foci, apsides, r/v vectors, true anomaly,
+- [x] `packages/shared/src/orbit.ts`: Kepler's equation solver, elements ↔ state vectors, projection math, with tests.
+- [x] `orbit` widget: sliders for a, e, i, Ω, ω, ν; orbital-plane view (focus, apsides, r/v vectors, true anomaly,
       flight-path angle) and a rotatable 3D view (reference plane, line of nodes, Ω/i/ω arcs) in plain SVG.
-- [ ] Animation over time (mean → eccentric → true anomaly), optional equal-areas overlay; presets (LEO, GTO, GEO, Molniya, Tundra).
-- [ ] Derived values (rₚ, rₐ, p, T, h, ε, vis-viva speed) from a shared calculator spec.
-- [ ] Read-only GMAT/FreeFlyer previews, with "Open in orbit viewer" for Keplerian spacecraft definitions.
-- [ ] AI `create_widget` tool ("show me a Molniya orbit").
+- [x] Animation over time (mean → eccentric → true anomaly), optional equal-areas overlay; presets (ISS, Sun-synchronous,
+      GTO, GEO, Molniya, Tundra); Earth, Moon and Mars as central bodies.
+- [x] Derived values (rₚ, rₐ, p, T, h, ε, vis-viva speed, flight-path angle) from a shared calculator spec.
+- [x] Read-only GMAT/FreeFlyer previews, with "Open in orbit viewer" for spacecraft given as Keplerian elements or a
+      Cartesian state.
+- [x] AI `show_orbit` tool ("show me a Molniya orbit").
 
 ### Phase 3: Quizzes and spaced repetition
 

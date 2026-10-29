@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { type CalculatorSpec, calculatorSpecSchema, evaluateCalculator } from './calculator'
+import { CENTRAL_BODIES } from './orbit'
 import type { DocJSON } from './types'
 import type { PlotConfig } from './widget'
 
@@ -17,6 +18,18 @@ const plotConfigSchema = z
 
 const sourceCalculatorId = z.string().uuid().nullable().default(null)
 
+const angle = z.number().finite().min(0).max(360)
+/** Elliptical orbits only; e is capped below 1 so the orbit stays closed and drawable. */
+export const MAX_ECCENTRICITY = 0.99
+export const orbitalElementsSchema = z.object({
+  a: z.number().finite().positive(),
+  e: z.number().finite().min(0).max(MAX_ECCENTRICITY),
+  i: z.number().finite().min(0).max(180),
+  raan: angle,
+  argp: angle,
+  nu: angle,
+})
+
 export const widgetAttrsSchema = z
   .discriminatedUnion('kind', [
     z.object({ kind: z.literal('calculator'), spec: calculatorSpecSchema, sourceCalculatorId }),
@@ -25,6 +38,13 @@ export const widgetAttrsSchema = z
       spec: calculatorSpecSchema,
       sourceCalculatorId,
       plot: plotConfigSchema,
+    }),
+    z.object({
+      kind: z.literal('orbit'),
+      body: z.enum(CENTRAL_BODIES.map((b) => b.key) as [string, ...string[]]),
+      elements: orbitalElementsSchema,
+      // Editor nodes store unset attributes as null.
+      view: z.object({ yaw: z.number().finite(), pitch: z.number().finite().min(-90).max(90) }).nullish(),
     }),
   ])
   .superRefine((w, ctx) => {

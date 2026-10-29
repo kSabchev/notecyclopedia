@@ -1,4 +1,5 @@
 import type { CalculatorSpec } from './calculator'
+import type { WidgetAttrs } from './widget'
 
 export type Locale = 'en' | 'bg'
 export type CourseRole = 'owner' | 'editor' | 'viewer'
@@ -116,6 +117,8 @@ export interface AiMessage {
   content: string
   citations: AiCitation[]
   calculator: CalculatorSpec | null
+  /** Interactive blocks the AI showed in this answer, e.g. orbit diagrams. */
+  widgets: WidgetAttrs[]
   createdAt: string
 }
 
@@ -132,5 +135,6 @@ export type AiStreamEvent =
   | { type: 'citations'; citations: AiCitation[] }
   | { type: 'text'; text: string }
   | { type: 'calculator'; spec: CalculatorSpec }
+  | { type: 'widget'; widget: WidgetAttrs }
   | { type: 'error'; message: string }
   | { type: 'done'; messageId: string }

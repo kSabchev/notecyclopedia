@@ -66,11 +66,14 @@ export async function createMessage(
   return response
 }
 
-/** Stream a Claude response as text deltas, with the same budget check and logging as `createMessage`. */
+/**
+ * Stream a Claude response as text deltas, with the same budget check and logging as `createMessage`.
+ * Returns the final message, e.g. to run the tools it asks for.
+ */
 export async function* streamText(
   request: Anthropic.MessageCreateParamsNonStreaming,
   opts: ClaudeCallOptions,
-): AsyncGenerator<string> {
+): AsyncGenerator<string, Anthropic.Message> {
   const c = requireClient()
   await assertAiBudget(opts.userId)
   const logged = {
@@ -87,6 +90,7 @@ export async function* streamText(
     const response = await stream.finalMessage()
     completed = true
     await recordClaudeCall({ ...logged, model: response.model, status: 'succeeded', usage: response.usage })
+    return response
   } catch (error) {
     completed = true
     await recordClaudeCall({

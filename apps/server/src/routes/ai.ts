@@ -1,4 +1,4 @@
-import type { AiCitation, AiStreamEvent, CalculatorSpec } from '@nc/shared'
+import type { AiCitation, AiStreamEvent, CalculatorSpec, WidgetAttrs } from '@nc/shared'
 import { and, asc, desc, eq } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
@@ -138,16 +138,22 @@ ai.post('/chat', async (req, res) => {
 
   let answer = ''
   let calculator: CalculatorSpec | null = null
+  const widgets: WidgetAttrs[] = []
   try {
-    for await (const text of streamAnswer(
+    for await (const ev of streamAnswer(
       body.mode,
       [...previous, { role: 'user', content: body.message }],
       sources,
       user.id,
     )) {
       if (aborted) break
-      answer += text
-      send({ type: 'text', text })
+      if ('widget' in ev) {
+        widgets.push(ev.widget)
+        send({ type: 'widget', widget: ev.widget })
+      } else {
+        answer += ev.text
+        send({ type: 'text', text: ev.text })
+      }
     }
     if (!aborted && (body.mode === 'solve' || body.mode === 'calculator')) {
       try {
@@ -164,7 +170,7 @@ ai.post('/chat', async (req, res) => {
 
   const [msg] = await db
     .insert(schema.aiMessages)
-    .values({ threadId: thread.id, role: 'assistant', content: answer, citations, calculator })
+    .values({ threadId: thread.id, role: 'assistant', content: answer, citations, calculator, widgets })
     .returning({ id: schema.aiMessages.id })
   await db.update(schema.aiThreads).set({ updatedAt: new Date() }).where(eq(schema.aiThreads.id, thread.id))
   send({ type: 'done', messageId: msg?.id ?? '' })

@@ -1,6 +1,7 @@
 import {
   type CalculatorSpec,
   MAX_PLOT_SERIES,
+  ORBIT_PRESETS,
   type WidgetAttrs,
   defaultPlotRange,
   widgetAttrsSchema,
@@ -13,8 +14,17 @@ import { api } from '../../lib/api'
 import { Button, ErrorNote, Field, inputCls } from '../ui'
 
 const KEEP = ''
+const KINDS: WidgetAttrs['kind'][] = ['calculator', 'plot', 'orbit']
+const KIND_LABEL = {
+  calculator: 'widget.kindCalculator',
+  plot: 'widget.kindPlot',
+  orbit: 'widget.kindOrbit',
+} as const
 
-/** Choose a library calculator and how to show it. `initial` is the block being edited, if any. */
+/**
+ * Choose what a block shows: a library calculator (as a calculator or a plot) or an orbit diagram.
+ * `initial` is the block being edited, if any; orbit blocks are edited in place instead.
+ */
 export function WidgetDialog({
   initial,
   onSubmit,
@@ -28,7 +38,9 @@ export function WidgetDialog({
   const dialog = useRef<HTMLDialogElement>(null)
   // Always refetch: a calculator may have been created moments ago, e.g. in another tab.
   const calculators = useQuery({ queryKey: ['calculators'], queryFn: api.calculators.list, staleTime: 0 })
-  const [sourceId, setSourceId] = useState(initial ? KEEP : '')
+  const initialSpec = initial && initial.kind !== 'orbit' ? initial.spec : undefined
+  const [sourceId, setSourceId] = useState(initialSpec ? KEEP : '')
+  const [preset, setPreset] = useState(ORBIT_PRESETS[0]?.key ?? '')
   const [kind, setKind] = useState<WidgetAttrs['kind']>(initial?.kind ?? 'calculator')
   const initialPlot = initial?.kind === 'plot' ? initial.plot : undefined
   const [x, setX] = useState(initialPlot?.x ?? '')
@@ -43,11 +55,11 @@ export function WidgetDialog({
 
   // Without a block to edit, start from the first library calculator.
   useEffect(() => {
-    if (!initial && !sourceId && calculators.data?.[0]) setSourceId(calculators.data[0].id)
-  }, [initial, sourceId, calculators.data])
+    if (!initialSpec && !sourceId && calculators.data?.[0]) setSourceId(calculators.data[0].id)
+  }, [initialSpec, sourceId, calculators.data])
 
   const chosen = calculators.data?.find((c) => c.id === sourceId)
-  const spec: CalculatorSpec | undefined = sourceId === KEEP ? initial?.spec : chosen?.spec
+  const spec: CalculatorSpec | undefined = sourceId === KEEP ? initialSpec : chosen?.spec
 
   // Keep the plot settings valid for the chosen calculator.
   useEffect(() => {
@@ -66,12 +78,15 @@ export function WidgetDialog({
   }, [spec, x])
 
   const submit = () => {
-    if (!spec) return
-    const sourceCalculatorId = sourceId === KEEP ? (initial?.sourceCalculatorId ?? null) : sourceId
+    const sourceCalculatorId =
+      sourceId === KEEP && initial?.kind !== 'orbit' ? (initial?.sourceCalculatorId ?? null) : sourceId
+    const elements = ORBIT_PRESETS.find((p) => p.key === preset)?.elements
     const candidate =
-      kind === 'plot'
-        ? { kind, spec, sourceCalculatorId, plot: { x, y, from: Number(from), to: Number(to) } }
-        : { kind, spec, sourceCalculatorId }
+      kind === 'orbit'
+        ? { kind, body: 'earth', elements }
+        : kind === 'plot'
+          ? { kind, spec, sourceCalculatorId, plot: { x, y, from: Number(from), to: Number(to) } }
+          : { kind, spec, sourceCalculatorId }
     const parsed = widgetAttrsSchema.safeParse(candidate)
     if (!parsed.success) {
       setError(parsed.error.issues.map((i) => i.message).join('; '))
@@ -80,7 +95,9 @@ export function WidgetDialog({
     onSubmit(parsed.data)
   }
 
-  const noCalculators = !initial && !calculators.isFetching && calculators.data?.length === 0
+  const needsCalculator = kind !== 'orbit'
+  const noCalculators =
+    needsCalculator && !initialSpec && !calculators.isFetching && calculators.data?.length === 0
   // Rendered outside the editor so typing in the dialog never reaches the document underneath.
   return createPortal(
     <dialog
@@ -100,7 +117,37 @@ export function WidgetDialog({
         <h2 id="widget-dialog-title" className="m-0 text-lg font-bold">
           {initial ? t('widget.editTitle') : t('widget.insertTitle')}
         </h2>
-        {noCalculators ? (
+        <fieldset className="m-0 flex flex-wrap gap-x-4 border-0 p-0">
+          <legend className="mb-1.5 text-[13px] font-semibold text-muted">{t('widget.kind')}</legend>
+          {KINDS.filter((k) => !initial || (k === 'orbit') === (initial.kind === 'orbit')).map((k) => (
+            <label key={k} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium">
+              <input
+                type="radio"
+                name="widget-kind"
+                className="h-[18px] w-[18px] accent-accent"
+                checked={kind === k}
+                onChange={() => setKind(k)}
+              />
+              {t(KIND_LABEL[k])}
+            </label>
+          ))}
+        </fieldset>
+        {kind === 'orbit' ? (
+          <Field label={t('orbit.preset')} htmlFor="widget-preset">
+            <select
+              id="widget-preset"
+              className={inputCls}
+              value={preset}
+              onChange={(e) => setPreset(e.target.value)}
+            >
+              {ORBIT_PRESETS.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : noCalculators ? (
           <p className="m-0 text-muted">{t('widget.noCalculators')}</p>
         ) : (
           <>
@@ -111,8 +158,8 @@ export function WidgetDialog({
                 value={sourceId}
                 onChange={(e) => setSourceId(e.target.value)}
               >
-                {initial && (
-                  <option value={KEEP}>{t('widget.keepCurrent', { name: initial.spec.name })}</option>
+                {initialSpec && (
+                  <option value={KEEP}>{t('widget.keepCurrent', { name: initialSpec.name })}</option>
                 )}
                 {calculators.data?.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -121,24 +168,6 @@ export function WidgetDialog({
                 ))}
               </select>
             </Field>
-            <fieldset className="m-0 flex flex-wrap gap-4 border-0 p-0">
-              <legend className="mb-1.5 text-[13px] font-semibold text-muted">{t('widget.kind')}</legend>
-              {(['calculator', 'plot'] as const).map((k) => (
-                <label
-                  key={k}
-                  className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium"
-                >
-                  <input
-                    type="radio"
-                    name="widget-kind"
-                    className="h-[18px] w-[18px] accent-accent"
-                    checked={kind === k}
-                    onChange={() => setKind(k)}
-                  />
-                  {k === 'plot' ? t('widget.kindPlot') : t('widget.kindCalculator')}
-                </label>
-              ))}
-            </fieldset>
             {kind === 'plot' && spec && (
               <>
                 <Field label={t('widget.xAxis')} htmlFor="widget-x">
@@ -225,7 +254,7 @@ export function WidgetDialog({
             {t('widget.cancel')}
           </Button>
           {!noCalculators && (
-            <Button size="sm" variant="primary" type="submit" disabled={!spec}>
+            <Button size="sm" variant="primary" type="submit" disabled={needsCalculator && !spec}>
               {initial ? t('widget.save') : t('widget.insert')}
             </Button>
           )}

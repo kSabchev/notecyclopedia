@@ -2,10 +2,11 @@ import type { DocJSON, FileAsset } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { EditorContent, type JSONContent, useEditor } from '@tiptap/react'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { EditorToolbar } from '../components/EditorToolbar'
 import { FileDrop } from '../components/FileDrop'
+import { FilePreview, isTextPreviewable } from '../components/FilePreview'
 import { TrashIcon } from '../components/Icons'
 import { editorExtensions } from '../components/extensions'
 import { Empty, ErrorNote, Field, FileBadge, btn, inputCls } from '../components/ui'
@@ -131,6 +132,7 @@ export function Files() {
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const editable = courses.data?.filter((c) => c.role !== 'viewer') ?? []
   const [courseId, setCourseId] = useState<string>()
+  const [preview, setPreview] = useState<string | null>(null)
   const target = courseId ?? editable[0]?.id
   const files = useQuery({
     queryKey: ['files', 'all'],
@@ -186,73 +188,97 @@ export function Files() {
           <table className="w-full min-w-[640px] border-collapse text-sm">
             <tbody>
               {files.data.map((f) => (
-                <tr key={f.id} className="border-t border-line-soft first:border-0">
-                  <td className="w-16 py-3 pl-5">
-                    <FileBadge name={f.name} />
-                  </td>
-                  <td className="py-3 font-medium">
-                    <a href={api.files.url(f.id, true)} target="_blank" rel="noreferrer" className="text-ink">
-                      {f.name}
-                    </a>
-                    {f.error && <div className="text-xs text-danger">{f.error}</div>}
-                  </td>
-                  <td className="py-3 text-muted">{courseName(f.courseId)}</td>
-                  <td className="py-3 font-mono text-xs text-muted">{bytes(f.size)}</td>
-                  <td
-                    className={`py-3 text-xs font-semibold ${f.status === 'indexed' ? 'text-ok' : f.status === 'failed' ? 'text-danger' : 'text-muted'}`}
-                  >
-                    {t(`files.status.${f.status}`)}
-                  </td>
-                  <td className="py-3 text-muted">{timeAgo(f.createdAt)}</td>
-                  <td className="py-3 pr-3 text-right">
-                    {f.status === 'indexed' &&
-                      (f.name.toLowerCase().endsWith('.pdf') || f.mime === 'application/pdf') &&
-                      editable.some((course) => course.id === f.courseId) && (
+                <Fragment key={f.id}>
+                  <tr className="border-t border-line-soft first:border-0">
+                    <td className="w-16 py-3 pl-5">
+                      <FileBadge name={f.name} />
+                    </td>
+                    <td className="py-3 font-medium">
+                      <a
+                        href={api.files.url(f.id, true)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-ink"
+                      >
+                        {f.name}
+                      </a>
+                      {f.error && <div className="text-xs text-danger">{f.error}</div>}
+                    </td>
+                    <td className="py-3 text-muted">{courseName(f.courseId)}</td>
+                    <td className="py-3 font-mono text-xs text-muted">{bytes(f.size)}</td>
+                    <td
+                      className={`py-3 text-xs font-semibold ${f.status === 'indexed' ? 'text-ok' : f.status === 'failed' ? 'text-danger' : 'text-muted'}`}
+                    >
+                      {t(`files.status.${f.status}`)}
+                    </td>
+                    <td className="py-3 text-muted">{timeAgo(f.createdAt)}</td>
+                    <td className="py-3 pr-3 text-right">
+                      {f.status === 'indexed' &&
+                        (f.name.toLowerCase().endsWith('.pdf') || f.mime === 'application/pdf') &&
+                        editable.some((course) => course.id === f.courseId) && (
+                          <button
+                            type="button"
+                            disabled={createArticle.isPending}
+                            onClick={() => createArticle.mutate(f)}
+                            className={`${btn('secondary', 'sm')} mr-2`}
+                          >
+                            {createArticle.isPending && createArticle.variables?.id === f.id ? (
+                              <span role="status" className="inline-flex items-center gap-2">
+                                <svg
+                                  aria-hidden="true"
+                                  className="h-4 w-4 animate-spin"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="9"
+                                    stroke="currentColor"
+                                    strokeWidth="3"
+                                  />
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M12 3a9 9 0 0 0-9 9h3a6 6 0 0 1 6-6V3Z"
+                                  />
+                                </svg>
+                                {t('files.generatingArticle')}
+                              </span>
+                            ) : (
+                              t('files.createArticle')
+                            )}
+                          </button>
+                        )}
+                      {isTextPreviewable(f.name) && (
                         <button
                           type="button"
-                          disabled={createArticle.isPending}
-                          onClick={() => createArticle.mutate(f)}
-                          className={`${btn('secondary', 'sm')} mr-2`}
+                          aria-expanded={preview === f.id}
+                          onClick={() => setPreview(preview === f.id ? null : f.id)}
+                          className={`${btn('ghost', 'sm')} mr-1`}
                         >
-                          {createArticle.isPending && createArticle.variables?.id === f.id ? (
-                            <span role="status" className="inline-flex items-center gap-2">
-                              <svg
-                                aria-hidden="true"
-                                className="h-4 w-4 animate-spin"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="9"
-                                  stroke="currentColor"
-                                  strokeWidth="3"
-                                />
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M12 3a9 9 0 0 0-9 9h3a6 6 0 0 1 6-6V3Z"
-                                />
-                              </svg>
-                              {t('files.generatingArticle')}
-                            </span>
-                          ) : (
-                            t('files.createArticle')
-                          )}
+                          {preview === f.id ? t('files.hidePreview') : t('files.preview')}
                         </button>
                       )}
-                    <button
-                      type="button"
-                      aria-label={`${t('files.remove')} ${f.name}`}
-                      onClick={() => remove.mutate(f.id)}
-                      className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-muted hover:bg-line-soft"
-                    >
-                      <TrashIcon size={16} />
-                    </button>
-                  </td>
-                </tr>
+                      <button
+                        type="button"
+                        aria-label={`${t('files.remove')} ${f.name}`}
+                        onClick={() => remove.mutate(f.id)}
+                        className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-muted hover:bg-line-soft"
+                      >
+                        <TrashIcon size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                  {preview === f.id && (
+                    <tr>
+                      <td colSpan={7} className="px-5 pb-5">
+                        <FilePreview file={f} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

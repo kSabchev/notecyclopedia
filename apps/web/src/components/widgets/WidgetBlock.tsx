@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../../lib/api'
 import { CalculatorRunner } from '../CalculatorRunner'
 import { Button, ErrorNote } from '../ui'
+import { OrbitView } from './OrbitView'
 import { PlotChart, type PlotSeries } from './PlotChart'
 import { WidgetDialog } from './WidgetDialog'
 
@@ -120,7 +121,10 @@ function PlotWidget({ spec, plot }: { spec: CalculatorSpec; plot: PlotConfig }) 
   )
 }
 
-/** An embedded calculator or plot. Editors can change its settings or pull in the library version. */
+/**
+ * An embedded calculator, plot or orbit diagram. Editors can change a calculator block's settings or pull
+ * in the library version; an orbit block is adjusted in place and saved from there.
+ */
 export default function WidgetBlock({
   attrs,
   editable,
@@ -138,10 +142,13 @@ export default function WidgetBlock({
   const parsed = useMemo(() => widgetAttrsSchema.safeParse(attrs), [attrs])
   const widget = parsed.success ? parsed.data : null
 
+  const sourceCalculatorId = widget && widget.kind !== 'orbit' ? widget.sourceCalculatorId : null
+  const title = widget?.kind === 'orbit' ? t('widget.orbit') : (widget?.spec.name ?? t('widget.calculator'))
+
   const updateFromLibrary = async () => {
-    if (!widget?.sourceCalculatorId) return
+    if (!widget || widget.kind === 'orbit' || !sourceCalculatorId) return
     try {
-      const latest = await api.calculators.get(widget.sourceCalculatorId)
+      const latest = await api.calculators.get(sourceCalculatorId)
       const next = widgetAttrsSchema.safeParse({ ...widget, spec: latest.spec })
       if (!next.success) throw new Error(next.error.issues.map((i) => i.message).join('; '))
       onChange(next.data)
@@ -154,17 +161,19 @@ export default function WidgetBlock({
   return (
     <div className="overflow-hidden rounded-[12px] border border-line bg-surface font-sans">
       <div className="flex flex-wrap items-center gap-2 border-b border-line-soft bg-surface-2 px-5 py-3">
-        <span className="min-w-0 flex-1 font-semibold">{widget?.spec.name ?? t('widget.calculator')}</span>
+        <span className="min-w-0 flex-1 font-semibold">{title}</span>
         {editable && (
           <>
-            {widget?.sourceCalculatorId && (
+            {sourceCalculatorId && (
               <Button size="sm" variant="ghost" onClick={updateFromLibrary}>
                 {t('widget.updateFromLibrary')}
               </Button>
             )}
-            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-              {t('widget.settings')}
-            </Button>
+            {widget?.kind !== 'orbit' && (
+              <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+                {t('widget.settings')}
+              </Button>
+            )}
             <Button size="sm" variant="danger" onClick={onDelete}>
               {t('widget.remove')}
             </Button>
@@ -191,6 +200,14 @@ export default function WidgetBlock({
         </div>
       )}
       {widget?.kind === 'plot' && <PlotWidget spec={widget.spec} plot={widget.plot} />}
+      {widget?.kind === 'orbit' && (
+        <OrbitView
+          body={widget.body}
+          elements={widget.elements}
+          view={widget.view ?? undefined}
+          onSave={editable ? (saved) => onChange({ kind: 'orbit', ...saved }) : undefined}
+        />
+      )}
       {editing && (
         <WidgetDialog
           initial={widget ?? undefined}

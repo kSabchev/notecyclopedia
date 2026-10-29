@@ -11,6 +11,7 @@ import {
   CloseIcon,
   HomeIcon,
   MenuIcon,
+  OrbitIcon,
   PlusIcon,
   SearchIcon,
   SigmaIcon,
@@ -189,6 +190,10 @@ export function Layout() {
           <Link to="/calculators" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <CalcIcon />
             {t('nav.calculators')}
+          </Link>
+          <Link to="/orbit" className={navCls} onClick={() => setMobileNavOpen(false)}>
+            <OrbitIcon />
+            {t('nav.orbit')}
           </Link>
           <Link to="/ai" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <SparkIcon />
