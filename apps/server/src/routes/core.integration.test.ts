@@ -28,6 +28,8 @@ test(
     process.env.BETTER_AUTH_URL = 'http://localhost:5173'
     process.env.WEB_ORIGIN = 'http://localhost:5173'
     process.env.UPLOAD_DIR = uploadDir
+    // Never call Claude from tests, even when a key is set in the shell.
+    process.env.ANTHROPIC_API_KEY = ''
 
     const [{ migrate }, { pool, db, schema }, { createApp }, jobs] = await Promise.all([
       import('drizzle-orm/node-postgres/migrator'),
@@ -499,6 +501,49 @@ test(
     assert.ok(entry('[Content_Types].xml') && entry('xl/workbook.xml') && entry('xl/worksheets/sheet2.xml'))
     const sheet = (await entry('xl/worksheets/sheet1.xml')?.buffer())?.toString('utf8') ?? ''
     assert.match(sheet, /<f>SQRT\(\(\$B\$5\/\$B\$4\)\)<\/f><v>7\.54/)
+
+    // The chat tools find course calculators by keyword, only for course members, and run them.
+    const { calculatorLibrary } = await import('../services/calculator-library')
+    const { runChatTool } = await import('../services/claude')
+    const outsider = await signup('outsider')
+    state.extraUserIds.push(outsider.id)
+    const viewerLibrary = calculatorLibrary(viewer.id)
+    const found = await viewerLibrary.find('circular speed')
+    assert.deepEqual(
+      found.map((c) => c.id),
+      [calculator.id],
+    )
+    assert.deepEqual(await calculatorLibrary(outsider.id).find('circular speed'), [])
+    assert.equal(await calculatorLibrary(outsider.id).get(calculator.id), null)
+    const run = await runChatTool(
+      'run_calculator',
+      { calculatorId: calculator.id, inputs: [{ key: 'r', value: 42164 }] },
+      viewerLibrary,
+    )
+    assert.match(
+      run.content,
+      /v = sqrt\(mu \/ r\) = sqrt\(\(398600 km3\/s2\) \/ \(42164 km\)\) = 3\.075 km\/s/,
+    )
+    assert.equal(run.widget?.kind, 'calculator')
+
+    // A chat message needs text or a photo, and photos must be base64 images.
+    const chat = (body: unknown) => request(viewer, '/ai/chat', { method: 'POST', body: json(body) })
+    assert.equal((await chat({ mode: 'tutor', message: '' })).status, 400)
+    assert.equal(
+      (
+        await chat({
+          mode: 'check',
+          message: '',
+          attachments: [{ mediaType: 'image/jpeg', data: 'not base64!' }],
+        })
+      ).status,
+      400,
+    )
+    assert.equal(
+      (await chat({ mode: 'check', message: 'Is this right?' })).status,
+      503,
+      'No API key in tests',
+    )
 
     const backup = await request(owner, '/backup/export')
     assert.equal(backup.status, 200)

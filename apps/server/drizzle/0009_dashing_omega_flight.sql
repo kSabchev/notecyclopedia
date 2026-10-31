@@ -1,0 +1,2 @@
+ALTER TABLE "ai_messages" ADD COLUMN "calculators" jsonb DEFAULT '[]'::jsonb NOT NULL;--> statement-breakpoint
+UPDATE "ai_messages" SET "calculators" = jsonb_build_array("calculator") WHERE "calculator" IS NOT NULL;

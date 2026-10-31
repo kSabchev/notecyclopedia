@@ -1,4 +1,4 @@
-import type { AiMode } from '@nc/shared'
+import { AI_MODES, type AiMode } from '@nc/shared'
 import {
   Outlet,
   createRootRoute,
@@ -36,7 +36,6 @@ const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: '/login'
 const appRoute = createRoute({ getParentRoute: () => rootRoute, id: 'app', component: Layout })
 
 const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined)
-const MODES: AiMode[] = ['ask', 'summarize', 'solve', 'calculator']
 
 const routes = [
   createRoute({ getParentRoute: () => appRoute, path: '/', component: Home }),
@@ -64,7 +63,7 @@ const routes = [
     path: '/ai',
     component: AiPortal,
     validateSearch: (s: Record<string, unknown>): AiSearch => ({
-      mode: MODES.includes(s.mode as AiMode) ? (s.mode as AiMode) : undefined,
+      mode: AI_MODES.includes(s.mode as AiMode) ? (s.mode as AiMode) : undefined,
       q: str(s.q),
       pageId: str(s.pageId),
       thread: str(s.thread),

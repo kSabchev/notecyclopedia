@@ -159,6 +159,227 @@ export function formatValue(n: number, precision = 3): string {
   return Number(n.toFixed(precision)).toString()
 }
 
+// ---------- automatic checks ----------
+
+/** A problem found without AI: a formula that fails, an unused value, or units that do not add up. */
+export type CalculatorIssue =
+  | { type: 'evaluation'; key?: string; message: string }
+  | { type: 'unused'; key: string; label: string }
+  | {
+      type: 'units'
+      key: string
+      label: string
+      /** The output's unit as written; null when it has none. */
+      expected: string | null
+      /** What the formula gives, in SI units; null when it adds quantities of different kinds. */
+      actual: string | null
+    }
+
+const SUPERSCRIPT: Record<string, string> = {
+  '⁰': '0',
+  '¹': '1',
+  '²': '2',
+  '³': '3',
+  '⁴': '4',
+  '⁵': '5',
+  '⁶': '6',
+  '⁷': '7',
+  '⁸': '8',
+  '⁹': '9',
+  '⁻': '-',
+}
+
+/** math.js dimension index of angles; degrees and radians are treated as plain numbers. */
+const ANGLE = 7
+
+/**
+ * A unit as math.js reads it, accepting common spellings: `km³/s²`, `km3/s2`, `m·s⁻¹`, `°`.
+ * Undefined when there is no unit (a plain number), null when math.js does not know it (e.g. `AU`, `%`).
+ */
+export function parseUnit(text: string | undefined): math.Unit | null | undefined {
+  if (!text?.trim()) return undefined
+  const normalised = text
+    .trim()
+    .replace(/°/g, 'deg')
+    .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+/g, (m) => `^${[...m].map((c) => SUPERSCRIPT[c]).join('')}`)
+    .replace(/[·⋅]/g, ' ')
+    .replace(/([A-Za-zµμ])(\d+)/g, '$1^$2')
+  try {
+    return math.unit(1, normalised)
+  } catch {
+    return null
+  }
+}
+
+const dimensionless = (u: math.Unit) => u.dimensions.every((d, i) => i === ANGLE || Math.abs(d) < 1e-9)
+const sameDimensions = (a: number[], b: number[]) =>
+  a.every((d, i) => i === ANGLE || Math.abs(d - (b[i] ?? 0)) < 1e-9)
+const NO_DIMENSIONS = Array<number>(9).fill(0)
+
+/** The symbols a formula uses. */
+function symbolsOf(expr: string): string[] {
+  return limitedParse(expr)
+    .filter((n: MathNode) => n.type === 'SymbolNode')
+    .map((n: MathNode) => (n as MathNode & { name: string }).name)
+}
+
+/**
+ * Checks that need no AI: every formula evaluates with the default values, every input and constant is used,
+ * and each formula's units give the unit of its output. Inputs without a unit count as plain numbers, so a
+ * physical constant written into a formula as a number shows up as a unit mismatch; formulas using a constant
+ * without a stated unit, or a unit math.js does not know, are not unit-checked.
+ */
+export function checkCalculator(spec: CalculatorSpec): CalculatorIssue[] {
+  const issues: CalculatorIssue[] = []
+  const run = evaluateCalculator(spec, defaultInputs(spec))
+  if (!run.ok) issues.push({ type: 'evaluation', key: run.key, message: run.error })
+
+  const used = new Set(spec.outputs.flatMap((o) => symbolsOf(o.expr)))
+  for (const input of spec.inputs)
+    if (!used.has(input.key)) issues.push({ type: 'unused', key: input.key, label: input.label })
+  for (const key of Object.keys(spec.constants ?? {}))
+    if (!used.has(key)) issues.push({ type: 'unused', key, label: spec.constantMetadata?.[key]?.name ?? key })
+
+  // Units: evaluate again with every value carrying its unit. Values with an unknown unit, and everything
+  // computed from them, are skipped rather than guessed.
+  const scope = new Map<string, unknown>()
+  const unknown = new Set<string>()
+  const withUnit = (key: string, value: number, unitText: string | undefined) => {
+    const unit = parseUnit(unitText)
+    if (unit === null) unknown.add(key)
+    else scope.set(key, unit === undefined || dimensionless(unit) ? value : math.multiply(value, unit))
+  }
+  // A constant without a stated unit (AI-made calculators often have none) is unknown, not a plain number.
+  for (const [key, value] of Object.entries(spec.constants ?? {})) {
+    const unit = spec.constantMetadata?.[key]?.unit
+    if (unit) withUnit(key, value, unit)
+    else unknown.add(key)
+  }
+  const defaults = defaultInputs(spec)
+  for (const input of spec.inputs) withUnit(input.key, defaults[input.key] ?? 1, input.unit)
+
+  for (const out of spec.outputs) {
+    const declared = parseUnit(out.unit)
+    if (declared === null || symbolsOf(out.expr).some((s) => unknown.has(s))) {
+      unknown.add(out.key)
+      continue
+    }
+    let value: unknown
+    try {
+      value = limitedEvaluate(out.expr, scope)
+    } catch (e) {
+      // Adding or comparing quantities of different kinds; other failures are not about units.
+      if (/Units do not match/i.test((e as Error).message))
+        issues.push({
+          type: 'units',
+          key: out.key,
+          label: out.label,
+          expected: out.unit ?? null,
+          actual: null,
+        })
+      unknown.add(out.key)
+      continue
+    }
+    const isUnit = math.isUnit(value)
+    if (!isUnit && typeof value !== 'number') {
+      unknown.add(out.key)
+      continue
+    }
+    const actual = isUnit ? (value as math.Unit).dimensions : NO_DIMENSIONS
+    const expected = declared === undefined ? NO_DIMENSIONS : declared.dimensions
+    if (!sameDimensions(actual, expected))
+      issues.push({
+        type: 'units',
+        key: out.key,
+        label: out.label,
+        expected: out.unit ?? null,
+        actual:
+          isUnit && !dimensionless(value as math.Unit) ? (value as math.Unit).toSI().formatUnits() : '1',
+      })
+    scope.set(out.key, value)
+  }
+  return issues
+}
+
+// ---------- comparing versions ----------
+
+/** One difference between two versions of a calculator, for showing proposed corrections. */
+export interface SpecChange {
+  area: 'calculator' | 'input' | 'output' | 'constant'
+  /** The input, output or constant key; the field name for the calculator itself. */
+  key: string
+  /** The changed field, or 'added' / 'removed'. */
+  field: string
+  before: string | null
+  after: string | null
+}
+
+const shown = (v: unknown) => (v === undefined || v === null || v === '' ? null : String(v))
+
+/** What changed between two versions: added and removed items, and every changed field, in spec order. */
+export function diffSpecs(before: CalculatorSpec, after: CalculatorSpec): SpecChange[] {
+  const changes: SpecChange[] = []
+  for (const field of ['name', 'description', 'theory'] as const)
+    if (shown(before[field]) !== shown(after[field]))
+      changes.push({
+        area: 'calculator',
+        key: field,
+        field,
+        before: shown(before[field]),
+        after: shown(after[field]),
+      })
+
+  const compare = <T extends { key: string }>(
+    area: 'input' | 'output',
+    a: T[],
+    b: T[],
+    fields: (keyof T & string)[],
+    summary: (item: T) => string,
+  ) => {
+    for (const item of a)
+      if (!b.some((x) => x.key === item.key))
+        changes.push({ area, key: item.key, field: 'removed', before: summary(item), after: null })
+    for (const item of b) {
+      const old = a.find((x) => x.key === item.key)
+      if (!old) {
+        changes.push({ area, key: item.key, field: 'added', before: null, after: summary(item) })
+        continue
+      }
+      for (const field of fields)
+        if (shown(old[field]) !== shown(item[field]))
+          changes.push({ area, key: item.key, field, before: shown(old[field]), after: shown(item[field]) })
+    }
+  }
+  compare('input', before.inputs, after.inputs, ['label', 'unit', 'default', 'min', 'max', 'step'], (i) =>
+    [i.label, i.unit && `[${i.unit}]`, i.default !== undefined && `= ${i.default}`].filter(Boolean).join(' '),
+  )
+  compare(
+    'output',
+    before.outputs,
+    after.outputs,
+    ['label', 'unit', 'expr', 'precision', 'explanation'],
+    (o) => `${o.key} = ${o.expr}${o.unit ? ` [${o.unit}]` : ''}`,
+  )
+  const constantsBefore = before.constants ?? {}
+  const constantsAfter = after.constants ?? {}
+  for (const key of new Set([...Object.keys(constantsBefore), ...Object.keys(constantsAfter)]))
+    if (constantsBefore[key] !== constantsAfter[key])
+      changes.push({
+        area: 'constant',
+        key,
+        field: key in constantsAfter ? (key in constantsBefore ? 'value' : 'added') : 'removed',
+        before: shown(constantsBefore[key]),
+        after: shown(constantsAfter[key]),
+      })
+  for (const key of Object.keys(constantsAfter)) {
+    const unitBefore = shown(before.constantMetadata?.[key]?.unit)
+    const unitAfter = shown(after.constantMetadata?.[key]?.unit)
+    if (key in constantsBefore && unitBefore !== unitAfter)
+      changes.push({ area: 'constant', key, field: 'unit', before: unitBefore, after: unitAfter })
+  }
+  return changes
+}
+
 // ---------- step-by-step solution ----------
 
 /** A piece of a formula with values filled in: text, or the value of a key (`deg`: an angle given in degrees). */
