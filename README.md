@@ -226,8 +226,13 @@ output formula identified rather than failing only when someone exports it.
 
 ## Roadmap
 
-The phases build on each other: stable formula IDs and a general widget block are the foundation for
-interactive diagrams, quizzes and daily study content.
+Notecyclopedia is first a personal study assistant and tutor; sharing it with classmates comes later.
+The plan follows four rules:
+
+- **Help on request.** Nothing calls Claude in the background or on a schedule, so API credits go only where you ask.
+- **Tutor before solver.** Explanations and hints come first; the full solution is one click away, never hidden.
+- **Compute, don't guess.** Numbers come from your calculators and the orbit code, not from the model.
+- **Keep what you paid for.** Any answer can be saved into a page, so the same explanation is never generated twice.
 
 ### Phase 0: Foundations
 
@@ -245,6 +250,8 @@ interactive diagrams, quizzes and daily study content.
 - [x] `calculator` widget: embed a saved calculator inside a page.
 - [x] `plot` widget: sweep one calculator input and plot up to four outputs (SVG), one chart per unit.
 - [x] Image blocks.
+- [x] Calculator theory and step-by-step solutions (in the app and the HTML export), and an `.xlsx` export with live
+      Excel formulas.
 
 ### Phase 2: Orbit diagram (Kepler elements)
 
@@ -258,24 +265,70 @@ interactive diagrams, quizzes and daily study content.
       Cartesian state.
 - [x] AI `show_orbit` tool ("show me a Molniya orbit").
 
-### Phase 3: Quizzes and spaced repetition
+### Phase 3: Tutor in the AI portal
 
-- [ ] Question bank per page (multiple choice, true/false, formula recall), generated in the background after saves
-      and marked stale when the page changes; editors can review and edit items.
-- [ ] Numeric questions generated from calculators with randomized inputs and exact answers (no AI call).
-- [ ] FSRS scheduling; a daily quiz of due items plus a few new ones from the latest lectures.
+- [ ] Tutor mode: explains from your notes, asks what you have tried, and gives the next hint; the full worked
+      solution is always one click away ("Show full solution"). Solve mode stays for when you just need the answer.
+- [ ] Check my working: paste or photograph a handwritten solution; Claude finds the first mistake and explains it
+      instead of redoing the whole problem.
+- [ ] `run_calculator` tool: the tutor gets numbers from your saved calculators (with their step-by-step solution)
+      instead of doing arithmetic itself, alongside `show_orbit`.
+- [ ] A model per feature (e.g. Haiku for quick explanations, Sonnet for checking work), and the token cost of each
+      answer shown in the thread.
 
-### Phase 4: Daily topic and "Today"
+### Phase 4: Daily question
 
-- [ ] One daily topic per user, chosen by lecture recency, weak quiz results and novelty; expanded by Claude,
-      grounded in the notes, with content beyond the notes labeled. Generated lazily on first visit of the day.
-- [ ] Check questions from the daily topic feed the quiz bank; "Save as note" goes through the review flow.
-- [ ] "Today" on the home page: daily topic, due quiz count, streak.
+- [ ] "Today's question" card on the home page: generated when you press Generate (at most once a day, then stored),
+      from one of your course pages chosen by lecture recency and skipping recently used topics; optionally pinned to
+      one course. Grounded in the notes, with anything beyond them labeled.
+- [ ] Show answer, or "Check my answer" with the Phase 3 checker; answering is never required.
+- [ ] Expand it, each on request and stored:
+  - **Story**: the idea told through a real mission, discovery or engineering problem.
+  - **Advanced**: a harder follow-up that builds on the same topic.
+  - **Your own question**: ask anything about the topic; it opens a tutor thread with the question as context.
+- [ ] Past questions in a small archive; any question or expansion can be saved to its page.
 
-### Phase 5: Delivery and polish
+### Phase 5: Realistic orbit simulations
 
-- [ ] Storage interface for uploads (local disk / R2) and deployment config (e.g. Railway/Fly + managed Postgres).
-- [ ] Static read-only page renderer, so viewing a page does not load the editor. (The calculator engine already
-      loads only on screens that compute something.)
+- [ ] Velocity arrow scaled to the actual speed (today it has a fixed length), with v at periapsis and apoapsis
+      marked on the orbit and a live speed readout while it plays.
+- [ ] vₚ, vₐ, escape speed and circular speed at the current radius in the derived values.
+- [ ] Simulated clock with time warp (×1 … ×10 000) and elapsed time, instead of every orbit taking 12 seconds,
+      so a LEO and a GEO orbit play at their true relative speeds.
+- [ ] J2 perturbation (toggle): nodal regression and apsidal precession, so the Sun-synchronous and 63.4° Molniya/Tundra
+      presets show why they work.
+- [ ] Ground track on a world map with Earth's rotation.
+- [ ] Stretch: Hohmann transfer between two orbits with Δv for each burn.
+
+### Phase 6: Help where you read
+
+- [ ] Select text or a formula on a page → Explain / Why does this hold? / Show an example, answered in a side
+      panel with the page as context.
+- [ ] "Save to page" for any tutor answer, through the review-and-polish draft flow, so an explanation is paid for once.
+- [ ] Formula cards (no AI): where else a formula appears and which calculators use it, from the formula index.
 - [ ] Backlinks between pages.
+
+### Phase 7: Performance and reliability
+
+- [ ] Profile the slow paths (page view, save, search, AI time to first token, orbit/plot interaction) and record
+      a baseline.
+- [ ] Read-only page view that does not load the editor (about 130 kB gzip less per page view).
+- [ ] Fix what the profile shows.
 - [ ] Verify PDF-to-article generation against the PDF that previously failed; add a regression fixture if reproducible.
+
+### Phase 8: Study companion
+
+- [ ] "Where was I" on the home page: recently viewed pages, open tutor threads, and topics you asked about
+      (tagged in the same AI call, no extra request).
+- [ ] Exam prep: from an exam date, propose a revision plan over the course's pages in one call; saved and editable.
+- [ ] Quick check on request: after an explanation, offer 2–3 questions only when you ask. No schedule, no streaks.
+
+### Later: sharing
+
+- [ ] Deployment (e.g. Railway/Fly + managed Postgres) and a storage interface for uploads (local disk / R2).
+- [ ] Password reset, email verification, rate limits and account deletion.
+
+### Dropped
+
+- Question banks generated after every save, FSRS scheduling and a scheduled daily quiz: they turn the tool into
+  homework and spend credits in the background. The daily question (Phase 4) is generated only when you ask.
