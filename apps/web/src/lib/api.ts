@@ -1,8 +1,10 @@
 import type {
+  AiAttachment,
   AiMessage,
   AiStreamEvent,
   AiThread,
   Calculator,
+  CalculatorReview,
   CalculatorSpec,
   Course,
   CourseConstant,
@@ -198,7 +200,14 @@ export const api = {
     reviewPage: (id: string) => request<PageReview>('POST', `/ai/pages/${id}/review`),
     threads: () => get<AiThread[]>('/ai/threads'),
     thread: (id: string) => get<{ thread: AiThread; messages: AiMessage[] }>(`/ai/threads/${id}`),
-    calculator: (context: string) => request<CalculatorSpec>('POST', '/ai/calculator', { context }),
+    /** Calculators from a description or a solved problem; with `messageId` they are stored with that answer. */
+    /** Claude's check of a saved calculator, with a proposed correction; nothing is saved. */
+    reviewCalculator: (id: string) => request<CalculatorReview>('POST', `/ai/calculators/${id}/review`),
+    calculator: (context: string, messageId?: string) =>
+      request<{ calculators: CalculatorSpec[]; failed: string[] }>('POST', '/ai/calculator', {
+        context,
+        messageId,
+      }),
   },
   admin: {
     access: () => get<{ isAdmin: boolean }>('/admin/access'),
@@ -209,7 +218,14 @@ export const api = {
 
 /** POST /api/ai/chat and yield server-sent events as they arrive. */
 export async function* streamChat(
-  body: { threadId?: string; mode: string; message: string; courseIds?: string[]; pageIds?: string[] },
+  body: {
+    threadId?: string
+    mode: string
+    message: string
+    attachments?: AiAttachment[]
+    courseIds?: string[]
+    pageIds?: string[]
+  },
   signal?: AbortSignal,
 ): AsyncGenerator<AiStreamEvent> {
   const res = await fetch('/api/ai/chat', {

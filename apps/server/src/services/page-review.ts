@@ -1,8 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
-import { env } from '../env'
 import { HttpError } from '../http'
-import { createMessage } from './claude-client'
+import { createMessage, modelFor } from './claude-client'
 
 interface ReviewNode {
   type: string
@@ -187,7 +186,7 @@ export function parsePageReviewResponse(response: {
 
 export async function generatePageReview(title: string, content: unknown, userId: string) {
   const request: Anthropic.MessageCreateParamsNonStreaming = {
-    model: env.anthropicModel,
+    model: modelFor('page-review'),
     max_tokens: 8192,
     tools: [reviewPageTool],
     tool_choice: { type: 'auto' },

@@ -12,7 +12,7 @@ type ClaudePricing = {
 function claudePricing(): Record<string, ClaudePricing> {
   const raw =
     process.env.ANTHROPIC_PRICING_JSON ??
-    '{"claude-sonnet-5-5":{"input":2,"output":10,"cacheRead":0.1,"cacheWrite5m":2.5,"cacheWrite1h":4}}'
+    '{"claude-sonnet-5-5":{"input":2,"output":10,"cacheRead":0.2,"cacheWrite5m":2.5,"cacheWrite1h":4},"claude-haiku-5-5":{"input":0.1,"output":0.5,"cacheRead":0.01,"cacheWrite5m":0.125,"cacheWrite1h":0.2},"claude-opus-5-5":{"input":4,"output":20,"cacheRead":0.2,"cacheWrite5m":5,"cacheWrite1h":8}}'
   return z
     .record(
       z.string().min(1),
@@ -25,6 +25,17 @@ function claudePricing(): Record<string, ClaudePricing> {
       }),
     )
     .parse(JSON.parse(raw))
+}
+
+/**
+ * Model overrides per AI feature, e.g. {"tutor":"claude-haiku-5-5"}. Features are the AI portal modes
+ * (ask, tutor, check, summarize, solve, calculator) and calculator-spec, calculator-review, article-draft,
+ * page-review, image.
+ */
+function claudeModels(): Record<string, string> {
+  return z
+    .record(z.string().min(1), z.string().min(1))
+    .parse(JSON.parse(process.env.ANTHROPIC_MODELS_JSON || '{}'))
 }
 
 function req(name: string, fallback?: string): string {
@@ -45,6 +56,7 @@ export const env = {
   uploadDir: path.resolve(process.env.UPLOAD_DIR ?? './uploads'),
   anthropicKey: process.env.ANTHROPIC_API_KEY || null,
   anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5',
+  anthropicModels: claudeModels(),
   anthropicPricing: claudePricing(),
   adminEmails: new Set(
     (process.env.ADMIN_EMAILS ?? '')

@@ -70,3 +70,82 @@ test('a calculator shows its theory and steps, and exports to HTML and Excel', a
   expect(page2).toContain('<h2>Step-by-step solution</h2>')
   expect(page2).toContain('Air drag is ignored.')
 })
+
+// Claude is not called in tests: the review is answered here; the checks, editor and saving are real.
+test('a calculator is checked automatically, and an AI correction is edited and saved', async ({
+  page,
+}, testInfo) => {
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await page.getByLabel('Name').fill('Calculator check user')
+  await page.getByLabel('Email').fill(`calc-check-${crypto.randomUUID()}@example.test`)
+  await page.getByLabel('Password').fill('browser-test-password')
+  await page.getByRole('button', { name: 'Create account', exact: true }).last().click()
+  await expect(page).toHaveURL('/')
+
+  const spec = {
+    version: 1,
+    name: 'Circular orbit',
+    inputs: [
+      { key: 'r', label: 'Radius', unit: 'km', default: 7000 },
+      { key: 'mu', label: 'Gravitational parameter', unit: 'km³/s²', default: 398600 },
+    ],
+    outputs: [{ key: 'v', label: 'Speed', unit: 'km/s', expr: 'mu / r^2' }],
+  }
+  const created = await page.request.post('/api/calculators', { data: { spec } })
+  const { id } = (await created.json()) as { id: string }
+
+  await page.goto(`/calculators/${id}`)
+  const checks = page.getByRole('region', { name: 'Automatic checks' })
+  await expect(checks.getByText('Speed: the formula gives m / s^2, but the unit is km/s.')).toBeVisible()
+
+  await page.route(`**/api/ai/calculators/${id}/review`, (route) =>
+    route.fulfill({
+      json: {
+        findings: [
+          { severity: 'error', key: 'v', message: 'This is the gravitational acceleration, not the speed.' },
+        ],
+        revised: {
+          ...spec,
+          outputs: [
+            {
+              key: 'v',
+              label: 'Speed',
+              unit: 'km/s',
+              expr: 'sqrt(mu / r)',
+              explanation: 'Gravity provides the centripetal force.',
+            },
+          ],
+        },
+        revisedChecks: [],
+        usage: null,
+      },
+    }),
+  )
+  await page.getByRole('button', { name: 'Check formulas with AI' }).click()
+  const review = page.getByRole('region', { name: 'AI check' })
+  await expect(review.getByText('This is the gravitational acceleration, not the speed.')).toBeVisible()
+  // Each change shows what it was and what it becomes.
+  await expect(review.getByRole('listitem').filter({ hasText: 'formula' })).toHaveText(
+    /formula\s*mu \/ r\^2\s*sqrt\(mu \/ r\)$/,
+  )
+  await expect(review.getByRole('listitem').filter({ hasText: 'explanation' })).toContainText(
+    'Gravity provides the centripetal force.',
+  )
+
+  await page.screenshot({ path: testInfo.outputPath('calculator-review.png'), fullPage: true })
+  await review.getByRole('button', { name: 'Edit with these changes' }).click()
+  await expect(page.getByText('The proposed changes are in the editor.', { exact: false })).toBeVisible()
+  await expect(checks).toHaveCount(0)
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Edit', exact: true })).toBeVisible()
+
+  const saved = (await (await page.request.get(`/api/calculators/${id}`)).json()) as {
+    spec: { outputs: { expr: string; explanation?: string }[] }
+  }
+  expect(saved.spec.outputs[0]).toMatchObject({
+    expr: 'sqrt(mu / r)',
+    explanation: 'Gravity provides the centripetal force.',
+  })
+  await expect(page.getByRole('region', { name: 'Automatic checks' })).toHaveCount(0)
+})

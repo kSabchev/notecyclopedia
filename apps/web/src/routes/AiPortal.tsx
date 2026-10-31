@@ -1,4 +1,4 @@
-import type { AiCitation, AiMode, CalculatorSpec, WidgetAttrs } from '@nc/shared'
+import type { AiAttachment, AiCitation, AiMode, AiUsage, CalculatorSpec, WidgetAttrs } from '@nc/shared'
 import { exportJSON } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
@@ -10,6 +10,7 @@ import { Markdown } from '../components/Markdown'
 import { ErrorNote, btn } from '../components/ui'
 import { OrbitView } from '../components/widgets/OrbitView'
 import { api, streamChat } from '../lib/api'
+import { attachmentUrl, photoAttachment } from '../lib/image'
 import { MODES } from './Home'
 
 interface Msg {
@@ -17,9 +18,17 @@ interface Msg {
   role: 'user' | 'assistant'
   content: string
   citations: AiCitation[]
-  calculator: CalculatorSpec | null
+  calculators: CalculatorSpec[]
   widgets: WidgetAttrs[]
+  attachments: AiAttachment[]
+  usage: AiUsage | null
 }
+
+/** Photos per message; the server accepts at most this many. */
+const MAX_PHOTOS = 3
+
+/** Modes that answer step by step, where a hint or the full solution is one click away. */
+const GUIDED: AiMode[] = ['tutor', 'check']
 
 export interface AiSearch {
   mode?: AiMode
@@ -45,6 +54,42 @@ function ShownOrbit({ widget }: { widget: Extract<WidgetAttrs, { kind: 'orbit' }
       </div>
       <OrbitView body={widget.body} elements={widget.elements} view={widget.view ?? undefined} />
     </section>
+  )
+}
+
+/** A saved calculator the AI ran for its answer, with the values it used and the step-by-step working. */
+function ShownCalculator({ widget }: { widget: Extract<WidgetAttrs, { kind: 'calculator' }> }) {
+  const { t } = useTranslation()
+  return (
+    <section className="overflow-hidden rounded-[14px] border border-line bg-surface">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line-soft bg-surface-2 px-5 py-3">
+        <span className="flex-1 font-semibold">{t('ai.calculatorRun', { name: widget.spec.name })}</span>
+        {widget.sourceCalculatorId && (
+          <Link
+            to="/calculators/$calcId"
+            params={{ calcId: widget.sourceCalculatorId }}
+            className={btn('secondary', 'sm')}
+          >
+            {t('ai.openCalculator')}
+          </Link>
+        )}
+      </div>
+      <CalculatorRunner spec={widget.spec} />
+    </section>
+  )
+}
+
+/** Tokens and estimated cost of an answer. */
+function UsageLine({ usage }: { usage: AiUsage }) {
+  const { t, i18n } = useTranslation()
+  const n = (x: number) => x.toLocaleString(i18n.language)
+  const input = usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens
+  const cost = usage.costUsd === null ? null : `$${usage.costUsd.toFixed(usage.costUsd < 0.01 ? 4 : 3)}`
+  return (
+    <p className="m-0 text-xs text-muted">
+      {t('ai.usage', { input: n(input), cached: n(usage.cacheReadTokens), output: n(usage.outputTokens) })}
+      {cost && ` · ≈ ${cost}`} · {usage.models.join(', ')}
+    </p>
   )
 }
 
@@ -111,7 +156,10 @@ export function AiPortal() {
   const [threadId, setThreadId] = useState<string | undefined>(search.thread)
   const [courseIds, setCourseIds] = useState<string[]>([])
   const [streaming, setStreaming] = useState(false)
+  const [photos, setPhotos] = useState<AiAttachment[]>([])
+  const [building, setBuilding] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
   const abort = useRef<AbortController | null>(null)
   const autoSent = useRef(false)
   const endRef = useRef<HTMLDivElement>(null)
@@ -135,15 +183,18 @@ export function AiPortal() {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages])
 
-  const send = async (text: string, pageIds?: string[]) => {
-    if (!text.trim() || streaming) return
+  const send = async (text: string, opts: { pageIds?: string[]; attachments?: AiAttachment[] } = {}) => {
+    const attachments = opts.attachments ?? []
+    if ((!text.trim() && !attachments.length) || streaming) return
     setError(null)
     setInput('')
+    setPhotos([])
     const assistantId = crypto.randomUUID()
+    const blank = { citations: [], calculators: [], widgets: [], attachments: [], usage: null }
     setMessages((m) => [
       ...m,
-      { id: crypto.randomUUID(), role: 'user', content: text, citations: [], calculator: null, widgets: [] },
-      { id: assistantId, role: 'assistant', content: '', citations: [], calculator: null, widgets: [] },
+      { ...blank, id: crypto.randomUUID(), role: 'user', content: text, attachments },
+      { ...blank, id: assistantId, role: 'assistant', content: '' },
     ])
     const patch = (fn: (m: Msg) => Msg) =>
       setMessages((all) => all.map((m) => (m.id === assistantId ? fn(m) : m)))
@@ -151,14 +202,24 @@ export function AiPortal() {
     abort.current = new AbortController()
     try {
       for await (const ev of streamChat(
-        { threadId, mode, message: text, courseIds: courseIds.length ? courseIds : undefined, pageIds },
+        {
+          threadId,
+          mode,
+          message: text,
+          attachments,
+          courseIds: courseIds.length ? courseIds : undefined,
+          pageIds: opts.pageIds,
+        },
         abort.current.signal,
       )) {
         if (ev.type === 'thread') setThreadId(ev.threadId)
         else if (ev.type === 'citations') patch((m) => ({ ...m, citations: ev.citations }))
         else if (ev.type === 'text') patch((m) => ({ ...m, content: m.content + ev.text }))
-        else if (ev.type === 'calculator') patch((m) => ({ ...m, calculator: ev.spec }))
+        else if (ev.type === 'calculator') patch((m) => ({ ...m, calculators: [...m.calculators, ev.spec] }))
         else if (ev.type === 'widget') patch((m) => ({ ...m, widgets: [...m.widgets, ev.widget] }))
+        else if (ev.type === 'usage') patch((m) => ({ ...m, usage: ev.usage }))
+        // The stored answer's id, so calculators made from it later are stored with it.
+        else if (ev.type === 'done' && ev.messageId) patch((m) => ({ ...m, id: ev.messageId }))
         else if (ev.type === 'error') setError(ev.message)
       }
     } catch (e) {
@@ -173,11 +234,57 @@ export function AiPortal() {
   useEffect(() => {
     if (autoSent.current || !search.q || !status.data?.configured) return
     autoSent.current = true
-    send(search.q, search.pageId ? [search.pageId] : undefined)
+    send(search.q, { pageIds: search.pageId ? [search.pageId] : undefined })
     navigate({ to: '/ai', search: {}, replace: true })
   })
 
   const last = [...messages].reverse().find((m) => m.role === 'assistant')
+
+  const addPhotos = async (files: Iterable<File>) => {
+    const images = [...files].filter((f) => f.type.startsWith('image/'))
+    if (!images.length) return
+    setError(null)
+    try {
+      const added = await Promise.all(images.slice(0, MAX_PHOTOS).map((f) => photoAttachment(f)))
+      setPhotos((current) => [...current, ...added].slice(0, MAX_PHOTOS))
+    } catch {
+      setError(t('ai.photoError'))
+    }
+  }
+
+  // A calculator from a worked answer, made only when asked (one Claude call).
+  const buildCalculator = async (index: number) => {
+    const answer = messages[index]
+    if (!answer) return
+    const question = messages[index - 1]?.content ?? ''
+    setBuilding(answer.id)
+    setError(null)
+    try {
+      const made = await api.ai.calculator(
+        `Problem:\n${question.slice(0, 6000)}\n\nSolution:\n${answer.content.slice(0, 13000)}`,
+        answer.id,
+      )
+      setMessages((all) =>
+        all.map((m) =>
+          m.id === answer.id ? { ...m, calculators: [...m.calculators, ...made.calculators] } : m,
+        ),
+      )
+      if (made.failed.length) setError(`${t('ai.someCalculatorsFailed')} ${made.failed.join('; ')}`)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBuilding(null)
+    }
+  }
+  // "Make a calculator" for a worked solution: a Solve answer, or a full solution asked of the tutor.
+  // ("Build calculator" makes one by itself; a hint is not worth turning into a calculator.)
+  const canBuild = (m: Msg, index: number) =>
+    m.role === 'assistant' &&
+    !!m.content &&
+    !m.calculators.length &&
+    (mode === 'solve' || messages[index - 1]?.content === t('ai.quick.solution')) &&
+    !(streaming && m === last)
+
   const newSession = () => {
     abort.current?.abort()
     setMessages([])
@@ -212,12 +319,25 @@ export function AiPortal() {
 
         {status.data && !status.data.configured && <ErrorNote error={t('ai.notConfigured')} />}
 
-        {messages.map((m) =>
+        {messages.map((m, index) =>
           m.role === 'user' ? (
             <div
               key={m.id}
-              className="max-w-[620px] self-end whitespace-pre-wrap rounded-[14px_14px_4px_14px] bg-inverse px-5 py-4 text-base text-inverse-ink"
+              className="flex max-w-[620px] flex-col gap-3 self-end whitespace-pre-wrap rounded-[14px_14px_4px_14px] bg-inverse px-5 py-4 text-base text-inverse-ink"
             >
+              {m.attachments?.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {m.attachments.map((a, i) => (
+                    <img
+                      // biome-ignore lint/suspicious/noArrayIndexKey: photos of a sent message never change
+                      key={i}
+                      src={attachmentUrl(a)}
+                      alt={t('ai.photo', { n: i + 1 })}
+                      className="max-h-60 max-w-full rounded-lg"
+                    />
+                  ))}
+                </div>
+              )}
               {m.content}
             </div>
           ) : (
@@ -258,13 +378,56 @@ export function AiPortal() {
                     )}
                   </div>
                 )}
+                {(m.usage || canBuild(m, index)) && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-3">
+                    {m.usage ? <UsageLine usage={m.usage} /> : <span />}
+                    {canBuild(m, index) && (
+                      <button
+                        type="button"
+                        className={btn('secondary', 'sm')}
+                        disabled={building !== null}
+                        onClick={() => buildCalculator(index)}
+                      >
+                        {building === m.id ? t('common.loading') : t('ai.makeCalculator')}
+                      </button>
+                    )}
+                  </div>
+                )}
               </article>
-              {m.widgets?.map((w) =>
-                w.kind === 'orbit' ? <ShownOrbit key={JSON.stringify(w.elements)} widget={w} /> : null,
+              {m.widgets?.map((w, i) =>
+                w.kind === 'orbit' ? (
+                  <ShownOrbit key={JSON.stringify(w.elements)} widget={w} />
+                ) : w.kind === 'calculator' ? (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: widgets of an answer are only appended
+                  <ShownCalculator key={i} widget={w} />
+                ) : null,
               )}
-              {m.calculator && <GeneratedCalculator spec={m.calculator} />}
+              {m.calculators?.map((spec, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: calculators of an answer are only appended
+                <GeneratedCalculator key={i} spec={spec} />
+              ))}
             </div>
           ),
+        )}
+        {!streaming && last?.content && GUIDED.includes(mode) && (
+          <div className="flex flex-wrap gap-2">
+            {mode === 'tutor' && (
+              <button
+                type="button"
+                className={btn('secondary', 'sm')}
+                onClick={() => send(t('ai.quick.hint'))}
+              >
+                {t('ai.quick.hintLabel')}
+              </button>
+            )}
+            <button
+              type="button"
+              className={btn('secondary', 'sm')}
+              onClick={() => send(t('ai.quick.solution'))}
+            >
+              {t('ai.quick.solutionLabel')}
+            </button>
+          </div>
         )}
         <ErrorNote error={error} />
         <div ref={endRef} />
@@ -273,7 +436,7 @@ export function AiPortal() {
           className="flex flex-col gap-2.5 rounded-[16px] border border-line-strong bg-surface p-3.5"
           onSubmit={(e) => {
             e.preventDefault()
-            send(input)
+            send(input, { attachments: photos })
           }}
         >
           <label htmlFor="composer" className="sr-only">
@@ -285,12 +448,59 @@ export function AiPortal() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(input)
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(input, { attachments: photos })
+            }}
+            onPaste={(e) => {
+              const files = [...e.clipboardData.files].filter((f) => f.type.startsWith('image/'))
+              if (!files.length) return
+              e.preventDefault()
+              addPhotos(files)
             }}
             placeholder={t(`ai.placeholder.${mode}`)}
             className="resize-y border-0 bg-transparent px-2 py-1.5 text-base outline-none"
           />
+          {photos.length > 0 && (
+            <div className="flex flex-wrap gap-3 px-2 pt-2">
+              {photos.map((a, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: photos are only added or removed by position
+                <div key={i} className="relative">
+                  <img
+                    src={attachmentUrl(a)}
+                    alt={t('ai.photo', { n: i + 1 })}
+                    className="h-20 w-20 rounded-lg border border-line object-cover"
+                  />
+                  <button
+                    type="button"
+                    aria-label={t('ai.removePhoto', { n: i + 1 })}
+                    className="absolute -right-2 -top-2 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-line bg-surface text-sm text-ink"
+                    onClick={() => setPhotos((all) => all.filter((_, k) => k !== i))}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files) addPhotos(e.target.files)
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              className={btn('secondary', 'sm')}
+              disabled={photos.length >= MAX_PHOTOS}
+              onClick={() => fileInput.current?.click()}
+            >
+              {t('ai.addPhoto')}
+            </button>
             <span className="text-[13px] text-muted">{t('ai.disclaimer')}</span>
             <span className="flex-1" />
             {streaming ? (
@@ -301,7 +511,7 @@ export function AiPortal() {
               <button
                 type="submit"
                 className={btn('ai')}
-                disabled={!status.data?.configured || !input.trim()}
+                disabled={!status.data?.configured || (!input.trim() && !photos.length)}
               >
                 {t(`modes.${mode}`)}
               </button>

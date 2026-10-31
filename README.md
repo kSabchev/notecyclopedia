@@ -1,7 +1,8 @@
 # Notecyclopedia
 
 A shared study encyclopedia: a wiki of lectures and notes with formulas, uploaded source files,
-reusable calculators, and an AI portal (ask, summarize, solve, build calculator) grounded in your notes.
+reusable calculators, and an AI portal (ask, tutor, check my working, summarize, solve, build calculator) grounded
+in your notes.
 
 Design reference: [`design/`](design/README.md).
 
@@ -84,6 +85,21 @@ which is a paid API call per image.
 Uploaded files are served with the type that matches their extension, and only PDFs, images and plain text open in
 the browser; everything else downloads.
 
+### Checking calculators
+
+Each calculator is checked automatically, without AI, whenever it is shown or edited: every formula must evaluate with
+the default values, every input and constant must be used, and each formula's units must give the unit of its output
+(units are compared as SI dimensions with math.js, so `sqrt(mu / r)` with μ in km³/s² and r in km gives km/s). Inputs
+without a unit count as plain numbers, angles in degrees or radians are treated as numbers, and formulas that use a
+constant without a stated unit, or a unit math.js does not know (`AU`, `%`), are not unit-checked rather than guessed.
+
+**Check formulas with AI** asks Claude to review the physics or mathematics of each formula, units and conversions,
+defaults, the theory and the step explanations, with the automatic checks attached. It lists its findings and, when
+something should change, the exact changes (old and new formula, added or removed inputs and outputs, constant units).
+**Edit with these changes** opens them in the editor; nothing is saved until you press Save, and Cancel keeps the
+calculator as it was. The correction keeps the input and output keys where it can, because pages that embed the
+calculator refer to them. Set its model with the `calculator-review` feature in `ANTHROPIC_MODELS_JSON`.
+
 ## Orbit diagrams
 
 Choose **Orbit diagram** in the toolbar's **Calculator** dialog to add an interactive two-body orbit to a page, or open
@@ -113,6 +129,32 @@ a.i. solutions or NASA.
 
 **AI.** In the AI portal, Claude can show an orbit diagram with its answer (for example "show me a Molniya orbit"); the
 diagram is interactive and can be opened in the orbit viewer.
+
+## AI tutor
+
+The AI portal has six modes. **Ask** answers questions about your notes. **Tutor** helps you solve a problem yourself:
+it explains the idea, asks what you have tried and gives one hint at a time. **Next hint** and **Show full solution**
+buttons appear under its answers. **Check my working** takes the problem and your attempt, typed or as up to three
+photos (**Add photo**, or paste an image into the message box), and points out the first mistake instead of redoing
+the problem. **Summarize**, **Solve** and **Build calculator** work as before.
+
+- **Numbers come from your calculators.** In every mode Claude can search your saved calculators
+  (`find_calculators`) and run one (`run_calculator`) instead of doing the arithmetic itself. Each run is shown under
+  the answer with the values used and its step-by-step solution; you can change the inputs there. Only calculators
+  of your courses and your personal ones are visible to it.
+- **Calculators on request.** Only Build calculator makes calculators automatically. Under a Solve answer, or a full
+  solution from the tutor, **Make a calculator from this** makes them from the solution and stores them with the
+  answer, so you pay only when you want them. A request with several independent calculations gets one calculator
+  for each (up to six); steps that feed into each other stay in one calculator.
+- **Cost of each answer.** Every answer shows its tokens (input, of which cached, and output), the estimated cost
+  from `ANTHROPIC_PRICING_JSON` and the model used, summed over all Claude calls it took.
+- **A model per feature.** `ANTHROPIC_MODEL` is the default; `ANTHROPIC_MODELS_JSON` overrides it per feature, e.g.
+  `{"ask":"claude-haiku-5-5","summarize":"claude-haiku-5-5"}`. Features are the portal modes (`ask`, `tutor`,
+  `check`, `summarize`, `solve`, `calculator`) and `calculator-spec`, `calculator-review`, `article-draft`, `page-review` and `image`
+  (photo transcription for uploads). Add a pricing entry for each model you use.
+
+Photos are downscaled in the browser (at most 1568 px on the long edge, JPEG) and stored with the conversation, so
+follow-up questions still see them; the usage log stores them without the image data.
 
 ## Time zone
 
@@ -185,10 +227,13 @@ CI provisions the test database and browser automatically.
 - **Search** uses Postgres full-text search with the `simple` config (works for Bulgarian and English).
   The search box requires every word; AI retrieval matches any word of the question and ranks chunks
   that match more words first. The AI also uses vector search when `VOYAGE_API_KEY` is set.
-- **AI portal** retrieves relevant chunks, streams Claude's answer with `[n]` citations, and in Solve/Build modes
-  asks Claude for a calculator spec via tool use, then validates and test-runs it before showing it.
-  Chat sends the most recent turns that fit a size budget, with the retrieved sources attached to the
-  latest message only, so earlier turns are served from the prompt cache.
+- **AI portal** retrieves relevant chunks and streams Claude's answer with `[n]` citations. Claude can call tools
+  while answering (`show_orbit`, `find_calculators`, `run_calculator`); tool calls are validated and errors go back
+  to Claude so it can retry. In Build mode (or on request) it asks Claude for calculator specs via tool use (one
+  `save_calculator` call per calculator), then validates and test-runs each; only invalid ones go back to Claude
+  with the error, and valid ones are kept. Chat sends the most recent turns that fit a size budget, with the
+  retrieved sources attached to the latest message only, so earlier turns are served from the prompt cache; a
+  second cache breakpoint after the question lets tool rounds re-read the sources from the cache.
 - **Calculators** (`packages/shared/src/calculator.ts`) are plain JSON:
 
 ```json
@@ -267,13 +312,13 @@ The plan follows four rules:
 
 ### Phase 3: Tutor in the AI portal
 
-- [ ] Tutor mode: explains from your notes, asks what you have tried, and gives the next hint; the full worked
+- [x] Tutor mode: explains from your notes, asks what you have tried, and gives the next hint; the full worked
       solution is always one click away ("Show full solution"). Solve mode stays for when you just need the answer.
-- [ ] Check my working: paste or photograph a handwritten solution; Claude finds the first mistake and explains it
+- [x] Check my working: paste or photograph a handwritten solution; Claude finds the first mistake and explains it
       instead of redoing the whole problem.
-- [ ] `run_calculator` tool: the tutor gets numbers from your saved calculators (with their step-by-step solution)
+- [x] `run_calculator` tool: the tutor gets numbers from your saved calculators (with their step-by-step solution)
       instead of doing arithmetic itself, alongside `show_orbit`.
-- [ ] A model per feature (e.g. Haiku for quick explanations, Sonnet for checking work), and the token cost of each
+- [x] A model per feature (e.g. Haiku for quick explanations, Sonnet for checking work), and the token cost of each
       answer shown in the thread.
 
 ### Phase 4: Daily question

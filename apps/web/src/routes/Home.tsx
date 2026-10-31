@@ -1,4 +1,4 @@
-import type { AiMode } from '@nc/shared'
+import { AI_MODES, type AiMode } from '@nc/shared'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -10,7 +10,7 @@ import { Empty, FileBadge, SectionHeader, btn } from '../components/ui'
 import { api } from '../lib/api'
 import { timeAgo } from '../lib/format'
 
-export const MODES: AiMode[] = ['ask', 'summarize', 'solve', 'calculator']
+export const MODES: readonly AiMode[] = AI_MODES
 
 export function Home() {
   const { t } = useTranslation()

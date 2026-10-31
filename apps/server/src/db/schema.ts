@@ -1,5 +1,8 @@
 import {
+  AI_MODES,
+  type AiAttachment,
   type AiCitation,
+  type AiUsage,
   type CalculatorSpec,
   DEFAULT_TIME_ZONE,
   type DocJSON,
@@ -276,7 +279,7 @@ export const aiThreads = pgTable('ai_threads', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
-  mode: text('mode', { enum: ['ask', 'summarize', 'solve', 'calculator'] }).notNull(),
+  mode: text('mode', { enum: AI_MODES }).notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -291,9 +294,14 @@ export const aiMessages = pgTable(
     role: text('role', { enum: ['user', 'assistant'] }).notNull(),
     content: text('content').notNull(),
     citations: jsonb('citations').$type<AiCitation[]>().notNull().default([]),
-    calculator: jsonb('calculator').$type<CalculatorSpec>(),
+    /** Calculators made from the answer, by Build calculator or on request. */
+    calculators: jsonb('calculators').$type<CalculatorSpec[]>().notNull().default([]),
     /** Interactive blocks shown with the answer (e.g. orbit diagrams from the show_orbit tool). */
     widgets: jsonb('widgets').$type<WidgetAttrs[]>().notNull().default([]),
+    /** Photos sent with a user message. */
+    attachments: jsonb('attachments').$type<AiAttachment[]>().notNull().default([]),
+    /** Tokens and estimated cost of an assistant message. */
+    usage: jsonb('usage').$type<AiUsage>(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [index('ai_messages_thread_idx').on(t.threadId)],
