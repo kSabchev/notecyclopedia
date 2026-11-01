@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { calculatorSpecSchema, evaluateCalculator, exportHTML, exportPython } from './calculator'
 import { BUILT_IN_CONSTANTS } from './constants'
-import { chunkText, docToText, extractFormulas, withFormulaIds } from './doc'
+import { chunkText, docToText, extractFormulas, withBlockIds } from './doc'
 
 const projectile = calculatorSpecSchema.parse({
   name: 'Projectile motion',
@@ -175,11 +175,11 @@ describe('doc helpers', () => {
       ],
     }
     let n = 0
-    const { doc: out, changed } = withFormulaIds(input, () => `new-${++n}`)
+    const { doc: out, changed } = withBlockIds(input, () => `new-${++n}`)
     expect(changed).toBe(true)
     expect(extractFormulas(out).map((f) => f.nodeId)).toEqual(['keep', 'new-1', 'new-2'])
     expect(out.content?.[3]).toBe(input.content[3])
-    expect(withFormulaIds(out)).toEqual({ doc: out, changed: false })
+    expect(withBlockIds(out)).toEqual({ doc: out, changed: false })
   })
   it('chunks long text', () => {
     const text = Array.from({ length: 30 }, (_, i) => `Paragraph ${i} `.repeat(20)).join('\n\n')

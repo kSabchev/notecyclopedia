@@ -118,6 +118,21 @@
 }
 
 /* Reading typography for wiki pages and the editor */
+/* A heading reached through a reference: below the sticky header, and briefly highlighted. */
+.prose-nc h2[id],
+.prose-nc h3[id] {
+  scroll-margin-top: 24px;
+}
+.prose-nc .term-flash {
+  background: var(--color-accent-soft);
+  border-radius: 6px;
+  transition: background 0.6s;
+}
+/* References to other pages and terms, told apart from external links. */
+.prose-nc a[href^="/pages/"] {
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
 .prose-nc {
   font-family: var(--font-serif);
   font-size: 19px;

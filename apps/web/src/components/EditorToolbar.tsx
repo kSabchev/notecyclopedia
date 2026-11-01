@@ -4,6 +4,7 @@ import { Suspense, lazy, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
 import { ListIcon } from './Icons'
+import { ReferenceDialog } from './ReferenceDialog'
 import { ErrorNote, btn } from './ui'
 
 const WidgetDialog = lazy(() => import('./widgets/WidgetDialog').then((m) => ({ default: m.WidgetDialog })))
@@ -22,6 +23,7 @@ export function EditorToolbar({
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [inserting, setInserting] = useState(false)
+  const [referencing, setReferencing] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<unknown>(null)
   const picker = useRef<HTMLInputElement>(null)
@@ -122,6 +124,9 @@ export function EditorToolbar({
       >
         {t('editor.note')}
       </button>
+      <button type="button" className={btn('secondary', 'sm')} onClick={() => setReferencing(true)}>
+        {t('editor.reference')}
+      </button>
       <button type="button" className={btn('secondary', 'sm')} onClick={() => setInserting(true)}>
         {t('widget.calculator')}
       </button>
@@ -153,6 +158,25 @@ export function EditorToolbar({
           <ErrorNote error={uploadError} />
         </div>
       ) : null}
+      {referencing && (
+        <ReferenceDialog
+          currentPageId={pageId}
+          onClose={() => setReferencing(false)}
+          onPick={({ href, label }) => {
+            // Selected text becomes the link; otherwise the name of the page or term is inserted.
+            const chain = editor.chain().focus()
+            if (editor.state.selection.empty)
+              chain
+                .insertContent([
+                  { type: 'text', text: label, marks: [{ type: 'link', attrs: { href } }] },
+                  { type: 'text', text: ' ' },
+                ])
+                .run()
+            else chain.extendMarkRange('link').setLink({ href }).run()
+            setReferencing(false)
+          }}
+        />
+      )}
       {inserting && (
         <Suspense fallback={null}>
           <WidgetDialog

@@ -8,7 +8,7 @@ import {
 import { and, asc, desc, eq } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
-import { loadPage } from '../access'
+import { assertCourse, loadPage } from '../access'
 import { db, schema } from '../db'
 import { HttpError, me, notFound, param } from '../http'
 import { calculatorLibrary } from '../services/calculator-library'
@@ -18,6 +18,7 @@ import { UsageMeter } from '../services/claude-client'
 import { assertAiBudget } from '../services/claude-usage'
 import { generatePageReview } from '../services/page-review'
 import { type RetrievedChunk, retrieve } from '../services/retrieval'
+import { generateTopicHub } from '../services/topic-hub'
 import { loadCalc } from './calculators'
 
 export const ai = Router()
@@ -39,6 +40,16 @@ ai.post('/calculators/:id/review', async (req, res) => {
   const user = me(req)
   const calc = await loadCalc(param(req, 'id'), user.id)
   res.json(await reviewCalculator(calc.spec, user.id))
+})
+
+/** Draft a topic hub (theory page) for a course from its notes, linking to where the topic is covered. Nothing is saved. */
+ai.post('/topic-hub', async (req, res) => {
+  const { courseId, topic } = z
+    .object({ courseId: z.string().uuid(), topic: z.string().trim().min(2).max(200) })
+    .parse(req.body)
+  const user = me(req)
+  await assertCourse(courseId, user.id, 'editor')
+  res.json(await generateTopicHub(courseId, topic, user.id))
 })
 
 ai.get('/threads', async (req, res) => {

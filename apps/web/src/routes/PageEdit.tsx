@@ -1,4 +1,4 @@
-import type { DocJSON, Page, PageType } from '@nc/shared'
+import { type DocJSON, PAGE_TYPES, type Page, type PageType } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { EditorContent, type JSONContent, useEditor } from '@tiptap/react'
@@ -10,8 +10,6 @@ import { BackIcon } from '../components/Icons'
 import { editorExtensions } from '../components/extensions'
 import { ErrorNote, Field, btn, inputCls } from '../components/ui'
 import { ApiError, api } from '../lib/api'
-
-const TYPES: PageType[] = ['lecture', 'note', 'seminar', 'source']
 
 function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCourseId?: string }) {
   const { t } = useTranslation()
@@ -81,6 +79,17 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
   })
   const conflict = save.error instanceof ApiError && save.error.status === 409
 
+  // A theory page can be drafted as a topic hub from the course's notes; the draft only fills the editor.
+  const draftHub = useMutation({
+    mutationFn: () => api.ai.topicHub(courseId, title.trim()),
+    onSuccess: (draft) => {
+      if (!editor) return
+      if (!editor.isEmpty && !window.confirm(t('editor.hub.replace'))) return
+      editor.commands.setContent(draft.content as JSONContent)
+      setDirty(true)
+    },
+  })
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-line bg-surface px-6 py-3.5 md:px-8">
@@ -129,6 +138,29 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
               }}
               className="border-0 bg-transparent p-0 font-serif text-[40px] font-semibold text-ink outline-offset-4"
             />
+            {type === 'theory' && (
+              <div className="flex flex-col gap-2 rounded-[12px] border border-line bg-ai-soft px-4 py-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    className={btn('ai', 'sm')}
+                    disabled={!courseId || title.trim().length < 2 || draftHub.isPending}
+                    onClick={() => draftHub.mutate()}
+                  >
+                    {draftHub.isPending ? t('editor.hub.drafting') : t('editor.hub.draft')}
+                  </button>
+                  <span className="min-w-0 flex-1 text-sm text-muted">{t('editor.hub.hint')}</span>
+                </div>
+                {draftHub.data && (
+                  <p className="m-0 text-sm">
+                    {t('editor.hub.drafted', { count: draftHub.data.targets })}
+                    {draftHub.data.usage?.costUsd != null &&
+                      ` · ≈ $${draftHub.data.usage.costUsd.toFixed(4)}`}
+                  </p>
+                )}
+                <ErrorNote error={draftHub.error} />
+              </div>
+            )}
             <EditorContent editor={editor} className="prose-nc" />
           </div>
         </section>
@@ -168,14 +200,17 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
                   setDirty(true)
                 }}
               >
-                {TYPES.map((x) => (
+                {PAGE_TYPES.map((x) => (
                   <option key={x} value={x}>
                     {t(`editor.types.${x}`)}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label={t('editor.lectureNumber')} htmlFor="lecture-number">
+            <Field
+              label={t(type === 'seminar' ? 'editor.practisesLecture' : 'editor.lectureNumber')}
+              htmlFor="lecture-number"
+            >
               <input
                 id="lecture-number"
                 className={inputCls}
@@ -190,7 +225,9 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
                   setDirty(true)
                 }}
               />
-              <p className="m-0 text-xs text-muted">{t('editor.lectureNumberHint')}</p>
+              <p className="m-0 text-xs text-muted">
+                {t(type === 'seminar' ? 'editor.practisesLectureHint' : 'editor.lectureNumberHint')}
+              </p>
             </Field>
             <Field label={t('editor.tags')} htmlFor="tags">
               <input

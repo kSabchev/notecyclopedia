@@ -1,4 +1,4 @@
-import { type DocJSON, extractFormulas, withFormulaIds } from '@nc/shared'
+import { type DocJSON, extractFormulas, withBlockIds } from '@nc/shared'
 import { and, eq, isNull, notInArray, or, sql } from 'drizzle-orm'
 import { db, schema } from '../db'
 
@@ -7,7 +7,7 @@ export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 /**
  * Update a page's rows in the formula index to match its document. Rows are matched by the
  * formula block id, so a formula keeps its row id across edits. Pass a document that went through
- * `withFormulaIds`.
+ * `withBlockIds`.
  */
 export async function syncFormulas(tx: Tx, pageId: string, doc: DocJSON) {
   const found = extractFormulas(doc).filter((f): f is typeof f & { nodeId: string } => f.nodeId !== null)
@@ -56,7 +56,7 @@ export async function backfillFormulaIds(): Promise<number> {
         .where(eq(schema.pages.id, pageId))
         .for('update')
       if (!page) return
-      const { doc, changed } = withFormulaIds(page.content)
+      const { doc, changed } = withBlockIds(page.content)
       if (changed) await tx.update(schema.pages).set({ content: doc }).where(eq(schema.pages.id, pageId))
       await syncFormulas(tx, pageId, doc)
     })

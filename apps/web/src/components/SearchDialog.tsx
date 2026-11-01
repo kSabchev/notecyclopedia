@@ -26,9 +26,9 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
     enabled: debounced.length > 1,
   })
 
-  const href = (kind: string, id: string) =>
-    kind === 'page'
-      ? { to: '/pages/$pageId' as const, params: { pageId: id } }
+  const href = (kind: string, id: string, anchor: string | null) =>
+    kind === 'page' || kind === 'term'
+      ? { to: '/pages/$pageId' as const, params: { pageId: id }, hash: anchor ?? undefined }
       : kind === 'calculator'
         ? { to: '/calculators/$calcId' as const, params: { calcId: id } }
         : { to: '/files' as const }
@@ -64,15 +64,15 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
       <ul className="m-0 max-h-[60vh] list-none overflow-y-auto p-2">
         {isFetching && <li className="p-3 text-sm text-muted">{t('common.loading')}</li>}
         {data?.map((h) => (
-          <li key={`${h.kind}-${h.id}`}>
+          <li key={`${h.kind}-${h.id}-${h.anchor ?? ''}`}>
             <Link
-              {...href(h.kind, h.id)}
+              {...href(h.kind, h.id, h.anchor)}
               onClick={onClose}
               className="flex flex-col gap-0.5 rounded-[10px] px-3 py-2.5 text-ink no-underline hover:bg-bg"
             >
               <span className="flex items-center gap-2 font-semibold">
                 <span className="rounded bg-line-soft px-1.5 font-mono text-[11px] uppercase text-muted">
-                  {h.kind}
+                  {t(`search.kinds.${h.kind}`)}
                 </span>
                 {h.title}
               </span>

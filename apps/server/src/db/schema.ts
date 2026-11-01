@@ -6,6 +6,7 @@ import {
   type CalculatorSpec,
   DEFAULT_TIME_ZONE,
   type DocJSON,
+  PAGE_TYPES,
   type WidgetAttrs,
 } from '@nc/shared'
 import { sql } from 'drizzle-orm'
@@ -118,9 +119,7 @@ export const pages = pgTable(
       .notNull()
       .references(() => courses.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
-    type: text('type', { enum: ['lecture', 'note', 'seminar', 'source'] })
-      .notNull()
-      .default('note'),
+    type: text('type', { enum: PAGE_TYPES }).notNull().default('note'),
     lectureNumber: integer('lecture_number'),
     sortOrder: integer('sort_order').notNull().default(0),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
@@ -182,6 +181,45 @@ export const formulas = pgTable(
   (t) => [
     index('formulas_page_idx').on(t.pageId),
     uniqueIndex('formulas_page_node_idx').on(t.pageId, t.nodeId),
+  ],
+)
+
+/** Headings of pages: terms that can be searched and referenced. Upserted by the heading's `id` attribute. */
+export const terms = pgTable(
+  'terms',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    pageId: uuid('page_id')
+      .notNull()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+    nodeId: text('node_id').notNull(),
+    position: integer('position').notNull(),
+    text: text('text').notNull(),
+    level: integer('level').notNull(),
+  },
+  (t) => [
+    uniqueIndex('terms_page_node_idx').on(t.pageId, t.nodeId),
+    index('terms_fts_idx').using('gin', sql`to_tsvector('simple', ${t.text})`),
+  ],
+)
+
+/** In-app links between pages: from a page to another page, or to a term (heading) on it. */
+export const pageReferences = pgTable(
+  'page_references',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sourcePageId: uuid('source_page_id')
+      .notNull()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+    targetPageId: uuid('target_page_id')
+      .notNull()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+    /** The heading id on the target page; null for a link to the whole page. */
+    targetNodeId: text('target_node_id'),
+  },
+  (t) => [
+    index('page_references_source_idx').on(t.sourcePageId),
+    index('page_references_target_idx').on(t.targetPageId),
   ],
 )
 

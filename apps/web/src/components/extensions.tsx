@@ -1,5 +1,5 @@
 import type { WidgetAttrs } from '@nc/shared'
-import { Node, mergeAttributes } from '@tiptap/core'
+import { Extension, Node, mergeAttributes } from '@tiptap/core'
 import {
   NodeViewContent,
   NodeViewWrapper,
@@ -328,10 +328,31 @@ export const ImageBlock = Node.create({
   },
 })
 
+/**
+ * Headings keep the stable `id` the server gives them (TipTap drops undeclared attributes). It is rendered
+ * as the element id, so a reference to a term (`/pages/<page>#<id>`) can scroll to it.
+ */
+export const HeadingIds = Extension.create({
+  name: 'headingIds',
+  addGlobalAttributes: () => [
+    {
+      types: ['heading'],
+      attributes: {
+        id: {
+          default: null,
+          parseHTML: (element) => element.getAttribute('id'),
+          renderHTML: (attributes) => (attributes.id ? { id: attributes.id } : {}),
+        },
+      },
+    },
+  ],
+})
+
 export const editorExtensions = [
   StarterKit.configure({ heading: { levels: [2, 3] }, link: { openOnClick: false } }),
   Formula,
   Callout,
   Widget,
   ImageBlock,
+  HeadingIds,
 ]

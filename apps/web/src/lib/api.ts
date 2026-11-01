@@ -3,6 +3,7 @@ import type {
   AiMessage,
   AiStreamEvent,
   AiThread,
+  AiUsage,
   Calculator,
   CalculatorReview,
   CalculatorSpec,
@@ -13,6 +14,7 @@ import type {
   FileAsset,
   Formula,
   Page,
+  PageReference,
   PageRevision,
   PageSummary,
   PageType,
@@ -147,6 +149,8 @@ export const api = {
       request<Page>('PUT', `/pages/${id}`, b),
     remove: (id: string) => request<void>('DELETE', `/pages/${id}`),
     revisions: (id: string) => get<PageRevision[]>(`/pages/${id}/revisions`),
+    /** Pages that link to this page or to a term on it. */
+    references: (id: string) => get<PageReference[]>(`/pages/${id}/references`),
     revision: (id: string, rev: number) =>
       get<{ revision: number; title: string; content: DocJSON }>(`/pages/${id}/revisions/${rev}`),
     restore: (id: string, rev: number, b: { baseRevision: number; message?: string }) =>
@@ -201,6 +205,12 @@ export const api = {
     threads: () => get<AiThread[]>('/ai/threads'),
     thread: (id: string) => get<{ thread: AiThread; messages: AiMessage[] }>(`/ai/threads/${id}`),
     /** Calculators from a description or a solved problem; with `messageId` they are stored with that answer. */
+    /** A topic hub draft for a course, linking to where the topic is covered; nothing is saved. */
+    topicHub: (courseId: string, topic: string) =>
+      request<{ content: DocJSON; targets: number; usage: AiUsage | null }>('POST', '/ai/topic-hub', {
+        courseId,
+        topic,
+      }),
     /** Claude's check of a saved calculator, with a proposed correction; nothing is saved. */
     reviewCalculator: (id: string) => request<CalculatorReview>('POST', `/ai/calculators/${id}/review`),
     calculator: (context: string, messageId?: string) =>

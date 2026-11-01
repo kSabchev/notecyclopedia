@@ -1,9 +1,9 @@
 import type { CalculatorIssue, CalculatorSpec } from './calculator'
+import type { PageType } from './pages'
 import type { WidgetAttrs } from './widget'
 
 export type Locale = 'en' | 'bg'
 export type CourseRole = 'owner' | 'editor' | 'viewer'
-export type PageType = 'lecture' | 'note' | 'seminar' | 'source'
 export type FileStatus = 'uploaded' | 'processing' | 'indexed' | 'failed'
 /** AI portal modes, in the order they are offered. */
 export const AI_MODES = ['ask', 'tutor', 'check', 'summarize', 'solve', 'calculator'] as const
@@ -58,6 +58,10 @@ export interface Formula {
   id: string
   pageId: string
   pageTitle: string
+  courseId: string
+  /** The lecture number of its page (for an example problem, the lecture it practises). */
+  lectureNumber: number | null
+  pageType: PageType
   label: string | null
   latex: string
   description: string | null
@@ -100,11 +104,22 @@ export interface CourseConstant {
 }
 
 export interface SearchHit {
-  kind: 'page' | 'file' | 'calculator'
+  /** A term is a heading of a page: `id` is the page, `anchor` the heading. */
+  kind: 'page' | 'term' | 'file' | 'calculator'
   id: string
   title: string
   snippet: string
   courseId: string | null
+  anchor: string | null
+}
+
+/** A link to a page from another page, shown as "Referenced by" on the target. */
+export interface PageReference {
+  sourcePageId: string
+  sourceTitle: string
+  sourceType: PageType
+  /** The heading on the target page it points to; null for the whole page. */
+  targetNodeId: string | null
 }
 
 export interface AiCitation {

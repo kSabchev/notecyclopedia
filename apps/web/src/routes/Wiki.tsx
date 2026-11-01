@@ -1,3 +1,4 @@
+import { moveWithinSection, pageSections, problemsPerLecture } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
@@ -16,95 +17,126 @@ function PageList({ courseId, editing }: { courseId: string; editing: boolean })
     mutationFn: (pageIds: string[]) => api.pages.reorder(courseId, pageIds),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pages', courseId] }),
   })
-  const movePage = (from: number, to: number) => {
-    const rows = pages.data
-    if (!rows || to < 0 || to >= rows.length || from === to) return
-    const pageIds = rows.map((page) => page.id)
-    const [moved] = pageIds.splice(from, 1)
-    pageIds.splice(to, 0, moved!)
-    reorder.mutate(pageIds)
+  // Pages move only within their section; the manual order is saved as the sections' order.
+  const movePage = (pageId: string | undefined, to: number) => {
+    const ids = pageId && pages.data ? moveWithinSection(pages.data, pageId, to) : null
+    if (ids) reorder.mutate(ids)
   }
   if (pages.data?.length === 0) return <Empty>{t('home.empty')}</Empty>
+  const sections = pageSections(pages.data ?? [])
+  const problems = problemsPerLecture(pages.data ?? [])
   return (
-    <>
-      <ul className="m-0 flex list-none flex-col rounded-[12px] border border-line bg-surface p-0">
-        {pages.data?.map((p, i) => (
-          <li
-            key={p.id}
-            draggable={editing && !reorder.isPending}
-            onDragStart={(event) => {
-              event.stopPropagation()
-              setDraggedPageId(p.id)
-            }}
-            onDragOver={(event) => {
-              if (editing) {
-                event.preventDefault()
-                event.stopPropagation()
-              }
-            }}
-            onDrop={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              const from = pages.data?.findIndex((page) => page.id === draggedPageId) ?? -1
-              movePage(from, i)
-              setDraggedPageId(undefined)
-            }}
-            onDragEnd={(event) => {
-              event.stopPropagation()
-              setDraggedPageId(undefined)
-            }}
-            className={`${i ? 'border-t border-line-soft' : ''} ${editing ? 'cursor-move' : ''} ${draggedPageId === p.id ? 'opacity-50' : ''}`}
-          >
-            <div className="flex items-center">
-              <Link
-                to="/pages/$pageId"
-                params={{ pageId: p.id }}
-                className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5 text-ink no-underline hover:bg-surface-2"
-              >
-                <span className="min-w-0 flex-1 font-serif text-lg font-semibold">
-                  {p.lectureNumber !== null && (
-                    <span className="mr-2 text-sm font-semibold text-muted">
-                      {t('page.lectureNumber', { n: p.lectureNumber })}
-                    </span>
+    <div className="flex flex-col gap-4">
+      {sections.map((section) => (
+        <details key={section.type} open className="group flex flex-col gap-2">
+          <summary className="flex cursor-pointer list-none items-baseline gap-2 py-1 [&::-webkit-details-marker]:hidden">
+            <span className="text-xs text-muted transition-transform group-open:rotate-90">▶</span>
+            <h3 className="m-0 text-sm font-bold uppercase tracking-[0.06em] text-ink-2">
+              {t(`page.sections.${section.type}`)}
+            </h3>
+            <span className="text-[13px] text-muted">{section.pages.length}</span>
+          </summary>
+          <ul className="m-0 flex list-none flex-col rounded-[12px] border border-line bg-surface p-0">
+            {section.pages.map((p, i) => {
+              // Example problems are grouped under the lecture they practise.
+              const lectureHeading =
+                section.type === 'seminar' &&
+                p.lectureNumber !== section.pages[i - 1]?.lectureNumber &&
+                (p.lectureNumber !== null
+                  ? t('page.practises', { n: p.lectureNumber })
+                  : t('page.practisesNone'))
+              const problemCount =
+                section.type === 'lecture' && p.lectureNumber !== null
+                  ? (problems.get(p.lectureNumber) ?? 0)
+                  : 0
+              return (
+                <li
+                  key={p.id}
+                  draggable={editing && !reorder.isPending}
+                  onDragStart={(event) => {
+                    event.stopPropagation()
+                    setDraggedPageId(p.id)
+                  }}
+                  onDragOver={(event) => {
+                    if (editing) {
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    movePage(draggedPageId, i)
+                    setDraggedPageId(undefined)
+                  }}
+                  onDragEnd={(event) => {
+                    event.stopPropagation()
+                    setDraggedPageId(undefined)
+                  }}
+                  className={`${i ? 'border-t border-line-soft' : ''} ${editing ? 'cursor-move' : ''} ${draggedPageId === p.id ? 'opacity-50' : ''}`}
+                >
+                  {lectureHeading && (
+                    <div className="bg-surface-2 px-5 py-1.5 text-xs font-semibold text-muted">
+                      {lectureHeading}
+                    </div>
                   )}
-                  {p.title}
-                </span>
-                <span className="text-[13px] text-muted">{t(`editor.types.${p.type}`)}</span>
-                {p.tags.map((tag) => (
-                  <span key={tag} className="rounded-md bg-line-soft px-2 py-0.5 text-xs">
-                    {tag}
-                  </span>
-                ))}
-                <span className="text-[13px] text-muted">{timeAgo(p.updatedAt)}</span>
-              </Link>
-              {editing && (
-                <div className="flex shrink-0 gap-1 px-2">
-                  <button
-                    type="button"
-                    aria-label={t('page.moveUp', { name: p.title })}
-                    disabled={i === 0 || reorder.isPending}
-                    onClick={() => movePage(i, i - 1)}
-                    className="h-9 w-9 cursor-pointer rounded-lg text-ink hover:bg-line-soft disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={t('page.moveDown', { name: p.title })}
-                    disabled={i === (pages.data?.length ?? 0) - 1 || reorder.isPending}
-                    onClick={() => movePage(i, i + 1)}
-                    className="h-9 w-9 cursor-pointer rounded-lg text-ink hover:bg-line-soft disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    ↓
-                  </button>
-                </div>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+                  <div className="flex items-center">
+                    <Link
+                      to="/pages/$pageId"
+                      params={{ pageId: p.id }}
+                      className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5 text-ink no-underline hover:bg-surface-2"
+                    >
+                      <span className="min-w-0 flex-1 font-serif text-lg font-semibold">
+                        {section.type === 'lecture' && p.lectureNumber !== null && (
+                          <span className="mr-2 text-sm font-semibold text-muted">
+                            {t('page.lectureNumber', { n: p.lectureNumber })}
+                          </span>
+                        )}
+                        {p.title}
+                      </span>
+                      {problemCount > 0 && (
+                        <span className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-semibold">
+                          {t('page.problemCount', { count: problemCount })}
+                        </span>
+                      )}
+                      {p.tags.map((tag) => (
+                        <span key={tag} className="rounded-md bg-line-soft px-2 py-0.5 text-xs">
+                          {tag}
+                        </span>
+                      ))}
+                      <span className="text-[13px] text-muted">{timeAgo(p.updatedAt)}</span>
+                    </Link>
+                    {editing && (
+                      <div className="flex shrink-0 gap-1 px-2">
+                        <button
+                          type="button"
+                          aria-label={t('page.moveUp', { name: p.title })}
+                          disabled={i === 0 || reorder.isPending}
+                          onClick={() => movePage(p.id, i - 1)}
+                          className="h-9 w-9 cursor-pointer rounded-lg text-ink hover:bg-line-soft disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={t('page.moveDown', { name: p.title })}
+                          disabled={i === section.pages.length - 1 || reorder.isPending}
+                          onClick={() => movePage(p.id, i + 1)}
+                          className="h-9 w-9 cursor-pointer rounded-lg text-ink hover:bg-line-soft disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </details>
+      ))}
       <ErrorNote error={reorder.error} />
-    </>
+    </div>
   )
 }
 

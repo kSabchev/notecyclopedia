@@ -19,22 +19,37 @@ search.get('/', async (req, res) => {
       )}]::uuid[]`
     : sql`ARRAY[]::uuid[]`
   const like = `%${q.replace(/[%_\\]/g, (m) => `\\${m}`)}%`
+  // Terms (headings) rank above whole pages, so a topic search lands on its section; theory pages
+  // (topic hubs) rank above the lectures they summarise.
   const result = await db.execute<Record<string, unknown> & SearchHit & { rank: number }>(sql`
-    (SELECT 'page' AS kind, id, title, course_id AS "courseId",
+    (SELECT 'term' AS kind, t.page_id AS id, t.text AS title, p.course_id AS "courseId",
+            p.title AS snippet,
+            ts_rank(to_tsvector('simple', t.text), websearch_to_tsquery('simple', ${q}))
+              + CASE WHEN t.text ILIKE ${like} THEN 2 ELSE 1 END
+              + CASE WHEN p.type = 'theory' THEN 0.5 ELSE 0 END AS rank,
+            t.node_id AS anchor
+       FROM terms t JOIN pages p ON p.id = t.page_id
+      WHERE p.course_id = ANY(${arr})
+        AND (to_tsvector('simple', t.text) @@ websearch_to_tsquery('simple', ${q}) OR t.text ILIKE ${like})
+      ORDER BY rank DESC LIMIT 15)
+    UNION ALL
+    (SELECT 'page', id, title, course_id,
             ts_headline('simple', content_text, websearch_to_tsquery('simple', ${q}),
-                        'MaxWords=24, MinWords=8, StartSel=«, StopSel=»') AS snippet,
+                        'MaxWords=24, MinWords=8, StartSel=«, StopSel=»'),
             ts_rank(to_tsvector('simple', title || ' ' || content_text), websearch_to_tsquery('simple', ${q}))
-              + CASE WHEN title ILIKE ${like} THEN 1 ELSE 0 END AS rank
+              + CASE WHEN title ILIKE ${like} THEN 1 ELSE 0 END
+              + CASE WHEN type = 'theory' THEN 0.5 ELSE 0 END,
+            NULL
        FROM pages
       WHERE course_id = ANY(${arr})
         AND (to_tsvector('simple', title || ' ' || content_text) @@ websearch_to_tsquery('simple', ${q})
              OR title ILIKE ${like})
-      ORDER BY rank DESC LIMIT 20)
+      ORDER BY 6 DESC LIMIT 20)
     UNION ALL
-    (SELECT 'file', id, name, course_id, left(coalesce(text, ''), 160), 0.5
+    (SELECT 'file', id, name, course_id, left(coalesce(text, ''), 160), 0.5, NULL
        FROM files WHERE course_id = ANY(${arr}) AND name ILIKE ${like} LIMIT 10)
     UNION ALL
-    (SELECT 'calculator', id, name, course_id, '', 0.5
+    (SELECT 'calculator', id, name, course_id, '', 0.5, NULL
        FROM calculators
       WHERE (course_id = ANY(${arr}) OR (course_id IS NULL AND owner_id = ${user.id})) AND name ILIKE ${like}
       LIMIT 10)`)

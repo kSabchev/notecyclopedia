@@ -56,6 +56,36 @@ validates and previews the archive before creating new private copies owned by t
 it never merges with or overwrites existing data. Derived formula and search indexes are rebuilt,
 and uploaded files are queued for re-indexing.
 
+## Course structure
+
+A course's pages are shown in sections: **Lectures** (by lecture number), **Example problems**, **Theory**, **Notes**
+and **Sources**; empty sections are hidden and each can be collapsed. An example problem's lecture number is the
+lecture it practises: problems are listed under their lecture, and each lecture shows how many it has. Reordering
+(**Edit order**) moves pages within their section.
+
+The **Formulas** page groups formulas by subject (course) and then by lecture, with subject filter chips next to the
+text filter.
+
+## Terms and references
+
+Every heading in a page is a **term**: it gets a stable id (like formulas, kept across edits) and appears in search,
+where it ranks above whole pages, so searching a topic opens the page at that section. Theory pages rank above the
+lectures they summarise.
+
+**Reference** in the editor's toolbar links the selected text, or inserts a name, to a page or to a term on it
+(`/pages/<page>#<heading id>`). References open inside the app and scroll to the heading; they are underlined with
+dots to tell them apart from external links. Each page lists what references it under **Referenced by**, with the
+section each one points to, and **On this page** links to its own sections. Backups keep references, pointing them at
+the imported copies; the AI review keeps heading ids and references. `pnpm db:migrate` gives headings of existing
+pages their ids.
+
+**Theory pages are topic hubs**: a short overview of a topic, its key formulas, and links to where the course covers it,
+rather than a copy of the lectures (copies drift apart and make search and the AI see everything twice). On a theory
+page, **Draft topic hub with AI** uses the title as the topic: Claude writes the overview and formulas from the
+course's notes and picks, from the course's matching sections and pages, where it is covered. The links are built by
+the app from that list, so they always point at existing sections. The draft only fills the editor; nothing is saved
+until you save. Its model is the `topic-hub` feature in `ANTHROPIC_MODELS_JSON`.
+
 ## Page history and AI review
 
 Open a page's **History** tab to see every saved revision. **Show changes** lists what that revision added and
@@ -150,7 +180,8 @@ the problem. **Summarize**, **Solve** and **Build calculator** work as before.
   from `ANTHROPIC_PRICING_JSON` and the model used, summed over all Claude calls it took.
 - **A model per feature.** `ANTHROPIC_MODEL` is the default; `ANTHROPIC_MODELS_JSON` overrides it per feature, e.g.
   `{"ask":"claude-haiku-5-5","summarize":"claude-haiku-5-5"}`. Features are the portal modes (`ask`, `tutor`,
-  `check`, `summarize`, `solve`, `calculator`) and `calculator-spec`, `calculator-review`, `article-draft`, `page-review` and `image`
+  `check`, `summarize`, `solve`, `calculator`) and `calculator-spec`, `calculator-review`, `topic-hub`, `article-draft`,
+  `page-review` and `image`
   (photo transcription for uploads). Add a pricing entry for each model you use.
 
 Photos are downscaled in the browser (at most 1568 px on the long edge, JPEG) and stored with the conversation, so
@@ -321,6 +352,14 @@ The plan follows four rules:
 - [x] A model per feature (e.g. Haiku for quick explanations, Sonnet for checking work), and the token cost of each
       answer shown in the thread.
 
+### Course structure and references
+
+- [x] Course overview in sections (lectures, example problems, theory, notes, sources); example problems listed under
+      the lecture they practise.
+- [x] Formulas grouped by subject and lecture.
+- [x] Headings as terms: searchable, linkable, with references between pages and "Referenced by" on each page.
+- [x] Theory pages as topic hubs, drafted with AI on request and linking to where the course covers the topic.
+
 ### Phase 4: Daily question
 
 - [ ] "Today's question" card on the home page: generated when you press Generate (at most once a day, then stored),
@@ -351,7 +390,7 @@ The plan follows four rules:
       panel with the page as context.
 - [ ] "Save to page" for any tutor answer, through the review-and-polish draft flow, so an explanation is paid for once.
 - [ ] Formula cards (no AI): where else a formula appears and which calculators use it, from the formula index.
-- [ ] Backlinks between pages.
+- [x] Backlinks between pages ("Referenced by", see Course structure and references).
 
 ### Phase 7: Performance and reliability
 
