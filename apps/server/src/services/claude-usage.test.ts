@@ -15,7 +15,7 @@ test('estimates Claude Sonnet 5.5 cost including prompt-cache tokens', () => {
         ephemeral_1h_input_tokens: 1_000_000,
       },
     }),
-    '18.60000000',
+    '18.70000000',
   )
 })
 

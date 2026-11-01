@@ -9,7 +9,7 @@ import { HttpError, me, notFound, param } from '../http'
 
 export const calculators = Router()
 
-async function loadCalc(id: string, userId: string, edit = false) {
+export async function loadCalc(id: string, userId: string, edit = false) {
   const [c] = await db.select().from(schema.calculators).where(eq(schema.calculators.id, id))
   if (!c) throw notFound('Calculator not found')
   if (c.courseId) await assertCourse(c.courseId, userId, edit ? 'editor' : 'viewer')

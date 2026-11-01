@@ -1,11 +1,13 @@
-import type { CalculatorSpec } from './calculator'
+import type { CalculatorIssue, CalculatorSpec } from './calculator'
 import type { WidgetAttrs } from './widget'
 
 export type Locale = 'en' | 'bg'
 export type CourseRole = 'owner' | 'editor' | 'viewer'
 export type PageType = 'lecture' | 'note' | 'seminar' | 'source'
 export type FileStatus = 'uploaded' | 'processing' | 'indexed' | 'failed'
-export type AiMode = 'ask' | 'summarize' | 'solve' | 'calculator'
+/** AI portal modes, in the order they are offered. */
+export const AI_MODES = ['ask', 'tutor', 'check', 'summarize', 'solve', 'calculator'] as const
+export type AiMode = (typeof AI_MODES)[number]
 
 export interface Course {
   id: string
@@ -111,14 +113,36 @@ export interface AiCitation {
   title: string
 }
 
+/** A photo sent with a chat message, e.g. handwritten working to check. Downscaled by the browser. */
+export interface AiAttachment {
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+  /** Base64 without a data: prefix. */
+  data: string
+}
+
+/** Tokens and estimated cost of one answer, summed over every Claude call it took. */
+export interface AiUsage {
+  /** The model that answered; several when one answer used more than one. */
+  models: string[]
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+  /** Null when the pricing of a model is unknown. */
+  costUsd: number | null
+}
+
 export interface AiMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
   citations: AiCitation[]
-  calculator: CalculatorSpec | null
-  /** Interactive blocks the AI showed in this answer, e.g. orbit diagrams. */
+  /** Calculators made from the answer (several when it covers independent calculations). */
+  calculators: CalculatorSpec[]
+  /** Interactive blocks the AI showed in this answer, e.g. orbit diagrams and calculator runs. */
   widgets: WidgetAttrs[]
+  attachments: AiAttachment[]
+  usage: AiUsage | null
   createdAt: string
 }
 
@@ -136,5 +160,21 @@ export type AiStreamEvent =
   | { type: 'text'; text: string }
   | { type: 'calculator'; spec: CalculatorSpec }
   | { type: 'widget'; widget: WidgetAttrs }
+  | { type: 'usage'; usage: AiUsage }
   | { type: 'error'; message: string }
   | { type: 'done'; messageId: string }
+
+/** Claude's check of a calculator's formulas, theory and explanations, with an optional corrected version. */
+export interface CalculatorReview {
+  findings: {
+    severity: 'error' | 'warning' | 'note'
+    /** The input or output concerned, if any. */
+    key: string | null
+    message: string
+  }[]
+  /** The corrected calculator; null when nothing needs to change. */
+  revised: CalculatorSpec | null
+  /** Automatic checks of the corrected calculator (what would still need attention). */
+  revisedChecks: CalculatorIssue[]
+  usage: AiUsage | null
+}

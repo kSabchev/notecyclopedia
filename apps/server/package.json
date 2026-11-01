@@ -8,7 +8,7 @@
     "build": "tsup --config tsup.config.ts",
     "start": "node --env-file-if-exists=../../.env dist/index.js",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "tsx --test src/services/file-types.test.ts src/services/search-query.test.ts src/services/claude.test.ts src/routes/backup.test.ts src/routes/core.integration.test.ts src/services/article-draft.test.ts src/services/page-review.test.ts src/services/claude-usage.test.ts",
+    "test": "tsx --test src/services/file-types.test.ts src/services/search-query.test.ts src/services/claude.test.ts src/routes/backup.test.ts src/routes/core.integration.test.ts src/services/article-draft.test.ts src/services/page-review.test.ts src/services/claude-usage.test.ts src/services/calculator-review.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate.ts"
   },
