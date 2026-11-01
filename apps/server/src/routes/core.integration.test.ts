@@ -603,6 +603,25 @@ test(
     ])
     assert.equal((await request(outsider, `/pages/${lecture.id}/references`)).status, 404)
 
+    // A topic hub may link to the course's matching sections and lectures, but not to other hubs.
+    const { hubTargets } = await import('../services/topic-hub')
+    const targets = await hubTargets(sourceCourse.id, 'Hohmann transfer')
+    assert.deepEqual(
+      targets.map((t) => [t.pageId, t.nodeId]),
+      [
+        [lecture.id, headingId],
+        [lecture.id, null],
+      ],
+    )
+    const draftHub = (body: unknown, actor = owner) =>
+      request(actor, '/ai/topic-hub', { method: 'POST', body: json(body) })
+    assert.equal((await draftHub({ courseId: sourceCourse.id, topic: 'Hohmann' }, viewer)).status, 403)
+    assert.equal(
+      (await draftHub({ courseId: sourceCourse.id, topic: 'Hohmann' })).status,
+      503,
+      'No API key in tests',
+    )
+
     const backup = await request(owner, '/backup/export')
     assert.equal(backup.status, 200)
     const archive = await backup.blob()

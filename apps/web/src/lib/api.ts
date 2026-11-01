@@ -3,6 +3,7 @@ import type {
   AiMessage,
   AiStreamEvent,
   AiThread,
+  AiUsage,
   Calculator,
   CalculatorReview,
   CalculatorSpec,
@@ -204,6 +205,12 @@ export const api = {
     threads: () => get<AiThread[]>('/ai/threads'),
     thread: (id: string) => get<{ thread: AiThread; messages: AiMessage[] }>(`/ai/threads/${id}`),
     /** Calculators from a description or a solved problem; with `messageId` they are stored with that answer. */
+    /** A topic hub draft for a course, linking to where the topic is covered; nothing is saved. */
+    topicHub: (courseId: string, topic: string) =>
+      request<{ content: DocJSON; targets: number; usage: AiUsage | null }>('POST', '/ai/topic-hub', {
+        courseId,
+        topic,
+      }),
     /** Claude's check of a saved calculator, with a proposed correction; nothing is saved. */
     reviewCalculator: (id: string) => request<CalculatorReview>('POST', `/ai/calculators/${id}/review`),
     calculator: (context: string, messageId?: string) =>

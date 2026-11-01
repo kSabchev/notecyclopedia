@@ -91,3 +91,99 @@ test('a topic hub references a lecture section, which shows it, and terms are se
   await page.getByRole('link', { name: /term\s*Bi-elliptic transfer/i }).click()
   await expect(page).toHaveURL(`/pages/${lecture.id}#${headingId}`)
 })
+
+// Claude is not called in tests: the draft is answered here; the editor, saving and references are real.
+test('a theory page is drafted as a topic hub whose links reach the lecture', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await page.getByLabel('Name').fill('Topic hub user')
+  await page.getByLabel('Email').fill(`hub-${crypto.randomUUID()}@example.test`)
+  await page.getByLabel('Password').fill('browser-test-password')
+  await page.getByRole('button', { name: 'Create account', exact: true }).last().click()
+  await expect(page).toHaveURL('/')
+
+  const courseId = (
+    (await (await page.request.post('/api/courses', { data: { name: 'Astrodynamics' } })).json()) as {
+      id: string
+    }
+  ).id
+  const lecture = (await (
+    await page.request.post('/api/pages', {
+      data: {
+        courseId,
+        title: 'Orbital manoeuvres',
+        type: 'lecture',
+        lectureNumber: 4,
+        content: {
+          type: 'doc',
+          content: [
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Hohmann transfer' }] },
+          ],
+        },
+      },
+    })
+  ).json()) as { id: string; content: { content: { attrs?: { id?: string } }[] } }
+  const headingId = lecture.content.content[0]?.attrs?.id as string
+
+  let asked: { courseId: string; topic: string } | undefined
+  await page.route('**/api/ai/topic-hub', async (route) => {
+    asked = route.request().postDataJSON()
+    await route.fulfill({
+      json: {
+        targets: 1,
+        usage: null,
+        content: {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'Transfers change orbits with burns.' }] },
+            {
+              type: 'heading',
+              attrs: { level: 2 },
+              content: [{ type: 'text', text: 'Where it is covered' }],
+            },
+            {
+              type: 'bulletList',
+              content: [
+                {
+                  type: 'listItem',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        {
+                          type: 'text',
+                          text: 'Hohmann transfer',
+                          marks: [{ type: 'link', attrs: { href: `/pages/${lecture.id}#${headingId}` } }],
+                        },
+                        { type: 'text', text: ' (Orbital manoeuvres) — two burns' },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    })
+  })
+
+  await page.goto(`/pages/new?courseId=${courseId}`)
+  await page.getByLabel('Page type').selectOption('theory')
+  await page.getByPlaceholder('Page title').fill('Orbital transfers')
+  await page.getByRole('button', { name: 'Draft topic hub with AI' }).click()
+  await expect(page.getByText('Drafted with 1 matching section or page to link to.')).toBeVisible()
+  expect(asked).toEqual({ courseId, topic: 'Orbital transfers' })
+  // The draft is editable before it is saved.
+  await page.getByLabel('Page content').getByText('Transfers change orbits with burns.').click()
+  await page.keyboard.press('End')
+  await page.keyboard.type(' Edited.')
+  await page.getByRole('button', { name: 'Save revision' }).click()
+  await expect(page.getByText('Transfers change orbits with burns. Edited.')).toBeVisible()
+
+  await page.getByRole('link', { name: 'Hohmann transfer' }).click()
+  await expect(page).toHaveURL(`/pages/${lecture.id}#${headingId}`)
+  await expect(
+    page.getByRole('region', { name: 'Referenced by' }).getByRole('link', { name: 'Orbital transfers' }),
+  ).toBeVisible()
+})
