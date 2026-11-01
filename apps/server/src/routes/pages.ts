@@ -1,4 +1,4 @@
-import { type DocJSON, docToText } from '@nc/shared'
+import { type DocJSON, PAGE_TYPES, docToText } from '@nc/shared'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
@@ -13,7 +13,7 @@ export const pages = Router()
 export const formulas = Router()
 
 const docSchema = z.object({ type: z.literal('doc'), content: z.array(z.unknown()).optional() }).passthrough()
-const pageType = z.enum(['lecture', 'note', 'seminar', 'source'])
+const pageType = z.enum(PAGE_TYPES)
 const lectureNumberSchema = z.number().int().positive().max(2_147_483_647)
 
 const summary = {
@@ -351,7 +351,7 @@ pages.post('/:id/revisions/:rev/restore', async (req, res) => {
   res.json(rest)
 })
 
-/** Formula index across all courses the user can read. */
+/** Formula index across all courses the user can read, in course and lecture order. */
 formulas.get('/', async (req, res) => {
   const { pinned } = z.object({ pinned: z.enum(['1', '0']).optional() }).parse(req.query)
   const ids = await memberCourseIds(me(req).id)
@@ -361,6 +361,9 @@ formulas.get('/', async (req, res) => {
       id: schema.formulas.id,
       pageId: schema.formulas.pageId,
       pageTitle: schema.pages.title,
+      courseId: schema.pages.courseId,
+      lectureNumber: schema.pages.lectureNumber,
+      pageType: schema.pages.type,
       label: schema.formulas.label,
       latex: schema.formulas.latex,
       description: schema.formulas.description,
@@ -371,6 +374,11 @@ formulas.get('/', async (req, res) => {
     .where(
       and(inArray(schema.pages.courseId, ids), pinned === '1' ? eq(schema.formulas.pinned, true) : undefined),
     )
-    .orderBy(schema.pages.title, schema.formulas.position)
+    .orderBy(
+      sql`${schema.pages.lectureNumber} ASC NULLS LAST`,
+      schema.pages.sortOrder,
+      schema.pages.title,
+      schema.formulas.position,
+    )
   res.json(rows)
 })

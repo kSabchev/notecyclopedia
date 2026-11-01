@@ -6,6 +6,7 @@ import {
   type CalculatorSpec,
   DEFAULT_TIME_ZONE,
   type DocJSON,
+  PAGE_TYPES,
   type WidgetAttrs,
 } from '@nc/shared'
 import { sql } from 'drizzle-orm'
@@ -118,9 +119,7 @@ export const pages = pgTable(
       .notNull()
       .references(() => courses.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
-    type: text('type', { enum: ['lecture', 'note', 'seminar', 'source'] })
-      .notNull()
-      .default('note'),
+    type: text('type', { enum: PAGE_TYPES }).notNull().default('note'),
     lectureNumber: integer('lecture_number'),
     sortOrder: integer('sort_order').notNull().default(0),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),

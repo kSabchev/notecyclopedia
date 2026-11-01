@@ -8,6 +8,7 @@ import { pipeline } from 'node:stream/promises'
 import {
   BUILT_IN_CONSTANTS,
   type DocJSON,
+  PAGE_TYPES,
   calculatorSpecSchema,
   docToText,
   extractFormulas,
@@ -65,7 +66,7 @@ const backupObjectSchema = z.object({
         id: z.string().uuid(),
         courseId: z.string().uuid(),
         title: z.string().min(1).max(200),
-        type: z.enum(['lecture', 'note', 'seminar', 'source']),
+        type: z.enum(PAGE_TYPES),
         lectureNumber: lectureNumberSchema.nullable().optional().default(null),
         tags: z.array(z.string().min(1).max(40)).max(20),
         content: docSchema,

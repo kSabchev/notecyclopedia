@@ -1,4 +1,4 @@
-import type { DocJSON, Page, PageType } from '@nc/shared'
+import { type DocJSON, PAGE_TYPES, type Page, type PageType } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { EditorContent, type JSONContent, useEditor } from '@tiptap/react'
@@ -10,8 +10,6 @@ import { BackIcon } from '../components/Icons'
 import { editorExtensions } from '../components/extensions'
 import { ErrorNote, Field, btn, inputCls } from '../components/ui'
 import { ApiError, api } from '../lib/api'
-
-const TYPES: PageType[] = ['lecture', 'note', 'seminar', 'source']
 
 function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCourseId?: string }) {
   const { t } = useTranslation()
@@ -168,14 +166,17 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
                   setDirty(true)
                 }}
               >
-                {TYPES.map((x) => (
+                {PAGE_TYPES.map((x) => (
                   <option key={x} value={x}>
                     {t(`editor.types.${x}`)}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label={t('editor.lectureNumber')} htmlFor="lecture-number">
+            <Field
+              label={t(type === 'seminar' ? 'editor.practisesLecture' : 'editor.lectureNumber')}
+              htmlFor="lecture-number"
+            >
               <input
                 id="lecture-number"
                 className={inputCls}
@@ -190,7 +191,9 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
                   setDirty(true)
                 }}
               />
-              <p className="m-0 text-xs text-muted">{t('editor.lectureNumberHint')}</p>
+              <p className="m-0 text-xs text-muted">
+                {t(type === 'seminar' ? 'editor.practisesLectureHint' : 'editor.lectureNumberHint')}
+              </p>
             </Field>
             <Field label={t('editor.tags')} htmlFor="tags">
               <input
