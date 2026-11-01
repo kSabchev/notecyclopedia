@@ -2,6 +2,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { backfillFormulaIds } from '../services/formula-index'
+import { backfillTerms } from '../services/term-index'
 import { db, pool } from './index'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -12,4 +13,6 @@ await migrate(db, { migrationsFolder: path.resolve(here, '../../drizzle') })
 console.log('Migrations applied')
 const backfilled = await backfillFormulaIds()
 if (backfilled) console.log(`Assigned formula ids on ${backfilled} page(s)`)
+const termPages = await backfillTerms()
+if (termPages) console.log(`Indexed headings as terms on ${termPages} page(s)`)
 await pool.end()

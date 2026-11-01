@@ -104,11 +104,22 @@ export interface CourseConstant {
 }
 
 export interface SearchHit {
-  kind: 'page' | 'file' | 'calculator'
+  /** A term is a heading of a page: `id` is the page, `anchor` the heading. */
+  kind: 'page' | 'term' | 'file' | 'calculator'
   id: string
   title: string
   snippet: string
   courseId: string | null
+  anchor: string | null
+}
+
+/** A link to a page from another page, shown as "Referenced by" on the target. */
+export interface PageReference {
+  sourcePageId: string
+  sourceTitle: string
+  sourceType: PageType
+  /** The heading on the target page it points to; null for the whole page. */
+  targetNodeId: string | null
 }
 
 export interface AiCitation {

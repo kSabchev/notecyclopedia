@@ -13,7 +13,8 @@ import {
   docToText,
   extractFormulas,
   remapImageFiles,
-  withFormulaIds,
+  remapPageLinks,
+  withBlockIds,
 } from '@nc/shared'
 import { ZipArchive } from 'archiver'
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
@@ -27,6 +28,7 @@ import { env } from '../env'
 import { HttpError, me } from '../http'
 import { fileType } from '../services/file-types'
 import { queueIngest, queueReindexPage } from '../services/jobs'
+import { syncReferences, syncTerms } from '../services/term-index'
 
 const FORMAT = 'notecyclopedia-backup'
 const VERSION = 1
@@ -594,13 +596,14 @@ backup.post('/import', receiveArchive, async (req, res) => {
         }
 
         if (data.pages.length) {
-          // Image blocks point at the imported copies of their files. Backups made before formula ids
-          // existed carry formula blocks without them.
+          // Image blocks and links between pages point at the imported copies. Backups made before
+          // formula and heading ids existed carry blocks without them.
           const toImportedFile = (id: string) => fileMap.get(id)
+          const toImportedPage = (id: string) => pageMap.get(id)
+          const remap = (doc: DocJSON) => remapPageLinks(remapImageFiles(doc, toImportedFile), toImportedPage)
           for (const page of data.pages) {
-            page.content = withFormulaIds(remapImageFiles(page.content, toImportedFile)).doc
-            for (const revision of page.revisions)
-              revision.content = remapImageFiles(revision.content, toImportedFile)
+            page.content = withBlockIds(remap(page.content)).doc
+            for (const revision of page.revisions) revision.content = remap(revision.content)
           }
           const pageOrderByCourse = new Map<string, number>()
           await insertBatches(
@@ -649,6 +652,10 @@ backup.post('/import', receiveArchive, async (req, res) => {
             })),
           )
           await insertBatches(formulaRows, (batch) => tx.insert(schema.formulas).values(batch))
+          for (const page of data.pages) {
+            await syncTerms(tx, pageMap.get(page.id) as string, page.content)
+            await syncReferences(tx, pageMap.get(page.id) as string, page.content)
+          }
         }
 
         if (stagedFiles.length) {

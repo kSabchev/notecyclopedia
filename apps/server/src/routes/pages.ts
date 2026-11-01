@@ -106,6 +106,25 @@ pages.post('/', async (req, res) => {
   res.status(201).json(page)
 })
 
+/** Pages that link to this page or to a term on it, among the pages the user can read. */
+pages.get('/:id/references', async (req, res) => {
+  const user = me(req)
+  const page = await loadPage(param(req, 'id'), user.id)
+  const ids = await memberCourseIds(user.id)
+  const rows = await db
+    .select({
+      sourcePageId: schema.pageReferences.sourcePageId,
+      sourceTitle: schema.pages.title,
+      sourceType: schema.pages.type,
+      targetNodeId: schema.pageReferences.targetNodeId,
+    })
+    .from(schema.pageReferences)
+    .innerJoin(schema.pages, eq(schema.pages.id, schema.pageReferences.sourcePageId))
+    .where(and(eq(schema.pageReferences.targetPageId, page.id), inArray(schema.pages.courseId, ids)))
+    .orderBy(schema.pages.title)
+  res.json(rows)
+})
+
 pages.get('/:id', async (req, res) => {
   const page = await loadPage(param(req, 'id'), me(req).id)
   const { contentText: _omit, ...rest } = page

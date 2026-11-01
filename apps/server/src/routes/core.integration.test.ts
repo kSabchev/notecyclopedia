@@ -37,7 +37,7 @@ test(
       import('../app'),
       import('../services/jobs'),
     ])
-    const { eq, inArray } = await import('drizzle-orm')
+    const { and, eq, inArray } = await import('drizzle-orm')
     const { fileURLToPath } = await import('node:url')
     const here = path.dirname(fileURLToPath(import.meta.url))
     const state: {
@@ -545,6 +545,64 @@ test(
       'No API key in tests',
     )
 
+    // Headings become terms: searchable, and other pages can reference them.
+    const newPage = async (title: string, type: string, content: unknown[]) => {
+      const response = await request(owner, '/pages', {
+        method: 'POST',
+        body: json({ courseId: sourceCourse.id, title, type, content: { type: 'doc', content } }),
+      })
+      assert.equal(response.status, 201)
+      return (await response.json()) as { id: string; content: { content: { attrs?: { id?: string } }[] } }
+    }
+    const lecture = await newPage('Orbital transfers', 'lecture', [
+      { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Hohmann transfer' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Two burns between circular orbits.' }] },
+    ])
+    const headingId = lecture.content.content[0]?.attrs?.id
+    assert.ok(headingId, 'The server gives headings an id')
+    const hub = await newPage('Transfers (topic hub)', 'theory', [
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'See ' },
+          {
+            type: 'text',
+            text: 'Hohmann transfer',
+            marks: [{ type: 'link', attrs: { href: `/pages/${lecture.id}#${headingId}` } }],
+          },
+          {
+            type: 'text',
+            text: ' (gone)',
+            marks: [{ type: 'link', attrs: { href: `/pages/${crypto.randomUUID()}` } }],
+          },
+        ],
+      },
+    ])
+    const hits = (await (await request(viewer, '/search?q=hohmann')).json()) as Array<{
+      kind: string
+      id: string
+      anchor: string | null
+      snippet: string
+    }>
+    assert.deepEqual(hits[0], {
+      kind: 'term',
+      id: lecture.id,
+      title: 'Hohmann transfer',
+      courseId: sourceCourse.id,
+      snippet: 'Orbital transfers',
+      anchor: headingId,
+    })
+    const referencedBy = await (await request(viewer, `/pages/${lecture.id}/references`)).json()
+    assert.deepEqual(referencedBy, [
+      {
+        sourcePageId: hub.id,
+        sourceTitle: 'Transfers (topic hub)',
+        sourceType: 'theory',
+        targetNodeId: headingId,
+      },
+    ])
+    assert.equal((await request(outsider, `/pages/${lecture.id}/references`)).status, 404)
+
     const backup = await request(owner, '/backup/export')
     assert.equal(backup.status, 200)
     const archive = await backup.blob()
@@ -565,5 +623,28 @@ test(
     assert.ok(restoredSummary.pages >= 1)
     assert.ok(restoredSummary.files >= 1)
     assert.equal(restoredSummary.constants, 1)
+
+    // The imported topic hub references the imported copy of the lecture, not the original.
+    const copies = await db
+      .select({ id: schema.pages.id, title: schema.pages.title })
+      .from(schema.pages)
+      .innerJoin(schema.courses, eq(schema.courses.id, schema.pages.courseId))
+      .where(
+        and(
+          eq(schema.courses.createdBy, owner.id),
+          inArray(schema.pages.title, ['Orbital transfers', 'Transfers (topic hub)']),
+        ),
+      )
+    const lectureCopy = copies.find((p) => p.title === 'Orbital transfers' && p.id !== lecture.id)
+    const hubCopy = copies.find((p) => p.title === 'Transfers (topic hub)' && p.id !== hub.id)
+    assert.ok(lectureCopy && hubCopy)
+    const copiedReferences = await db
+      .select()
+      .from(schema.pageReferences)
+      .where(eq(schema.pageReferences.sourcePageId, hubCopy.id))
+    assert.deepEqual(
+      copiedReferences.map((r) => [r.targetPageId, r.targetNodeId]),
+      [[lectureCopy.id, headingId]],
+    )
   },
 )

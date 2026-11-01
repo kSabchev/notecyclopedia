@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from '@tanstack/react-router'
-import { useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DocView, docHeadings } from '../components/DocView'
 import { FileDrop } from '../components/FileDrop'
@@ -24,6 +24,24 @@ export function PageView() {
   const [openRevision, setOpenRevision] = useState<number | null>(null)
   const page = useQuery({ queryKey: ['page', pageId], queryFn: () => api.pages.get(pageId) })
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
+  const references = useQuery({
+    queryKey: ['references', pageId],
+    queryFn: () => api.pages.references(pageId),
+  })
+  const hash = useLocation({ select: (l) => l.hash })
+  // A link to a term (`#<heading id>`) scrolls to that heading and highlights it briefly.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run again once the page content has rendered
+  useEffect(() => {
+    if (!hash || tab !== 'read') return
+    const frame = requestAnimationFrame(() => {
+      const heading = document.getElementById(hash)
+      if (!heading) return
+      heading.scrollIntoView({ block: 'start' })
+      heading.classList.add('term-flash')
+      setTimeout(() => heading.classList.remove('term-flash'), 1600)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [hash, tab, page.data?.content])
   const files = useQuery({
     queryKey: ['files', 'page', pageId],
     queryFn: () => api.files.list({ pageId }),
@@ -320,12 +338,45 @@ export function PageView() {
             <h2 id="h-toc" className="m-0 mb-1">
               <Eyebrow>{t('page.onThisPage')}</Eyebrow>
             </h2>
-            {headings.map((h) => (
-              <span key={h.index} className={`text-sm ${h.level === 3 ? 'pl-3 text-muted' : ''}`}>
-                {h.text}
-              </span>
-            ))}
+            {headings.map((h) =>
+              h.id ? (
+                <Link
+                  key={h.index}
+                  to="/pages/$pageId"
+                  params={{ pageId: p.id }}
+                  hash={h.id}
+                  className={`text-sm text-ink no-underline hover:underline ${h.level === 3 ? 'pl-3 text-muted' : ''}`}
+                >
+                  {h.text}
+                </Link>
+              ) : (
+                <span key={h.index} className={`text-sm ${h.level === 3 ? 'pl-3 text-muted' : ''}`}>
+                  {h.text}
+                </span>
+              ),
+            )}
           </nav>
+        )}
+        {(references.data?.length ?? 0) > 0 && (
+          <section aria-labelledby="h-refs" className="flex flex-col gap-2">
+            <h2 id="h-refs" className="m-0 mb-1">
+              <Eyebrow>{t('page.referencedBy')}</Eyebrow>
+            </h2>
+            {references.data?.map((r) => {
+              const term = r.targetNodeId ? headings.find((h) => h.id === r.targetNodeId) : null
+              return (
+                <div key={`${r.sourcePageId}-${r.targetNodeId}`} className="flex flex-col text-sm">
+                  <Link to="/pages/$pageId" params={{ pageId: r.sourcePageId }} className="font-semibold">
+                    {r.sourceTitle}
+                  </Link>
+                  <span className="text-xs text-muted">
+                    {t(`editor.types.${r.sourceType}`)}
+                    {term && <> · {t('page.toTerm', { term: term.text })}</>}
+                  </span>
+                </div>
+              )
+            })}
+          </section>
         )}
         <section
           aria-labelledby="h-ai"

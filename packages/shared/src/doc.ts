@@ -35,10 +35,11 @@ export function docToText(doc: DocJSON | null | undefined): string {
 }
 
 /**
- * Give every formula block a stable `id` attribute so quizzes, calculators and diagrams can refer to it
- * across edits. Existing ids are kept; a repeated id (e.g. from copy-paste) is replaced on the later block.
+ * Give every formula and heading block a stable `id` attribute, so calculators can refer to formulas and
+ * references can point at headings (terms) across edits. Existing ids are kept; a repeated id (e.g. from
+ * copy-paste, or splitting a heading) is replaced on the later block.
  */
-export function withFormulaIds(
+export function withBlockIds(
   doc: DocJSON,
   newId: () => string = () => crypto.randomUUID(),
 ): { doc: DocJSON; changed: boolean } {
@@ -46,7 +47,7 @@ export function withFormulaIds(
   let changed = false
   const walk = (n: Node): Node => {
     let next = n
-    if (n.type === 'formula') {
+    if (ID_BLOCKS.has(n.type)) {
       const id = n.attrs?.id
       if (typeof id === 'string' && id && !seen.has(id)) seen.add(id)
       else {
@@ -63,6 +64,80 @@ export function withFormulaIds(
   const content = (doc.content ?? []) as Node[]
   const mapped = content.map(walk)
   return { doc: changed ? { ...doc, content: mapped } : doc, changed }
+}
+
+/** Blocks that carry a stable `id`: formulas (for quizzes, calculators and diagrams) and headings (terms). */
+const ID_BLOCKS = new Set(['formula', 'heading'])
+
+/** Plain text of a node and its children. */
+const nodeText = (n: Node): string =>
+  n.type === 'text' ? (n.text ?? '') : (n.content ?? []).map(nodeText).join('')
+
+export interface ExtractedTerm {
+  /** The heading's `id` attribute. */
+  nodeId: string
+  text: string
+  level: number
+}
+
+/** Headings with an id and text, in order: the terms of a page, which can be searched and referenced. */
+export function extractTerms(doc: DocJSON | null | undefined): ExtractedTerm[] {
+  const found: ExtractedTerm[] = []
+  const walk = (n: Node) => {
+    const text = n.type === 'heading' ? nodeText(n).trim() : ''
+    if (text && typeof n.attrs?.id === 'string' && n.attrs.id)
+      found.push({ nodeId: n.attrs.id, text, level: Number(n.attrs.level ?? 2) })
+    for (const c of n.content ?? []) walk(c)
+  }
+  for (const c of (doc?.content ?? []) as Node[]) walk(c)
+  return found
+}
+
+const PAGE_LINK =
+  /^\/pages\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:#([\w-]{1,100}))?$/i
+
+/** The in-app link to a page, or to a term (heading) on it. */
+export function pageLink(pageId: string, nodeId?: string | null): string {
+  return nodeId ? `/pages/${pageId}#${nodeId}` : `/pages/${pageId}`
+}
+
+/** The page and term a link points to, when it is an in-app page link. */
+export function parsePageLink(href: unknown): { pageId: string; nodeId: string | null } | null {
+  const m = typeof href === 'string' ? PAGE_LINK.exec(href) : null
+  return m ? { pageId: (m[1] as string).toLowerCase(), nodeId: m[2] ?? null } : null
+}
+
+type Mark = { type: string; attrs?: Record<string, unknown> }
+type MarkedNode = Node & { marks?: Mark[] }
+
+/** The pages and terms a document links to, without duplicates. */
+export function extractReferences(
+  doc: DocJSON | null | undefined,
+): { pageId: string; nodeId: string | null }[] {
+  const found = new Map<string, { pageId: string; nodeId: string | null }>()
+  const walk = (n: MarkedNode) => {
+    for (const mark of n.marks ?? []) {
+      const target = mark.type === 'link' ? parsePageLink(mark.attrs?.href) : null
+      if (target) found.set(`${target.pageId}#${target.nodeId ?? ''}`, target)
+    }
+    for (const c of (n.content ?? []) as MarkedNode[]) walk(c)
+  }
+  for (const c of (doc?.content ?? []) as MarkedNode[]) walk(c)
+  return [...found.values()]
+}
+
+/** A copy of the document with in-app page links pointing at `map(pageId)` (kept when it returns undefined). */
+export function remapPageLinks(doc: DocJSON, map: (pageId: string) => string | undefined): DocJSON {
+  const walk = (n: MarkedNode): MarkedNode => {
+    const marks = n.marks?.map((mark) => {
+      const target = mark.type === 'link' ? parsePageLink(mark.attrs?.href) : null
+      const mapped = target && map(target.pageId)
+      return mapped ? { ...mark, attrs: { ...mark.attrs, href: pageLink(mapped, target.nodeId) } } : mark
+    })
+    const next = marks ? { ...n, marks } : n
+    return n.content ? { ...next, content: (n.content as MarkedNode[]).map(walk) } : next
+  }
+  return { ...doc, content: ((doc.content ?? []) as MarkedNode[]).map(walk) }
 }
 
 /** Ids of the uploaded files shown by image blocks, in order, without duplicates. */
@@ -88,7 +163,7 @@ export function remapImageFiles(doc: DocJSON, map: (fileId: string) => string | 
 }
 
 export interface ExtractedFormula {
-  /** The formula block's `id` attribute; null only for documents not passed through `withFormulaIds`. */
+  /** The formula block's `id` attribute; null only for documents not passed through `withBlockIds`. */
   nodeId: string | null
   latex: string
   label: string | null

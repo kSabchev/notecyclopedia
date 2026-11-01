@@ -13,6 +13,7 @@ import type {
   FileAsset,
   Formula,
   Page,
+  PageReference,
   PageRevision,
   PageSummary,
   PageType,
@@ -147,6 +148,8 @@ export const api = {
       request<Page>('PUT', `/pages/${id}`, b),
     remove: (id: string) => request<void>('DELETE', `/pages/${id}`),
     revisions: (id: string) => get<PageRevision[]>(`/pages/${id}/revisions`),
+    /** Pages that link to this page or to a term on it. */
+    references: (id: string) => get<PageReference[]>(`/pages/${id}/references`),
     revision: (id: string, rev: number) =>
       get<{ revision: number; title: string; content: DocJSON }>(`/pages/${id}/revisions/${rev}`),
     restore: (id: string, rev: number, b: { baseRevision: number; message?: string }) =>
