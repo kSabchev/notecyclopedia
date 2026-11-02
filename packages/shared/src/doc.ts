@@ -211,3 +211,56 @@ export function chunkText(text: string, size = 1200, overlap = 150): string[] {
   if (cur.trim()) chunks.push(cur)
   return chunks
 }
+
+/**
+ * The part of a document under a heading: the heading and the blocks after it, up to the next heading of the
+ * same or a higher level. The whole document when the heading is not found (or `nodeId` is null).
+ */
+export function sectionOf(doc: DocJSON, nodeId: string | null): DocJSON {
+  const blocks = (doc.content ?? []) as Node[]
+  const start = nodeId ? blocks.findIndex((b) => b.type === 'heading' && b.attrs?.id === nodeId) : -1
+  if (start < 0) return doc
+  const level = Number(blocks[start]?.attrs?.level ?? 2)
+  let end = start + 1
+  while (end < blocks.length) {
+    const b = blocks[end] as Node
+    if (b.type === 'heading' && Number(b.attrs?.level ?? 2) <= level) break
+    end++
+  }
+  return { ...doc, content: blocks.slice(start, end) }
+}
+
+/**
+ * Page blocks from short Markdown written by the AI: paragraphs separated by blank lines, `$$…$$` on their own
+ * as formula blocks, `- ` lines as a bullet list, and **bold** kept as bold text. Inline `$…$` stays as text.
+ */
+export function markdownBlocks(markdown: string): unknown[] {
+  const inline = (line: string) =>
+    line
+      .split(/(\*\*[^*]+\*\*)/)
+      .filter(Boolean)
+      .map((part) =>
+        /^\*\*[^*]+\*\*$/.test(part)
+          ? { type: 'text', text: part.slice(2, -2), marks: [{ type: 'bold' }] }
+          : { type: 'text', text: part },
+      )
+  return markdown
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => {
+      const display = /^\$\$([\s\S]+)\$\$$/.exec(p)
+      if (display) return { type: 'formula', attrs: { latex: (display[1] as string).trim(), pinned: false } }
+      const lines = p.split('\n').map((l) => l.trim())
+      if (lines.every((l) => /^[-*] /.test(l)))
+        return {
+          type: 'bulletList',
+          content: lines.map((l) => ({
+            type: 'listItem',
+            content: [{ type: 'paragraph', content: inline(l.slice(2)) }],
+          })),
+        }
+      const text = lines.join(' ').replace(/^#+\s*/, '')
+      return { type: 'paragraph', content: inline(text) }
+    })
+}

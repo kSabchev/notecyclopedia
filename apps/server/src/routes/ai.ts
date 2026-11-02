@@ -39,17 +39,22 @@ ai.post('/pages/:id/review', async (req, res) => {
 ai.post('/calculators/:id/review', async (req, res) => {
   const user = me(req)
   const calc = await loadCalc(param(req, 'id'), user.id)
-  res.json(await reviewCalculator(calc.spec, user.id))
+  const { locale } = z.object({ locale: z.enum(['en', 'bg']).optional() }).parse(req.body ?? {})
+  res.json(await reviewCalculator(calc.spec, user.id, locale))
 })
 
 /** Draft a topic hub (theory page) for a course from its notes, linking to where the topic is covered. Nothing is saved. */
 ai.post('/topic-hub', async (req, res) => {
-  const { courseId, topic } = z
-    .object({ courseId: z.string().uuid(), topic: z.string().trim().min(2).max(200) })
+  const { courseId, topic, locale } = z
+    .object({
+      courseId: z.string().uuid(),
+      topic: z.string().trim().min(2).max(200),
+      locale: z.enum(['en', 'bg']).optional(),
+    })
     .parse(req.body)
   const user = me(req)
   await assertCourse(courseId, user.id, 'editor')
-  res.json(await generateTopicHub(courseId, topic, user.id))
+  res.json(await generateTopicHub(courseId, topic, user.id, locale))
 })
 
 ai.get('/threads', async (req, res) => {

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { DailyQuestionCard } from '../components/DailyQuestionCard'
 import { FileDrop } from '../components/FileDrop'
 import { PlusIcon, SparkIcon, UploadIcon } from '../components/Icons'
 import { Tex } from '../components/Tex'
@@ -48,6 +49,7 @@ export function Home() {
 
       <div className="flex flex-wrap items-start gap-8">
         <div className="flex min-w-0 flex-[2_1_520px] flex-col gap-10">
+          <DailyQuestionCard />
           <section aria-labelledby="h-continue" className="flex flex-col gap-4">
             <SectionHeader
               id="h-continue"

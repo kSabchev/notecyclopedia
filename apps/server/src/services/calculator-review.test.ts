@@ -42,7 +42,7 @@ test('sends the automatic checks along and returns a validated correction', asyn
       revised: fixed,
     },
   ])
-  const review = await reviewCalculator(wrong, 'user', claude.create)
+  const review = await reviewCalculator(wrong, 'user', 'en', claude.create)
   assert.deepEqual(review.findings, [
     { severity: 'error', key: 'v', message: 'This is the acceleration, not the speed.' },
   ])
@@ -54,7 +54,7 @@ test('sends the automatic checks along and returns a validated correction', asyn
 
 test('a calculator that needs no change has no revised version', async () => {
   const claude = fakeClaude([{ findings: [{ severity: 'note', message: 'All formulas are correct.' }] }])
-  const review = await reviewCalculator(fixed, 'user', claude.create)
+  const review = await reviewCalculator(fixed, 'user', 'en', claude.create)
   assert.equal(review.revised, null)
   assert.equal(review.findings[0]?.key, null)
 })
@@ -65,7 +65,7 @@ test('an invalid correction is sent back once to be fixed', async () => {
     { findings: [], revised: broken },
     { findings: [{ severity: 'error', key: 'v', message: 'Wrong formula.' }], revised: fixed },
   ])
-  const review = await reviewCalculator(wrong, 'user', claude.create)
+  const review = await reviewCalculator(wrong, 'user', 'en', claude.create)
   assert.equal(review.revised?.outputs[0]?.expr, 'sqrt(mu / r)')
   assert.match(JSON.stringify(claude.requests[1]?.messages.at(-1)), /Invalid review: revised/)
 
@@ -73,5 +73,8 @@ test('an invalid correction is sent back once to be fixed', async () => {
     { findings: [], revised: broken },
     { findings: [], revised: broken },
   ])
-  await assert.rejects(reviewCalculator(wrong, 'user', never.create), /could not produce a valid review/)
+  await assert.rejects(
+    reviewCalculator(wrong, 'user', 'en', never.create),
+    /could not produce a valid review/,
+  )
 })

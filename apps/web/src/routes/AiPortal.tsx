@@ -35,6 +35,8 @@ export interface AiSearch {
   q?: string
   pageId?: string
   thread?: string
+  /** Text to start the message with, without sending it (e.g. your own question about the daily question). */
+  prefill?: string
 }
 
 /** An orbit diagram the AI showed with its answer, with a link to explore it in the orbit viewer. */
@@ -151,7 +153,7 @@ export function AiPortal() {
   const qc = useQueryClient()
   const search = useSearch({ from: '/app/ai' }) as AiSearch
   const [mode, setMode] = useState<AiMode>(search.mode ?? 'ask')
-  const [input, setInput] = useState('')
+  const [input, setInput] = useState(search.prefill ?? '')
   const [messages, setMessages] = useState<Msg[]>([])
   const [threadId, setThreadId] = useState<string | undefined>(search.thread)
   const [courseIds, setCourseIds] = useState<string[]>([])

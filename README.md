@@ -180,12 +180,33 @@ the problem. **Summarize**, **Solve** and **Build calculator** work as before.
   from `ANTHROPIC_PRICING_JSON` and the model used, summed over all Claude calls it took.
 - **A model per feature.** `ANTHROPIC_MODEL` is the default; `ANTHROPIC_MODELS_JSON` overrides it per feature, e.g.
   `{"ask":"claude-haiku-5-5","summarize":"claude-haiku-5-5"}`. Features are the portal modes (`ask`, `tutor`,
-  `check`, `summarize`, `solve`, `calculator`) and `calculator-spec`, `calculator-review`, `topic-hub`, `article-draft`,
+  `check`, `summarize`, `solve`, `calculator`) and `calculator-spec`, `calculator-review`, `topic-hub`, `daily-question`, `article-draft`,
   `page-review` and `image`
   (photo transcription for uploads). Add a pricing entry for each model you use.
 
 Photos are downscaled in the browser (at most 1568 px on the long edge, JPEG) and stored with the conversation, so
 follow-up questions still see them; the usage log stores them without the image data.
+
+## Daily questions
+
+**Daily questions** (in the sidebar, and **Today's question** on the home page) are study questions about your recent
+lectures. Questions are made only when you ask, one Claude call each, and answers are hidden until you want them.
+
+- **Today's question:** press **Generate**; the first question of your day (in your time zone) stays today's question,
+  so pressing it again costs nothing. Pick a course, or all your courses; the choice is remembered in the browser.
+- **New question:** **Ask me a question** makes another one at any time, in addition to today's.
+- **No duplicates:** topics are the headings (terms) of your six most recent lectures and theory pages, chosen without AI.
+  A topic you were never asked about comes first; once all have been used, the one asked about longest ago. When a
+  topic comes up again, Claude is shown your earlier questions on it and asked for a different aspect.
+- **Grounded:** the question and model answer come from the notes of that section, in the language of your notes
+  (decided by the app, with your interface language as the fallback); anything beyond the notes is labelled.
+- **All questions:** every question, newest first and grouped by day, with a subject filter, text search and **Load more**.
+- **Check my answer** opens the tutor's *Check my working* mode with the question and your answer. **Tell it as a story**
+  and **Harder question** are stored, so each costs at most one call; **Ask your own question** opens the tutor with
+  your message started. **Save to page** appends a question, its answer and expansions to its page as a new revision.
+  The AI cost so far is shown under each question.
+
+Its model is the `daily-question` feature in `ANTHROPIC_MODELS_JSON` (a cheaper model such as Haiku suits it).
 
 ## Time zone
 
@@ -362,15 +383,17 @@ The plan follows four rules:
 
 ### Phase 4: Daily question
 
-- [ ] "Today's question" card on the home page: generated when you press Generate (at most once a day, then stored),
+- [x] "Today's question" card on the home page: generated when you press Generate (at most once a day, then stored),
       from one of your course pages chosen by lecture recency and skipping recently used topics; optionally pinned to
       one course. Grounded in the notes, with anything beyond them labeled.
-- [ ] Show answer, or "Check my answer" with the Phase 3 checker; answering is never required.
-- [ ] Expand it, each on request and stored:
+- [x] Show answer, or "Check my answer" with the Phase 3 checker; answering is never required.
+- [x] Expand it, each on request and stored:
   - **Story**: the idea told through a real mission, discovery or engineering problem.
   - **Advanced**: a harder follow-up that builds on the same topic.
   - **Your own question**: ask anything about the topic; it opens a tutor thread with the question as context.
-- [ ] Past questions in a small archive; any question or expansion can be saved to its page.
+- [x] Past questions in a small archive; any question or expansion can be saved to its page.
+- [x] Daily questions in the sidebar: more questions on demand, avoiding repeated topics and questions, and all questions
+      by day with a subject filter and search.
 
 ### Phase 5: Realistic orbit simulations
 

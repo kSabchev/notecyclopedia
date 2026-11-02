@@ -5,6 +5,7 @@ import {
   type AiUsage,
   type CalculatorSpec,
   DEFAULT_TIME_ZONE,
+  type DailyQuestion,
   type DocJSON,
   PAGE_TYPES,
   type WidgetAttrs,
@@ -343,6 +344,38 @@ export const aiMessages = pgTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [index('ai_messages_thread_idx').on(t.threadId)],
+)
+
+/**
+ * Study questions about topics of a user's courses: the first of a local day is "today's question", and more
+ * can be made on demand.
+ */
+export const dailyQuestions = pgTable(
+  'daily_questions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    /** The user's local date, YYYY-MM-DD. */
+    day: text('day').notNull(),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    pageId: uuid('page_id').references(() => pages.id, { onDelete: 'set null' }),
+    /** Kept so the archive still names the page after it is deleted. */
+    pageTitle: text('page_title').notNull(),
+    /** The heading (term) the question is about, if any. */
+    nodeId: text('node_id'),
+    topic: text('topic').notNull(),
+    question: text('question').notNull(),
+    answer: text('answer').notNull(),
+    beyondNotes: text('beyond_notes'),
+    expansions: jsonb('expansions').$type<DailyQuestion['expansions']>().notNull().default({}),
+    usage: jsonb('usage').$type<AiUsage>(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('daily_questions_user_day_idx').on(t.userId, t.day)],
 )
 
 export const claudeApiCalls = pgTable(

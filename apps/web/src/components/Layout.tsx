@@ -13,6 +13,7 @@ import {
   MenuIcon,
   OrbitIcon,
   PlusIcon,
+  QuestionIcon,
   SearchIcon,
   SigmaIcon,
   SparkIcon,
@@ -178,6 +179,10 @@ export function Layout() {
           >
             <HomeIcon />
             {t('nav.home')}
+          </Link>
+          <Link to="/daily" className={navCls} onClick={() => setMobileNavOpen(false)}>
+            <QuestionIcon />
+            {t('nav.daily')}
           </Link>
           <Link to="/wiki" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <BookIcon />

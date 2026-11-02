@@ -14,6 +14,7 @@ const rootRoute = createRootRoute({ component: Outlet })
 
 const Login = lazyRouteComponent(() => import('./routes/Login'), 'Login')
 const Home = lazyRouteComponent(() => import('./routes/Home'), 'Home')
+const DailyQuestions = lazyRouteComponent(() => import('./routes/DailyQuestions'), 'DailyQuestions')
 const Wiki = lazyRouteComponent(() => import('./routes/Wiki'), 'Wiki')
 const CourseView = lazyRouteComponent(() => import('./routes/Wiki'), 'CourseView')
 const PageEdit = lazyRouteComponent(() => import('./routes/PageEdit'), 'PageEdit')
@@ -51,6 +52,7 @@ const routes = [
   createRoute({ getParentRoute: () => appRoute, path: '/pages/$pageId/review', component: PageReview }),
   createRoute({ getParentRoute: () => appRoute, path: '/pages/$pageId/edit', component: PageEdit }),
   createRoute({ getParentRoute: () => appRoute, path: '/formulas', component: Formulas }),
+  createRoute({ getParentRoute: () => appRoute, path: '/daily', component: DailyQuestions }),
   createRoute({ getParentRoute: () => appRoute, path: '/calculators', component: Calculators }),
   createRoute({
     getParentRoute: () => appRoute,
@@ -67,6 +69,7 @@ const routes = [
       q: str(s.q),
       pageId: str(s.pageId),
       thread: str(s.thread),
+      prefill: str(s.prefill),
     }),
   }),
   createRoute({

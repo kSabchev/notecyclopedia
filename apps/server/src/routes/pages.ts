@@ -263,7 +263,7 @@ const conflictMessage = 'This page was changed by someone else. Reload to see th
  * Save new page fields as the next revision: checks for conflicting saves, records the revision,
  * updates the formula index and queues retrieval reindexing.
  */
-async function saveRevision(
+export async function saveRevision(
   current: typeof schema.pages.$inferSelect,
   baseRevision: number,
   fields: Pick<
