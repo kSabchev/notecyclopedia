@@ -193,3 +193,31 @@ export interface CalculatorReview {
   revisedChecks: CalculatorIssue[]
   usage: AiUsage | null
 }
+
+/** An expansion of a daily question, made on request. */
+export type DailyExpansionKind = 'story' | 'advanced'
+
+/** A day's study question about one topic of a course, with its answer and optional expansions. */
+export interface DailyQuestion {
+  id: string
+  /** The user's local date, YYYY-MM-DD. */
+  day: string
+  courseId: string
+  /** The page it is about; null when that page was deleted. */
+  pageId: string | null
+  pageTitle: string
+  /** The heading (term) it is about, if any. */
+  nodeId: string | null
+  topic: string
+  question: string
+  /** Markdown with LaTeX. */
+  answer: string
+  /** What the answer adds beyond the notes; null when it stays within them. */
+  beyondNotes: string | null
+  expansions: {
+    story?: string
+    advanced?: { question: string; answer: string }
+  }
+  usage: AiUsage | null
+  createdAt: string
+}

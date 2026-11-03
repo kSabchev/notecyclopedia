@@ -9,6 +9,7 @@ import { ai } from './routes/ai'
 import { backup } from './routes/backup'
 import { calculators } from './routes/calculators'
 import { courses } from './routes/courses'
+import { daily } from './routes/daily'
 import { files } from './routes/files'
 import { formulas, pages } from './routes/pages'
 import { search } from './routes/search'
@@ -35,6 +36,7 @@ export function createApp() {
   api.use('/backup', backup)
   api.use('/search', search)
   api.use('/ai', ai)
+  api.use('/daily', daily)
   api.use('/admin', admin)
   app.use('/api', api)
 

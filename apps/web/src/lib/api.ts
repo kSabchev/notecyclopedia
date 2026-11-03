@@ -10,9 +10,12 @@ import type {
   Course,
   CourseConstant,
   CourseRole,
+  DailyExpansionKind,
+  DailyQuestion,
   DocJSON,
   FileAsset,
   Formula,
+  Locale,
   Page,
   PageReference,
   PageRevision,
@@ -20,6 +23,10 @@ import type {
   PageType,
   SearchHit,
 } from '@nc/shared'
+import i18n from '../i18n'
+
+/** The interface language, sent with AI requests as the fallback language for short notes. */
+const uiLocale = (): Locale => (i18n.language?.startsWith('bg') ? 'bg' : 'en')
 
 export class ApiError extends Error {
   constructor(
@@ -210,14 +217,33 @@ export const api = {
       request<{ content: DocJSON; targets: number; usage: AiUsage | null }>('POST', '/ai/topic-hub', {
         courseId,
         topic,
+        locale: uiLocale(),
       }),
     /** Claude's check of a saved calculator, with a proposed correction; nothing is saved. */
-    reviewCalculator: (id: string) => request<CalculatorReview>('POST', `/ai/calculators/${id}/review`),
+    reviewCalculator: (id: string) =>
+      request<CalculatorReview>('POST', `/ai/calculators/${id}/review`, { locale: uiLocale() }),
     calculator: (context: string, messageId?: string) =>
       request<{ calculators: CalculatorSpec[]; failed: string[] }>('POST', '/ai/calculator', {
         context,
         messageId,
       }),
+  },
+  daily: {
+    today: () => get<{ day: string; question: DailyQuestion | null }>('/daily/today'),
+    /** Makes today's question (one Claude call), or returns it if it was already made. */
+    generate: (courseId?: string) =>
+      request<DailyQuestion>('POST', '/daily/today', { courseId, locale: uiLocale() }),
+    /** Another question, any time: avoids topics and questions already asked. */
+    ask: (courseId?: string) => request<DailyQuestion>('POST', '/daily', { courseId, locale: uiLocale() }),
+    /** The user's questions, newest first, 30 at a time. */
+    list: (params: { courseId?: string; q?: string; offset: number }) =>
+      get<DailyQuestion[]>(
+        `/daily${qs({ courseId: params.courseId, q: params.q || undefined, offset: String(params.offset) })}`,
+      ),
+    expand: (id: string, kind: DailyExpansionKind) =>
+      request<DailyQuestion>('POST', `/daily/${id}/expand`, { kind, locale: uiLocale() }),
+    save: (id: string, labels: { question: string; answer: string; story: string; advanced: string }) =>
+      request<{ pageId: string }>('POST', `/daily/${id}/save`, { labels }),
   },
   admin: {
     access: () => get<{ isAdmin: boolean }>('/admin/access'),

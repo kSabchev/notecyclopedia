@@ -622,6 +622,116 @@ test(
       'No API key in tests',
     )
 
+    // The daily question: made on request, once a day, about a topic of the user's lectures.
+    const dailyService = await import('../services/daily-question')
+    const { day, question: none } = (await (await request(owner, '/daily/today')).json()) as {
+      day: string
+      question: unknown
+    }
+    assert.match(day, /^\d{4}-\d{2}-\d{2}$/)
+    assert.equal(none, null)
+    let claudeCalls = 0
+    const prompts: string[] = []
+    const fakeClaude = (async (
+      request: { tools?: { name: string }[]; messages: { content: unknown }[] },
+      opts: { meter?: { add: (model: string, usage: object) => void } },
+    ) => {
+      claudeCalls++
+      prompts.push(String(request.messages[0]?.content))
+      const tool = request.tools?.[0]?.name
+      // As the real client does: count the call towards the question's cost.
+      opts.meter?.add('claude-sonnet-5-5', { input_tokens: 1000, output_tokens: 100 })
+      return {
+        model: 'claude-sonnet-5-5',
+        stop_reason: 'tool_use',
+        content: [
+          {
+            type: 'tool_use',
+            id: `call_${claudeCalls}`,
+            name: tool,
+            input:
+              tool === 'tell_story'
+                ? { story: 'Apollo crews used transfer orbits on the way to the Moon.' }
+                : {
+                    question: 'Why does a Hohmann transfer need two burns?',
+                    answer: 'One to leave, one to arrive.',
+                  },
+          },
+        ],
+        usage: { input_tokens: 1000, output_tokens: 100 },
+      }
+    }) as unknown as Parameters<typeof dailyService.generateDailyQuestion>[3]
+    const made = await dailyService.generateDailyQuestion(
+      owner.id,
+      day,
+      { courseId: sourceCourse.id },
+      fakeClaude,
+    )
+    assert.equal(made.courseId, sourceCourse.id)
+    // The language is decided from the notes and stated, not left for the model to guess.
+    assert.match(prompts[0] ?? '', /Write everything in English./)
+    assert.equal(made.question, 'Why does a Hohmann transfer need two burns?')
+    assert.ok(made.usage && made.usage.inputTokens === 1000)
+    const again = await dailyService.generateDailyQuestion(owner.id, day, {}, fakeClaude)
+    assert.equal(again.id, made.id)
+    assert.equal(claudeCalls, 1, 'One question a day: the second request does not call Claude')
+    assert.equal(
+      ((await (await request(owner, '/daily/today')).json()) as { question: { id: string } }).question.id,
+      made.id,
+    )
+    const expanded = await dailyService.expandDailyQuestion(made, 'story', owner.id, 'en', fakeClaude)
+    assert.match(expanded.expansions.story ?? '', /Apollo/)
+    assert.equal(expanded.usage?.inputTokens, 2000)
+    // A stored expansion is returned without calling Claude (there is no API key here).
+    const storyAgain = await request(owner, `/daily/${made.id}/expand`, {
+      method: 'POST',
+      body: json({ kind: 'story' }),
+    })
+    assert.equal(storyAgain.status, 200)
+    assert.equal(
+      (await request(outsider, `/daily/${made.id}/expand`, { method: 'POST', body: json({ kind: 'story' }) }))
+        .status,
+      404,
+    )
+    // Saving appends the question to its page as a new revision.
+    const labels = { question: 'Question', answer: 'Answer', story: 'Story', advanced: 'Harder question' }
+    const saved = await request(owner, `/daily/${made.id}/save`, { method: 'POST', body: json({ labels }) })
+    assert.equal(saved.status, 200)
+    const target = (await (await request(owner, `/pages/${made.pageId}`)).json()) as {
+      content: { content: { type: string; content?: { text?: string }[] }[] }
+    }
+    assert.ok(
+      target.content.content.some(
+        (b) => b.type === 'heading' && b.content?.[0]?.text === `Question: ${made.topic}`,
+      ),
+    )
+    // A question on demand is made in addition to today's, and avoids repeating it: another topic, or, when the
+    // topic comes up again, Claude is shown the earlier question to ask something different.
+    const extra = await dailyService.generateDailyQuestion(owner.id, day, { onDemand: true }, fakeClaude)
+    assert.notEqual(extra.id, made.id)
+    assert.ok(
+      extra.topic !== made.topic || (prompts.at(-1) ?? '').includes(made.question),
+      'A repeated topic shows Claude the earlier question',
+    )
+    assert.equal(
+      ((await (await request(owner, '/daily/today')).json()) as { question: { id: string } }).question.id,
+      made.id,
+      "The first question of the day stays today's question",
+    )
+    const listed = (await (await request(owner, '/daily')).json()) as { id: string }[]
+    assert.deepEqual(
+      listed.map((q) => q.id),
+      [extra.id, made.id],
+    )
+    assert.deepEqual(await (await request(owner, '/daily?q=no-such-question')).json(), [])
+    assert.equal(((await (await request(owner, '/daily?q=two%20burns')).json()) as unknown[]).length, 2)
+    assert.equal(
+      (await request(viewer, '/daily/today', { method: 'POST', body: json({}) })).status,
+      503,
+      'No API key in tests',
+    )
+    assert.equal((await request(viewer, '/daily', { method: 'POST', body: json({}) })).status, 503)
+
     const backup = await request(owner, '/backup/export')
     assert.equal(backup.status, 200)
     const archive = await backup.blob()

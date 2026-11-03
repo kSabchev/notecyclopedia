@@ -41,6 +41,13 @@ export const OrbitIcon = icon(
     <ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-25 12 12)" />
   </>,
 )
+export const QuestionIcon = icon(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.5" />
+    <path d="M12 16.8v.2" />
+  </>,
+)
 export const SparkIcon = icon(<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />)
 export const UploadIcon = icon(
   <>

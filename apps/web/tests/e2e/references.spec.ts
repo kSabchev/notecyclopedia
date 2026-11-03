@@ -173,7 +173,7 @@ test('a theory page is drafted as a topic hub whose links reach the lecture', as
   await page.getByPlaceholder('Page title').fill('Orbital transfers')
   await page.getByRole('button', { name: 'Draft topic hub with AI' }).click()
   await expect(page.getByText('Drafted with 1 matching section or page to link to.')).toBeVisible()
-  expect(asked).toEqual({ courseId, topic: 'Orbital transfers' })
+  expect(asked).toEqual({ courseId, topic: 'Orbital transfers', locale: 'en' })
   // The draft is editable before it is saved.
   await page.getByLabel('Page content').getByText('Transfers change orbits with burns.').click()
   await page.keyboard.press('End')

@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import { type AiUsage, type DocJSON, type PageType, pageLink } from '@nc/shared'
+import { type AiUsage, type DocJSON, type Locale, type PageType, notesLanguage, pageLink } from '@nc/shared'
 import { sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '../db'
@@ -174,6 +174,8 @@ export async function generateTopicHub(
   courseId: string,
   topic: string,
   userId: string,
+  /** The reader's interface language: the fallback when the notes are too short to tell. */
+  locale: Locale = 'en',
   create: typeof createMessage = createMessage,
 ): Promise<{ content: DocJSON; targets: number; usage: AiUsage | null }> {
   const [targets, sources] = await Promise.all([
@@ -197,7 +199,7 @@ export async function generateTopicHub(
     messages: [
       {
         role: 'user',
-        content: `Draft a topic hub page about ${JSON.stringify(topic)} for a student's course notes. A topic hub is short: it explains the topic in a few paragraphs, lists its key formulas, and links to where the course covers it, so the student can find and revisit it. Base it on the excerpts from the notes; where you add something they do not cover, say so. Write in the language of the notes.
+        content: `Draft a topic hub page about ${JSON.stringify(topic)} for a student's course notes. A topic hub is short: it explains the topic in a few paragraphs, lists its key formulas, and links to where the course covers it, so the student can find and revisit it. Base it on the excerpts from the notes; where you add something they do not cover, say so. Write everything in ${notesLanguage(`${topic} ${sources.map((s) => s.text).join(' ')}`, locale)}.
 
 Pick the relevant targets for "covered" from this list only (refer to them by ref), and leave out ones that are not about the topic:
 ${list || '(no matching sections or pages)'}
