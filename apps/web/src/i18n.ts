@@ -631,12 +631,14 @@ const en = {
     j2: 'J2 drift (oblateness)',
     groundTrack: 'Ground track',
     trackCaption:
-      'Ground track of {{n}} orbits over a rotating {{body}}: flown part solid, the rest dashed. Longitude–latitude grid every 30° (no coastlines); the prime meridian starts at the reference direction x.',
-    hohmann: 'Hohmann transfer',
-    targetRadius: 'Target orbit radius (km)',
-    hohmannNote:
-      'From a circular orbit of radius a to a circular, coplanar target orbit, computed by the Hohmann transfer calculator. Dashed: the transfer ellipse and the target orbit.',
-    hohmannOut: { dv1: 'First burn Δv', dv2: 'Second burn Δv', dv: 'Total Δv', tt: 'Transfer time' },
+      'Ground track of {{n}} orbits over a rotating {{body}}: flown part solid, the rest dashed, on a 30° grid (coastlines for Earth: Natural Earth). The prime meridian starts at the reference direction x when the clock starts.',
+    j2Caption: 'Dotted: the orbit {{days}} days later, drifted by J2.',
+    driftSinceStart: 'J2 drift since start',
+    trackCaptionEarth:
+      'Ground track of {{n}} orbits: flown part solid, the rest dashed. Coastlines: Natural Earth. Longitudes are real for the start time (UTC), taking Ω from the vernal equinox.',
+    trackStart: 'Start (UTC)',
+    moreValues: 'More values',
+    fewerValues: 'Fewer values',
     unsaved: 'You changed the orbit. Save it as the starting orbit of this block?',
     reset: 'Reset',
     save: 'Save orbit',
@@ -1293,12 +1295,14 @@ const bg: Dict = {
     j2: 'Отклонение от J2 (сплеснатост)',
     groundTrack: 'Наземна следа',
     trackCaption:
-      'Наземна следа за {{n}} обиколки над въртящото се тяло ({{body}}): изминатата част е плътна, останалата — пунктир. Мрежа от дължини и ширини през 30° (без брегови линии); нулевият меридиан започва по опорната посока x.',
-    hohmann: 'Преход на Хоман',
-    targetRadius: 'Радиус на целевата орбита (km)',
-    hohmannNote:
-      'От кръгова орбита с радиус a до кръгова целева орбита в същата равнина, изчислен с калкулатора за преход на Хоман. Пунктир: преходната елипса и целевата орбита.',
-    hohmannOut: { dv1: 'Първи импулс Δv', dv2: 'Втори импулс Δv', dv: 'Общо Δv', tt: 'Време за преход' },
+      'Наземна следа за {{n}} обиколки над въртящото се тяло ({{body}}): изминатата част е плътна, останалата — пунктир, върху мрежа през 30° (брегови линии за Земята: Natural Earth). Нулевият меридиан започва по опорната посока x при пускане на часовника.',
+    j2Caption: 'Точки: орбитата след {{days}} дни, отместена от J2.',
+    driftSinceStart: 'Отместване от J2 от началото',
+    trackCaptionEarth:
+      'Наземна следа за {{n}} обиколки: изминатата част е плътна, останалата — пунктир. Брегови линии: Natural Earth. Дължините са реални за началния момент (UTC), като Ω се мери от точката на пролетното равноденствие.',
+    trackStart: 'Начало (UTC)',
+    moreValues: 'Още стойности',
+    fewerValues: 'По-малко стойности',
     unsaved: 'Промени орбитата. Да се запази ли като начална орбита на блока?',
     reset: 'Върни',
     save: 'Запази орбитата',

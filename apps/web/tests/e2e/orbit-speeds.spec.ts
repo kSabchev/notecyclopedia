@@ -46,7 +46,7 @@ test('orbit speeds: the velocity arrow follows the speed, and time runs on a sim
   await expect(page.getByTestId('orbit-elapsed')).toHaveText('0 s')
 })
 
-test('orbit physics: J2 drift, ground track and a Hohmann transfer', async ({ page }, testInfo) => {
+test('orbit physics: J2 drift and the ground track', async ({ page }, testInfo) => {
   await page.goto('/login')
   await page.getByRole('button', { name: 'Create account' }).click()
   await page.getByLabel('Name').fill('Orbit physics user')
@@ -67,38 +67,56 @@ test('orbit physics: J2 drift, ground track and a Hohmann transfer', async ({ pa
   await page.goto('/orbit?a=7078&e=0.001&i=98.2&raan=0&argp=0&nu=0')
   await expect(row('Node drift (J2)')).toHaveText('0.9872 deg/day')
   await page.getByLabel('J2 drift (oblateness)').check()
-  await run('10000', 1500)
+  // The drift is visible at a glance: the orbit a month later is drawn faintly in the 3D view.
+  await expect(page.locator('[data-j2-later]')).toHaveCount(1)
+  await expect(page.getByText('Dotted: the orbit 30 days later, drifted by J2.')).toBeVisible()
+  // At ×100 000 a second of viewing is more than a day: the node has turned about 1° eastward.
+  await run('100000', 1000)
+  const drift = (await page.getByTestId('orbit-drift').textContent()) ?? ''
+  // e = 0.001: the periapsis is hardly defined, so its drift is not shown.
+  expect(drift).not.toContain('Δω')
+  const dOmega = Number(/ΔΩ (-?[\d.]+)°/.exec(drift)?.[1])
+  expect(dOmega).toBeGreaterThan(0.5)
+  expect(dOmega).toBeLessThan(5)
   expect(
     Number(await page.getByLabel('Right ascension of the ascending node', { exact: true }).inputValue()),
-  ).toBeGreaterThan(0.05)
+  ).toBeCloseTo(dOmega, 1)
+  // Drifting angles are shown rounded, so the fields stay readable.
+  expect(await page.getByLabel('Argument of periapsis', { exact: true }).inputValue()).toMatch(
+    /^\d+(\.\d{1,2})?$/,
+  )
+  await page.screenshot({ path: testInfo.outputPath('orbit-j2.png'), fullPage: true })
 
   // Molniya at the critical inclination: the periapsis stays put even with J2.
   await page.goto('/orbit?a=26600&e=0.74&i=63.4&raan=0&argp=270&nu=0')
-  await expect(row('Periapsis drift (J2)')).toHaveText(/^4\.0\d*e-4 deg\/day$/)
+  // Small rates are shown with fixed decimals, not as 4.0112e-4.
+  await expect(row('Periapsis drift (J2)')).toHaveText('0.0004 deg/day')
   await page.getByLabel('J2 drift (oblateness)').check()
   await run('10000', 1500)
+  await expect(page.getByTestId('orbit-drift')).toContainText('Δω 0.00°')
   expect(Number(await page.getByLabel('Argument of periapsis', { exact: true }).inputValue())).toBeCloseTo(
     270,
     2,
   )
 
-  // Geostationary: the ground track is a single point over the equator.
+  // Geostationary: the ground track is a single point over the equator, at a real longitude. At J2000 noon Greenwich
+  // is 280.46° from the vernal equinox, so a satellite at right ascension 0° is over 79.54°E.
   await page.goto('/orbit?a=42164.17&e=0&i=0&raan=0&argp=0&nu=0')
   await page.getByLabel('Ground track').check()
+  // Earth's coastlines are drawn under the track.
+  await expect(page.locator('[data-land]')).toHaveCount(1)
+  await page.getByLabel('Start (UTC)').fill('2000-01-01T12:00')
   const dot = page.locator('[data-subsatellite]')
-  await expect(dot).toHaveAttribute('data-subsatellite', '0.00,0.00')
+  await expect(dot).toHaveAttribute('data-subsatellite', '0.00,79.54')
   await run('10000', 1500)
-  await expect(dot).toHaveAttribute('data-subsatellite', /^-?0\.00,-?0\.0\d$/)
+  await expect(dot).toHaveAttribute('data-subsatellite', /^-?0\.00,79\.5\d$/)
 
-  // Hohmann LEO (6678 km) → GEO: 3.893 km/s in 5 h 16 min (Curtis, Example 6.1).
-  await page.goto('/orbit?a=6678&e=0&i=28.5&raan=0&argp=0&nu=0')
-  await page.getByLabel('Hohmann transfer').check()
-  const hohmann = page.getByRole('region', { name: 'Hohmann transfer' })
-  await expect(hohmann.getByLabel('Target orbit radius (km)')).toHaveValue('42164')
-  await expect(row('Total Δv')).toHaveText('3.893 km/s')
-  await expect(row('Transfer time')).toHaveText('5 h 16 min')
-  await expect(page.locator('[data-transfer]')).toHaveCount(1)
+  // The ISS ground track over the coastlines.
+  await page.goto('/orbit?a=6795&e=0.0005&i=51.64&raan=0&argp=0&nu=0')
   await page.getByLabel('Ground track').check()
+  await run('1000', 1500)
+  // The orbit diagrams no longer offer a Hohmann transfer; it gets its own diagram later.
+  await expect(page.getByLabel('Hohmann transfer')).toHaveCount(0)
   await page.screenshot({ path: testInfo.outputPath('orbit-physics.png'), fullPage: true })
 })
 

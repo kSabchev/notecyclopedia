@@ -124,6 +124,11 @@ test('insert an orbit diagram, explore it, and open the orbit viewer', async ({ 
   // Readers can change the elements; a circular orbit has equal periapsis and apoapsis altitude.
   await page.getByLabel('Eccentricity', { exact: true }).fill('0')
   await expect(page.locator('dd').filter({ hasText: '20221.9 km' })).toHaveCount(2)
+  // A page shows the key values; the rest are one click away.
+  await expect(page.getByText('Escape speed at r')).toHaveCount(0)
+  await page.getByRole('button', { name: 'More values' }).click()
+  await expect(page.getByText('Escape speed at r')).toBeVisible()
+  await page.getByRole('button', { name: 'Fewer values' }).click()
   await page.getByRole('button', { name: 'Switch to dark mode' }).click()
   await page.screenshot({ path: testInfo.outputPath('orbit-dark.png'), fullPage: true })
 

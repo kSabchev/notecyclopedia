@@ -214,18 +214,32 @@ export interface GroundPoint {
 }
 
 /**
- * The point under the satellite `t` seconds after `el`. The body's prime meridian points along the inertial x-axis
- * at t = 0 (for Earth: Greenwich at the vernal equinox), then turns at the body's rotation rate.
+ * Greenwich mean sidereal time (deg) at `date`: how far Earth's prime meridian has turned from the vernal equinox
+ * (IAU 1982 expression, UTC taken as UT1, within about a second). Classical elements are measured from the
+ * equinox, so with this as the starting angle a ground track has real longitudes.
+ */
+export function greenwichSiderealAngle(date: Date): number {
+  const d = date.getTime() / 86_400_000 + 2440587.5 - 2451545 // days since J2000.0
+  const T = d / 36525
+  const deg = 280.46061837 + 360.98564736629 * d + 0.000387933 * T * T - (T * T * T) / 38_710_000
+  return ((deg % 360) + 360) % 360
+}
+
+/**
+ * The point under the satellite `t` seconds after `el`. At t = 0 the body's prime meridian is `rotationAtStart`
+ * degrees from the inertial x-axis (for Earth, the Greenwich sidereal angle of a date; 0 puts Greenwich at the vernal
+ * equinox), then it turns at the body's rotation rate.
  */
 export function subSatellitePoint(
   el: OrbitalElements,
   body: CentralBody,
   t: number,
   j2 = false,
+  rotationAtStart = 0,
 ): GroundPoint {
   const now = propagate(el, body, t, j2)
   const [x, y, z] = perifocalToInertial(now, perifocalPosition(now.a, now.e, toRad(now.nu)))
-  const lon = toDeg(Math.atan2(y, x) - body.rotationRate * t)
+  const lon = toDeg(Math.atan2(y, x) - body.rotationRate * t) - rotationAtStart
   return { lat: toDeg(Math.asin(z / Math.hypot(x, y, z))), lon: ((((lon + 180) % 360) + 360) % 360) - 180 }
 }
 
@@ -237,9 +251,10 @@ export function groundTrack(
   t1: number,
   samples = 360,
   j2 = false,
+  rotationAtStart = 0,
 ): GroundPoint[] {
   return Array.from({ length: samples + 1 }, (_, k) =>
-    subSatellitePoint(el, body, t0 + ((t1 - t0) * k) / samples, j2),
+    subSatellitePoint(el, body, t0 + ((t1 - t0) * k) / samples, j2, rotationAtStart),
   )
 }
 
@@ -529,4 +544,31 @@ export const HOHMANN_CALCULATOR: CalculatorSpec = {
       explanation: 'Half the period of the transfer ellipse.',
     },
   ],
+}
+
+/**
+ * The outputs of ORBIT_CALCULATOR (same keys and units) in plain code, so the orbit diagram can show them without
+ * loading the calculator engine. Tests check that both give the same values.
+ */
+export function orbitValues(el: OrbitalElements, body: CentralBody): Record<string, number> {
+  const q = orbitQuantities(el, body.mu)
+  const rates = j2Rates(el, body)
+  return {
+    rp: q.rp,
+    ra: q.ra,
+    p: q.p,
+    T: q.period,
+    h: q.h,
+    eps: q.energy,
+    r: q.r,
+    v: q.v,
+    vp: q.vp,
+    va: q.va,
+    vcirc: Math.sqrt(body.mu / q.r),
+    vesc: Math.sqrt((2 * body.mu) / q.r),
+    n: q.n,
+    dOmega: rates.raan * 86400,
+    domega: rates.argp * 86400,
+    gamma: q.gamma,
+  }
 }

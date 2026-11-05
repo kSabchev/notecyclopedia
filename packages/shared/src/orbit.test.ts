@@ -13,10 +13,12 @@ import {
   ORBIT_PRESETS,
   type OrbitalElements,
   elementsToState,
+  greenwichSiderealAngle,
   groundTrack,
   j2Rates,
   meanToTrue,
   orbitQuantities,
+  orbitValues,
   project,
   propagate,
   solveKepler,
@@ -245,5 +247,122 @@ describe('J2, ground tracks and Hohmann transfers', () => {
     const down = evaluateCalculator(HOHMANN_CALCULATOR, { r1: 42164, r2: 6678, mu: earth.mu })
     expect(down.ok && down.values.dv).toBeCloseTo(h.values.dv as number, 9)
     expect(checkCalculator(HOHMANN_CALCULATOR)).toEqual([])
+  })
+})
+
+describe('display without the calculator engine', () => {
+  it('computes the same values as the orbit calculator', () => {
+    for (const body of CENTRAL_BODIES)
+      for (const { elements: el } of ORBIT_PRESETS) {
+        const orbit = { ...el, a: Math.max(el.a, body.radius * 1.2), nu: 137 }
+        const calc = evaluateCalculator(ORBIT_CALCULATOR, {
+          a: orbit.a,
+          ecc: orbit.e,
+          nu: orbit.nu,
+          mu: body.mu,
+          inc: orbit.i,
+          J2: body.j2,
+          Re: body.radius,
+        })
+        expect(calc.ok).toBe(true)
+        if (!calc.ok) continue
+        const plain = orbitValues(orbit, body)
+        expect(Object.keys(plain).sort()).toEqual(Object.keys(calc.values).sort())
+        for (const [key, value] of Object.entries(calc.values))
+          expect(plain[key], `${body.key} ${key}`).toBeCloseTo(value, 9)
+      }
+  })
+})
+
+describe('real longitudes', () => {
+  it('gives the Greenwich sidereal angle of a date', () => {
+    expect(greenwichSiderealAngle(new Date('2000-01-01T12:00:00Z'))).toBeCloseTo(280.4606, 3)
+    // Vallado, Fundamentals of Astrodynamics, Example 3-5: 1992-08-20 12:14 UT1 → 152.578788°.
+    expect(greenwichSiderealAngle(new Date('1992-08-20T12:14:00Z'))).toBeCloseTo(152.5788, 2)
+  })
+
+  it('places the satellite under its real longitude when the starting angle is given', () => {
+    const geo = { a: 42164.17, e: 0, i: 0, raan: 75, argp: 0, nu: 0 }
+    const earth = CENTRAL_BODIES[0] as (typeof CENTRAL_BODIES)[number]
+    // Right ascension 75° with Greenwich at 20°: the satellite is over 55°E, and stays there.
+    expect(subSatellitePoint(geo, earth, 0, false, 20).lon).toBeCloseTo(55, 6)
+    expect(subSatellitePoint(geo, earth, 43200, false, 20).lon).toBeCloseTo(55, 1)
+  })
+})
+
+describe('checked against numerical integration', () => {
+  const earth = CENTRAL_BODIES[0] as (typeof CENTRAL_BODIES)[number]
+  type State = number[]
+  // Two-body gravity plus the J2 term, integrated with fixed-step RK4: an independent check of the formulas above.
+  const derivative = (s: State, withJ2: boolean): State => {
+    const [x = 0, y = 0, z = 0] = s
+    const r = Math.hypot(x, y, z)
+    const k = -earth.mu / r ** 3
+    const f = withJ2 ? (1.5 * earth.j2 * earth.mu * earth.radius ** 2) / r ** 5 : 0
+    const zz = (5 * z * z) / (r * r)
+    return [
+      s[3] ?? 0,
+      s[4] ?? 0,
+      s[5] ?? 0,
+      k * x + f * x * (zz - 1),
+      k * y + f * y * (zz - 1),
+      k * z + f * z * (zz - 3),
+    ]
+  }
+  const step = (s: State, h: number, withJ2: boolean): State => {
+    const add = (u: State, v: State, c: number) => u.map((x, i) => x + c * (v[i] ?? 0))
+    const k1 = derivative(s, withJ2)
+    const k2 = derivative(add(s, k1, h / 2), withJ2)
+    const k3 = derivative(add(s, k2, h / 2), withJ2)
+    const k4 = derivative(add(s, k3, h), withJ2)
+    return s.map((x, i) => x + (h / 6) * ((k1[i] ?? 0) + 2 * (k2[i] ?? 0) + 2 * (k3[i] ?? 0) + (k4[i] ?? 0)))
+  }
+  const stateOf = (el: OrbitalElements): State => {
+    const { r, v } = elementsToState(el, earth.mu)
+    return [...r, ...v]
+  }
+
+  it('propagates a Molniya orbit to the integrated position', () => {
+    const el = { a: 26600, e: 0.74, i: 63.4, raan: 40, argp: 270, nu: 10 }
+    const t = 1.37 * 2 * Math.PI * Math.sqrt(el.a ** 3 / earth.mu)
+    let s = stateOf(el)
+    const n = 20000
+    for (let k = 0; k < n; k++) s = step(s, t / n, false)
+    const r = elementsToState(propagate(el, earth, t), earth.mu).r
+    expect(Math.hypot((s[0] ?? 0) - r[0], (s[1] ?? 0) - r[1], (s[2] ?? 0) - r[2])).toBeLessThan(1e-3)
+  })
+
+  it('drifts the node and periapsis at the integrated J2 rates (within 1%)', () => {
+    const el = { a: 8000, e: 0.1, i: 30, raan: 0, argp: 45, nu: 0 }
+    let s = stateOf(el)
+    const days = 20
+    const raan: number[] = []
+    const argp: number[] = []
+    for (let day = 0; day <= days; day++) {
+      const o = stateToElements(
+        [s[0] ?? 0, s[1] ?? 0, s[2] ?? 0],
+        [s[3] ?? 0, s[4] ?? 0, s[5] ?? 0],
+        earth.mu,
+      )
+      raan.push(o?.raan ?? Number.NaN)
+      argp.push(o?.argp ?? Number.NaN)
+      for (let k = 0; k < 4320; k++) s = step(s, 20, true)
+    }
+    // Least-squares slope over the daily samples averages out the short-period oscillations.
+    const slope = (ys: number[]) => {
+      const mx = (ys.length - 1) / 2
+      const my = ys.reduce((a, b) => a + b, 0) / ys.length
+      let sxy = 0
+      let sxx = 0
+      ys.forEach((y, x) => {
+        sxy += (x - mx) * (y - my)
+        sxx += (x - mx) ** 2
+      })
+      return sxy / sxx
+    }
+    const rates = j2Rates(el, earth)
+    const unwrapped = raan.map((r) => (r > 180 ? r - 360 : r))
+    expect(Math.abs(slope(unwrapped) / (rates.raan * 86400) - 1)).toBeLessThan(0.01)
+    expect(Math.abs(slope(argp) / (rates.argp * 86400) - 1)).toBeLessThan(0.01)
   })
 })

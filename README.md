@@ -143,7 +143,7 @@ Choose **Orbit diagram** in the toolbar's **Calculator** dialog to add an intera
 - The **3D view** shows the orbit against the reference plane (the part behind it dashed), the line of nodes and the
   Ω, i and ω angles. Drag it, or use the Turn and Tilt sliders, to rotate.
 - **Play** runs the orbit on a simulated clock: **Time warp** sets how many simulated seconds pass per real second
-  (real time to ×10 000; ×1 000 by default, where a low orbit takes about 5 s and a geostationary one 86 s), so orbits
+  (real time to ×100 000; ×1 000 by default, where a low orbit takes about 5 s and a geostationary one 86 s), so orbits
   keep their true periods relative to each other. The satellite moves at a steady mean anomaly, so it speeds up near
   periapsis. The current speed and the simulated time are shown above the views; the clock restarts when you change
   the orbit.
@@ -152,17 +152,22 @@ Choose **Orbit diagram** in the toolbar's **Calculator** dialog to add an intera
 - **J2 drift** adds the first-order secular effect of the body's equatorial bulge while playing: the node regresses
   (westward for prograde orbits; eastward for retrograde ones, which is what makes the Sun-synchronous preset follow the
   Sun at about 0.986° a day) and the periapsis precesses, except at the critical inclination 63.4° (Molniya, Tundra).
-  Short-period oscillations, drag and third bodies are not modelled.
+  Because the drift is slow, the 3D view also draws the orbit 30 days later (dotted), and the readout shows how far Ω
+  and ω have drifted since the clock started (ω only for e ≥ 0.01: a nearly circular orbit has no clear periapsis); at ×100 000 a second of viewing is more than a day. Short-period
+  oscillations, drag and third bodies are not modelled.
 - **Ground track** shows the point under the satellite on the rotating body for three orbits at a time (flown part
-  solid), on a 30° longitude–latitude grid without coastlines. The prime meridian starts at the reference direction x
-  when the clock starts.
-- **Hohmann transfer** draws the transfer ellipse and target orbit and gives both burns' Δv and the transfer time, from
-  a circular orbit of radius a to a target radius, using the built-in *Hohmann transfer* calculator
-  (`HOHMANN_CALCULATOR`).
+  solid), on a labelled 30° longitude–latitude grid, with coastlines for Earth (Natural Earth 1:110m land, public domain,
+  loaded only when the ground track is shown). For Earth, **Start (UTC)** (the current time by default) fixes Earth's
+  rotation at the start through the Greenwich sidereal angle, so longitudes are real, taking Ω from the vernal
+  equinox. For the Moon and Mars the prime meridian starts at the reference direction x, so longitudes are relative.
 - The orbit shown is computed from the starting orbit and the simulated time (not stepped frame by frame), so long
-  runs do not drift. While playing, the values table and the element fields update ten times a second.
+  runs do not drift. Tests check the propagation against step-by-step numerical integration (to a metre after more
+  than an orbit) and the J2 rates against integration with the full J2 acceleration (to within 1% over 20 days). While playing, the values table and the element fields update ten times a second.
 - Derived values come from the same formulas as the built-in *Elliptical orbit* calculator
-  (`ORBIT_CALCULATOR` in `packages/shared/src/orbit.ts`).
+  (`ORBIT_CALCULATOR` in `packages/shared/src/orbit.ts`), computed in plain code (`orbitValues`, tested to agree with
+  the calculator), so pages with only orbit diagrams do not load the calculator engine (math.js). In a page the
+  diagram shows the key values (altitudes, period, speeds, and the J2 drift when on) with **More values** for the rest;
+  the standalone viewer shows them all. Small rates are shown with fixed decimals (0.0004 deg/day).
 
 Readers can explore freely; in the editor, **Save orbit** stores the current elements as the block's starting orbit.
 Only closed orbits are supported (eccentricity below 0.99).
@@ -428,7 +433,9 @@ The plan follows four rules:
 - [x] J2 perturbation (toggle): nodal regression and apsidal precession, so the Sun-synchronous and 63.4° Molniya/Tundra
       presets show why they work.
 - [x] Ground track with the body's rotation, on a longitude–latitude grid (coastlines not yet drawn).
-- [x] Hohmann transfer between two circular orbits with Δv for each burn, computed by the built-in calculator.
+- [ ] Transfer diagram, separate from the orbit diagram: two circular orbits and the Hohmann transfer between them at a
+      sensible scale, a spacecraft that flies it with both burns, and the phase angle for meeting a target. Its numbers
+      come from the built-in `HOHMANN_CALCULATOR` (Δv of both burns and transfer time, checked against Curtis Ex. 6.1).
 
 ### Phase 6: Help where you read
 
