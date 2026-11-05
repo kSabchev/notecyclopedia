@@ -1,5 +1,6 @@
 import { type MathNode, all, create } from 'mathjs'
 import { z } from 'zod'
+import { formatValue } from './format'
 
 /**
  * A calculator is a small, portable definition: named inputs (with units for display),
@@ -154,10 +155,7 @@ export function defaultInputs(spec: CalculatorSpec): Record<string, number> {
   return Object.fromEntries(spec.inputs.map((i) => [i.key, i.default ?? 1]))
 }
 
-export function formatValue(n: number, precision = 3): string {
-  if (n !== 0 && (Math.abs(n) >= 1e6 || Math.abs(n) < 1e-3)) return n.toExponential(precision)
-  return Number(n.toFixed(precision)).toString()
-}
+export { formatValue } from './format'
 
 // ---------- automatic checks ----------
 

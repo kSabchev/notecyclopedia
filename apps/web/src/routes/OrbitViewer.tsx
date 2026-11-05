@@ -38,7 +38,7 @@ export function OrbitViewer() {
         <p className="m-0 text-[17px] text-muted">{t('orbit.viewerSubtitle')}</p>
       </header>
       <div className="max-w-[1100px] overflow-hidden rounded-[14px] border border-line bg-surface">
-        <OrbitView body={body} elements={elements} />
+        <OrbitView body={body} elements={elements} allValues />
       </div>
     </div>
   )

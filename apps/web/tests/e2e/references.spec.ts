@@ -73,6 +73,8 @@ test('a topic hub references a lecture section, which shows it, and terms are se
   await expect(picker).toHaveCount(0)
   await page.getByRole('button', { name: 'Save revision' }).click()
   await expect(page).toHaveURL(`/pages/${hub.id}`)
+  // The saved page has rendered (not just the address changed) before its link is followed.
+  await expect(page.getByRole('heading', { name: 'Transfers', level: 1 })).toBeVisible()
 
   // Following it lands on the section of the lecture.
   await page.getByRole('link', { name: 'Bi-elliptic transfer' }).click()
@@ -179,6 +181,8 @@ test('a theory page is drafted as a topic hub whose links reach the lecture', as
   await page.keyboard.press('End')
   await page.keyboard.type(' Edited.')
   await page.getByRole('button', { name: 'Save revision' }).click()
+  // Wait for the saved page: the same text is visible in the editor, where links do not navigate.
+  await expect(page).toHaveURL(/\/pages\/[0-9a-f-]{36}$/)
   await expect(page.getByText('Transfers change orbits with burns. Edited.')).toBeVisible()
 
   await page.getByRole('link', { name: 'Hohmann transfer' }).click()
