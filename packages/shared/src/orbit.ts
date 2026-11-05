@@ -31,12 +31,23 @@ export interface CentralBody {
   mu: number
   /** Mean equatorial radius (km). */
   radius: number
+  /** Second zonal harmonic: how much the body's equatorial bulge perturbs orbits. */
+  j2: number
+  /** Sidereal rotation rate (rad/s), for ground tracks. */
+  rotationRate: number
 }
 
 export const CENTRAL_BODIES: CentralBody[] = [
-  { key: 'earth', name: 'Earth', mu: 398600.4418, radius: 6378.137 },
-  { key: 'moon', name: 'Moon', mu: 4902.8, radius: 1737.4 },
-  { key: 'mars', name: 'Mars', mu: 42828.37, radius: 3396.2 },
+  {
+    key: 'earth',
+    name: 'Earth',
+    mu: 398600.4418,
+    radius: 6378.137,
+    j2: 1.08262668e-3,
+    rotationRate: 7.2921159e-5,
+  },
+  { key: 'moon', name: 'Moon', mu: 4902.8, radius: 1737.4, j2: 2.0321e-4, rotationRate: 2.6617e-6 },
+  { key: 'mars', name: 'Mars', mu: 42828.37, radius: 3396.2, j2: 1.96045e-3, rotationRate: 7.0882181e-5 },
 ]
 
 export const bodyByKey = (key: string | undefined): CentralBody =>
@@ -91,6 +102,15 @@ export function trueToMean(nu: number, e: number): number {
 /** True anomaly ν from mean anomaly M (rad). */
 export const meanToTrue = (M: number, e: number) => eccentricToTrue(solveKepler(M, e), e)
 
+/**
+ * The drawn length (px) of a velocity arrow: proportional to the speed, `maxPx` at periapsis where it is
+ * fastest, and never shorter than `minPx` so it stays visible near apoapsis of very eccentric orbits.
+ */
+export function speedArrowLength(speed: number, periapsisSpeed: number, maxPx = 72, minPx = 10): number {
+  if (!(periapsisSpeed > 0)) return maxPx
+  return Math.max(minPx, Math.min(maxPx, (maxPx * speed) / periapsisSpeed))
+}
+
 export interface OrbitQuantities {
   /** Periapsis and apoapsis radius (km). */
   rp: number
@@ -142,6 +162,85 @@ export function orbitQuantities(el: OrbitalElements, mu: number): OrbitQuantitie
     va: h / ra,
     sincePeriapsis: trueToMean(nu, e) / n,
   }
+}
+
+/** Secular J2 drift rates (deg/s): the node regresses, periapsis precesses, and the mean motion changes slightly. */
+export interface J2Rates {
+  raan: number
+  argp: number
+  /** Added to the two-body mean motion. */
+  meanAnomaly: number
+}
+
+/**
+ * The first-order secular effect of the body's oblateness (J2) on an orbit: with n = √(μ/a³), p = a(1−e²),
+ * dΩ/dt = −3/2·n·J2·(R/p)²·cos i, dω/dt = 3/4·n·J2·(R/p)²·(5cos²i − 1), and the mean anomaly gains
+ * 3/4·n·J2·(R/p)²·√(1−e²)·(3cos²i − 1). Short-period oscillations are left out.
+ */
+export function j2Rates(el: OrbitalElements, body: CentralBody): J2Rates {
+  const n = Math.sqrt(body.mu / el.a ** 3)
+  const p = el.a * (1 - el.e * el.e)
+  const k = n * body.j2 * (body.radius / p) ** 2
+  const c = Math.cos(toRad(el.i))
+  return {
+    raan: toDeg(-1.5 * k * c),
+    argp: toDeg(0.75 * k * (5 * c * c - 1)),
+    meanAnomaly: toDeg(0.75 * k * Math.sqrt(1 - el.e * el.e) * (3 * c * c - 1)),
+  }
+}
+
+/**
+ * The elements `t` seconds after `el`, computed directly (not stepped), so long animations do not drift:
+ * the mean anomaly grows at the mean motion, and with `j2` the node, periapsis and mean motion drift too.
+ */
+export function propagate(el: OrbitalElements, body: CentralBody, t: number, j2 = false): OrbitalElements {
+  if (t === 0) return el
+  const rates = j2 ? j2Rates(el, body) : { raan: 0, argp: 0, meanAnomaly: 0 }
+  const n = Math.sqrt(body.mu / el.a ** 3) + toRad(rates.meanAnomaly)
+  const M = wrap(trueToMean(toRad(el.nu), el.e) + n * t)
+  const deg = (x: number) => ((x % 360) + 360) % 360
+  return {
+    ...el,
+    raan: deg(el.raan + rates.raan * t),
+    argp: deg(el.argp + rates.argp * t),
+    nu: toDeg(wrap(meanToTrue(M, el.e))),
+  }
+}
+
+/** A point under the satellite on the rotating body (deg); longitude in [−180, 180). */
+export interface GroundPoint {
+  lat: number
+  lon: number
+}
+
+/**
+ * The point under the satellite `t` seconds after `el`. The body's prime meridian points along the inertial x-axis
+ * at t = 0 (for Earth: Greenwich at the vernal equinox), then turns at the body's rotation rate.
+ */
+export function subSatellitePoint(
+  el: OrbitalElements,
+  body: CentralBody,
+  t: number,
+  j2 = false,
+): GroundPoint {
+  const now = propagate(el, body, t, j2)
+  const [x, y, z] = perifocalToInertial(now, perifocalPosition(now.a, now.e, toRad(now.nu)))
+  const lon = toDeg(Math.atan2(y, x) - body.rotationRate * t)
+  return { lat: toDeg(Math.asin(z / Math.hypot(x, y, z))), lon: ((((lon + 180) % 360) + 360) % 360) - 180 }
+}
+
+/** The ground track from `t0` to `t1` (s), as `samples + 1` points. */
+export function groundTrack(
+  el: OrbitalElements,
+  body: CentralBody,
+  t0: number,
+  t1: number,
+  samples = 360,
+  j2 = false,
+): GroundPoint[] {
+  return Array.from({ length: samples + 1 }, (_, k) =>
+    subSatellitePoint(el, body, t0 + ((t1 - t0) * k) / samples, j2),
+  )
 }
 
 /** Position (km) in the perifocal frame (x towards periapsis, z along the angular momentum) at true anomaly ν (rad). */
@@ -291,6 +390,9 @@ export const ORBIT_CALCULATOR: CalculatorSpec = {
     { key: 'ecc', label: 'Eccentricity', default: 0.1, min: 0, max: 0.99, step: 0.01 },
     { key: 'nu', label: 'True anomaly', unit: 'deg', default: 0, min: 0, max: 360 },
     { key: 'mu', label: 'Gravitational parameter', unit: 'km³/s²', default: 398600.4418 },
+    { key: 'inc', label: 'Inclination', unit: 'deg', default: 0, min: 0, max: 180 },
+    { key: 'J2', label: 'Oblateness J2', default: 1.08262668e-3 },
+    { key: 'Re', label: 'Equatorial radius', unit: 'km', default: 6378.137 },
   ],
   outputs: [
     { key: 'rp', label: 'Periapsis radius', unit: 'km', expr: 'a * (1 - ecc)', precision: 1 },
@@ -302,11 +404,129 @@ export const ORBIT_CALCULATOR: CalculatorSpec = {
     { key: 'r', label: 'Radius', unit: 'km', expr: 'p / (1 + ecc * cos(nu deg))', precision: 1 },
     { key: 'v', label: 'Speed (vis-viva)', unit: 'km/s', expr: 'sqrt(mu * (2 / r - 1 / a))', precision: 3 },
     {
+      key: 'vp',
+      label: 'Speed at periapsis',
+      unit: 'km/s',
+      expr: 'sqrt(mu * (2 / rp - 1 / a))',
+      precision: 3,
+      explanation: 'Vis-viva at the closest point: the fastest the satellite moves.',
+    },
+    {
+      key: 'va',
+      label: 'Speed at apoapsis',
+      unit: 'km/s',
+      expr: 'sqrt(mu * (2 / ra - 1 / a))',
+      precision: 3,
+      explanation: 'Vis-viva at the farthest point: the slowest the satellite moves.',
+    },
+    {
+      key: 'vcirc',
+      label: 'Circular speed at r',
+      unit: 'km/s',
+      expr: 'sqrt(mu / r)',
+      precision: 3,
+      explanation: 'The speed of a circular orbit at the current radius.',
+    },
+    {
+      key: 'vesc',
+      label: 'Escape speed at r',
+      unit: 'km/s',
+      expr: 'sqrt(2 * mu / r)',
+      precision: 3,
+      explanation: 'The speed needed to leave the body from the current radius (zero orbital energy).',
+    },
+    {
+      key: 'n',
+      label: 'Mean motion',
+      unit: 'rad/s',
+      expr: 'sqrt(mu / a^3)',
+      precision: 8,
+    },
+    {
+      key: 'dOmega',
+      label: 'Node drift (J2)',
+      unit: 'deg/day',
+      expr: '-1.5 * n * J2 * (Re / p)^2 * cos(inc deg) * 180 / pi * 86400',
+      precision: 4,
+      explanation:
+        'The equatorial bulge turns the orbit plane about the polar axis: westward for prograde orbits, eastward for retrograde ones.',
+    },
+    {
+      key: 'domega',
+      label: 'Periapsis drift (J2)',
+      unit: 'deg/day',
+      expr: '0.75 * n * J2 * (Re / p)^2 * (5 * cos(inc deg)^2 - 1) * 180 / pi * 86400',
+      precision: 4,
+      explanation:
+        'The bulge also turns the orbit within its plane; it stops at the critical inclination 63.4°.',
+    },
+    {
       key: 'gamma',
       label: 'Flight-path angle',
       unit: 'deg',
       expr: 'atan2(ecc * sin(nu deg), 1 + ecc * cos(nu deg)) * 180 / pi',
       precision: 2,
+    },
+  ],
+}
+
+/**
+ * A Hohmann transfer between two circular orbits around the same body, as an ordinary calculator: the transfer
+ * ellipse touches the inner orbit at periapsis and the outer at apoapsis, with one burn at each.
+ */
+export const HOHMANN_CALCULATOR: CalculatorSpec = {
+  version: 1,
+  name: 'Hohmann transfer',
+  description: 'Two-burn transfer between circular, coplanar orbits.',
+  theory:
+    'A Hohmann transfer uses half of an ellipse whose periapsis is on one circular orbit and apoapsis on the other. One burn at the start puts the spacecraft on the ellipse; a second burn half an orbit later circularises it. Between circular coplanar orbits it is the two-burn transfer with the least Δv (for radius ratios above about 11.9 a three-burn bi-elliptic transfer can cost less).',
+  inputs: [
+    { key: 'r1', label: 'Initial orbit radius', unit: 'km', default: 6678, min: 1 },
+    { key: 'r2', label: 'Target orbit radius', unit: 'km', default: 42164, min: 1 },
+    { key: 'mu', label: 'Gravitational parameter', unit: 'km³/s²', default: 398600.4418 },
+  ],
+  outputs: [
+    { key: 'at', label: 'Transfer semi-major axis', unit: 'km', expr: '(r1 + r2) / 2', precision: 1 },
+    { key: 'v1', label: 'Initial circular speed', unit: 'km/s', expr: 'sqrt(mu / r1)', precision: 3 },
+    {
+      key: 'vt1',
+      label: 'Transfer speed at r1',
+      unit: 'km/s',
+      expr: 'sqrt(mu * (2 / r1 - 1 / at))',
+      precision: 3,
+    },
+    { key: 'v2', label: 'Target circular speed', unit: 'km/s', expr: 'sqrt(mu / r2)', precision: 3 },
+    {
+      key: 'vt2',
+      label: 'Transfer speed at r2',
+      unit: 'km/s',
+      expr: 'sqrt(mu * (2 / r2 - 1 / at))',
+      precision: 3,
+    },
+    {
+      key: 'dv1',
+      label: 'First burn Δv',
+      unit: 'km/s',
+      expr: 'abs(vt1 - v1)',
+      precision: 3,
+      explanation: 'From the initial circular orbit onto the transfer ellipse.',
+    },
+    {
+      key: 'dv2',
+      label: 'Second burn Δv',
+      unit: 'km/s',
+      expr: 'abs(v2 - vt2)',
+      precision: 3,
+      explanation: 'From the transfer ellipse onto the target circular orbit, half an orbit later.',
+    },
+    { key: 'dv', label: 'Total Δv', unit: 'km/s', expr: 'dv1 + dv2', precision: 3 },
+    {
+      key: 'tt',
+      label: 'Transfer time',
+      unit: 's',
+      expr: 'pi * sqrt(at^3 / mu)',
+      precision: 0,
+      explanation: 'Half the period of the transfer ellipse.',
     },
   ],
 }

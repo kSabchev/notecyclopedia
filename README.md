@@ -137,10 +137,30 @@ Choose **Orbit diagram** in the toolbar's **Calculator** dialog to add an intera
 
 - Set the six classical elements (a, e, i, Ω, ω, ν) with sliders or numbers, pick a preset, or change the central body.
 - The **orbital plane** view shows the body at a focus, periapsis and apoapsis, the position and velocity vectors, the
-  true anomaly and the flight-path angle. **Equal areas** shades sectors swept in equal times (Kepler's second law).
+  true anomaly and the flight-path angle. The velocity arrow's length is the speed (longest at periapsis), and faint
+  arrows at both apsides show vₚ and vₐ to the same scale. **Equal areas** shades sectors swept in equal times
+  (Kepler's second law).
 - The **3D view** shows the orbit against the reference plane (the part behind it dashed), the line of nodes and the
   Ω, i and ω angles. Drag it, or use the Turn and Tilt sliders, to rotate.
-- **Play** animates the motion at a steady mean anomaly, so the satellite speeds up near periapsis.
+- **Play** runs the orbit on a simulated clock: **Time warp** sets how many simulated seconds pass per real second
+  (real time to ×10 000; ×1 000 by default, where a low orbit takes about 5 s and a geostationary one 86 s), so orbits
+  keep their true periods relative to each other. The satellite moves at a steady mean anomaly, so it speeds up near
+  periapsis. The current speed and the simulated time are shown above the views; the clock restarts when you change
+  the orbit.
+- Derived values include the speeds at periapsis and apoapsis, the circular and escape speeds at the current
+  radius, and the J2 drift of the node and periapsis (deg/day).
+- **J2 drift** adds the first-order secular effect of the body's equatorial bulge while playing: the node regresses
+  (westward for prograde orbits; eastward for retrograde ones, which is what makes the Sun-synchronous preset follow the
+  Sun at about 0.986° a day) and the periapsis precesses, except at the critical inclination 63.4° (Molniya, Tundra).
+  Short-period oscillations, drag and third bodies are not modelled.
+- **Ground track** shows the point under the satellite on the rotating body for three orbits at a time (flown part
+  solid), on a 30° longitude–latitude grid without coastlines. The prime meridian starts at the reference direction x
+  when the clock starts.
+- **Hohmann transfer** draws the transfer ellipse and target orbit and gives both burns' Δv and the transfer time, from
+  a circular orbit of radius a to a target radius, using the built-in *Hohmann transfer* calculator
+  (`HOHMANN_CALCULATOR`).
+- The orbit shown is computed from the starting orbit and the simulated time (not stepped frame by frame), so long
+  runs do not drift. While playing, the values table and the element fields update ten times a second.
 - Derived values come from the same formulas as the built-in *Elliptical orbit* calculator
   (`ORBIT_CALCULATOR` in `packages/shared/src/orbit.ts`).
 
@@ -395,17 +415,20 @@ The plan follows four rules:
 - [x] Daily questions in the sidebar: more questions on demand, avoiding repeated topics and questions, and all questions
       by day with a subject filter and search.
 
-### Phase 5: Realistic orbit simulations
+### Phase 5a: Orbit speeds
 
-- [ ] Velocity arrow scaled to the actual speed (today it has a fixed length), with v at periapsis and apoapsis
-      marked on the orbit and a live speed readout while it plays.
-- [ ] vₚ, vₐ, escape speed and circular speed at the current radius in the derived values.
-- [ ] Simulated clock with time warp (×1 … ×10 000) and elapsed time, instead of every orbit taking 12 seconds,
+- [x] Velocity arrow scaled to the actual speed, with v at periapsis and apoapsis marked on the orbit and a live
+      speed readout while it plays.
+- [x] vₚ, vₐ, escape speed and circular speed at the current radius in the derived values.
+- [x] Simulated clock with time warp (×1 … ×10 000) and elapsed time, instead of every orbit taking 12 seconds,
       so a LEO and a GEO orbit play at their true relative speeds.
-- [ ] J2 perturbation (toggle): nodal regression and apsidal precession, so the Sun-synchronous and 63.4° Molniya/Tundra
+
+### Phase 5b: Orbit physics
+
+- [x] J2 perturbation (toggle): nodal regression and apsidal precession, so the Sun-synchronous and 63.4° Molniya/Tundra
       presets show why they work.
-- [ ] Ground track on a world map with Earth's rotation.
-- [ ] Stretch: Hohmann transfer between two orbits with Δv for each burn.
+- [x] Ground track with the body's rotation, on a longitude–latitude grid (coastlines not yet drawn).
+- [x] Hohmann transfer between two circular orbits with Δv for each burn, computed by the built-in calculator.
 
 ### Phase 6: Help where you read
 

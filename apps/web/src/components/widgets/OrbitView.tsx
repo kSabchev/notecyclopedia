@@ -1,5 +1,7 @@
 import {
   CENTRAL_BODIES,
+  type CentralBody,
+  HOHMANN_CALCULATOR,
   MAX_ECCENTRICITY,
   ORBIT_CALCULATOR,
   ORBIT_PRESETS,
@@ -9,6 +11,7 @@ import {
   bodyByKey,
   evaluateCalculator,
   formatValue,
+  groundTrack,
   meanToTrue,
   orbitPath,
   orbitQuantities,
@@ -16,12 +19,23 @@ import {
   perifocalToInertial,
   perifocalVelocity,
   project,
+  propagate,
+  speedArrowLength,
+  subSatellitePoint,
   sweptSector,
   toDeg,
   toRad,
-  trueToMean,
 } from '@nc/shared'
-import { type PointerEvent as ReactPointerEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
+import {
+  type PointerEvent as ReactPointerEvent,
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, inputCls } from '../ui'
 
@@ -29,8 +43,11 @@ const SIZE = 400
 /** The plane view is wider than tall: orbits are ellipses, and a fixed height keeps the page still while e changes. */
 const PLANE_HEIGHT = 300
 const DEFAULT_VIEW: ViewAngles = { yaw: -35, pitch: 25 }
-/** Real seconds for one animated orbit. */
-const SECONDS_PER_ORBIT = 12
+/** Simulated seconds per real second. At ×1000 a low orbit takes about 5 s and a geostationary one 86 s. */
+const TIME_WARPS = [1, 10, 100, 1000, 10000] as const
+const DEFAULT_WARP = 1000
+/** Longest real step between frames (s), so a tab left in the background does not jump ahead. */
+const MAX_FRAME = 0.25
 const EQUAL_AREA_SECTORS = 8
 
 type Pt = [number, number]
@@ -53,17 +70,180 @@ function formatDuration(seconds: number): string {
   return [h && `${h} h`, (h || m) && `${m} min`, !h && `${s % 60} s`].filter(Boolean).join(' ')
 }
 
+/** About the widest an apsis label gets (px), e.g. "vp 10.01 km/s". */
+const LABEL_WIDTH = 90
+
+/** "vₚ 10.01 km/s" with a real subscript: the Unicode subscript letters are missing from many fonts. */
+function SpeedLabel({ sub, value }: { sub: string; value: string }) {
+  return (
+    <>
+      <tspan className="font-serif italic">v</tspan>
+      <tspan dy="3" fontSize="8">
+        {sub}
+      </tspan>
+      <tspan dy="-3"> {value}</tspan>
+    </>
+  )
+}
+
+/**
+ * A Hohmann transfer in the plane view: the target circle, and half of the transfer ellipse from the first burn
+ * (on the starting orbit, to the right) to the second (on the target orbit, to the left).
+ */
+function TransferPath({
+  transfer: { r1, r2 },
+  toScreen,
+  scale,
+  focus,
+}: {
+  transfer: { r1: number; r2: number }
+  toScreen: (p: Pt) => Pt
+  scale: number
+  focus: Pt
+}) {
+  const at = (r1 + r2) / 2
+  const et = Math.abs(r2 - r1) / (r1 + r2)
+  const half = Array.from({ length: 91 }, (_, k): Pt => {
+    const [x, y] = perifocalPosition(at, et, (Math.PI * k) / 90)
+    // Outward the transfer starts at its periapsis; inward at its apoapsis, so mirror it.
+    return toScreen(r2 >= r1 ? [x, y] : [-x, -y])
+  })
+  const start = toScreen([r1, 0])
+  const end = toScreen([-r2, 0])
+  return (
+    <g data-transfer={`${r1}-${r2}`}>
+      <circle
+        cx={focus[0]}
+        cy={focus[1]}
+        r={r2 * scale}
+        fill="none"
+        stroke="var(--color-ink-2)"
+        strokeOpacity={0.5}
+        strokeDasharray="4 4"
+      />
+      <path d={pathOf(half)} fill="none" stroke="var(--color-ai)" strokeWidth={1.5} strokeDasharray="6 3" />
+      <circle cx={start[0]} cy={start[1]} r={3.5} fill="var(--color-ai)" />
+      <circle cx={end[0]} cy={end[1]} r={3.5} fill="var(--color-ai)" />
+    </g>
+  )
+}
+
+const MAP_W = 400
+const MAP_H = 200
+/** How many orbits a ground track shows at a time. */
+const TRACK_ORBITS = 3
+
+/**
+ * The ground track on a longitude–latitude grid: three orbits at a time, the part already flown solid and the rest
+ * dashed. The track is computed once per three orbits, not per frame; only the satellite's dot moves.
+ */
+function GroundTrackView({
+  epoch,
+  body,
+  elapsed,
+  j2,
+}: {
+  epoch: OrbitalElements
+  body: CentralBody
+  elapsed: number
+  j2: boolean
+}) {
+  const period = 2 * Math.PI * Math.sqrt(epoch.a ** 3 / body.mu)
+  const span = TRACK_ORBITS * period
+  const window = Math.floor(elapsed / span)
+  const track = useMemo(
+    () => groundTrack(epoch, body, window * span, (window + 1) * span, 120 * TRACK_ORBITS, j2),
+    [epoch, body, window, span, j2],
+  )
+  const now = subSatellitePoint(epoch, body, elapsed, j2)
+  const x = (lon: number) => ((lon + 180) / 360) * MAP_W
+  const y = (lat: number) => ((90 - lat) / 180) * MAP_H
+  // Split where the track wraps from +180° to −180°, and where the flown part ends.
+  const flown = Math.round(((elapsed - window * span) / span) * (track.length - 1))
+  const lines = (points: typeof track) => {
+    const out: Pt[][] = [[]]
+    points.forEach((p, k) => {
+      const prev = points[k - 1]
+      if (prev && Math.abs(p.lon - prev.lon) > 180) out.push([])
+      ;(out[out.length - 1] as Pt[]).push([x(p.lon), y(p.lat)])
+    })
+    return out.filter((l) => l.length > 1)
+  }
+  return (
+    <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="block h-auto w-full" aria-hidden="true">
+      <rect width={MAP_W} height={MAP_H} fill="var(--color-surface-2)" />
+      {[-150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150].map((lon) => (
+        <line
+          key={`m${lon}`}
+          x1={x(lon)}
+          x2={x(lon)}
+          y1={0}
+          y2={MAP_H}
+          stroke="var(--color-line-strong)"
+          strokeOpacity={lon === 0 ? 1 : 0.5}
+        />
+      ))}
+      {[-60, -30, 0, 30, 60].map((lat) => (
+        <line
+          key={`p${lat}`}
+          x1={0}
+          x2={MAP_W}
+          y1={y(lat)}
+          y2={y(lat)}
+          stroke="var(--color-line-strong)"
+          strokeOpacity={lat === 0 ? 1 : 0.5}
+        />
+      ))}
+      {lines(track.slice(0, flown + 1)).map((l) => (
+        <path
+          key={`f${l[0]?.join()}`}
+          d={pathOf(l)}
+          fill="none"
+          stroke="var(--color-accent)"
+          strokeWidth={1.6}
+        />
+      ))}
+      {lines(track.slice(flown)).map((l) => (
+        <path
+          key={`n${l[0]?.join()}`}
+          d={pathOf(l)}
+          fill="none"
+          stroke="var(--color-accent)"
+          strokeOpacity={0.45}
+          strokeWidth={1.2}
+          strokeDasharray="4 3"
+        />
+      ))}
+      <circle
+        data-subsatellite={`${now.lat.toFixed(2)},${now.lon.toFixed(2)}`}
+        cx={x(now.lon)}
+        cy={y(now.lat)}
+        r={5}
+        fill="var(--color-ai)"
+        stroke="var(--color-surface)"
+        strokeWidth={2}
+      />
+    </svg>
+  )
+}
+
 /** The orbit in its own plane: focus at the body, periapsis to the right. */
 function PlaneView({
   el,
   radius,
   mu,
   showAreas,
+  speeds,
+  transfer,
 }: {
   el: OrbitalElements
   radius: number
   mu: number
   showAreas: boolean
+  /** Speeds (km/s) now and at the apsides, for scaling and labelling the velocity arrows. */
+  speeds: { v?: number; vp?: number; va?: number }
+  /** A Hohmann transfer from a circular orbit of radius r1 to one of radius r2 (km). */
+  transfer?: { r1: number; r2: number } | null
 }) {
   const { t } = useTranslation()
   const arrow = useId()
@@ -72,9 +252,10 @@ function PlaneView({
   const rp = a * (1 - e)
   const ra = a * (1 + e)
   const b = a * Math.sqrt(1 - e * e)
-  const xmin = Math.min(-ra, -radius)
-  const xmax = Math.max(rp, radius)
-  const ymax = Math.max(b, radius)
+  const r2 = transfer?.r2 ?? 0
+  const xmin = Math.min(-ra, -radius, -r2)
+  const xmax = Math.max(rp, radius, r2)
+  const ymax = Math.max(b, radius, r2)
   // Wide side margins leave room for the apsis labels outside the orbit.
   const [mx, my] = [70, 30]
   const scale = Math.min((SIZE - 2 * mx) / (xmax - xmin), (PLANE_HEIGHT - 2 * my) / (2 * ymax))
@@ -82,24 +263,36 @@ function PlaneView({
   const oy = PLANE_HEIGHT / 2
   const toScreen = ([x, y]: Pt): Pt => [ox + x * scale, oy - y * scale]
 
-  const ellipse = Array.from({ length: 181 }, (_, k) =>
-    toScreen(perifocalPosition(a, e, (2 * Math.PI * k) / 180)),
+  // The orbit's shape only changes with a and e (and the scale), not as the satellite moves.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: toScreen is derived from these values
+  const ellipse = useMemo(
+    () => Array.from({ length: 181 }, (_, k) => toScreen(perifocalPosition(a, e, (2 * Math.PI * k) / 180))),
+    [a, e, scale, ox],
   )
   const sat = toScreen(perifocalPosition(a, e, nu))
   const focus: Pt = [ox, oy]
   const [vx, vy] = perifocalVelocity(a, e, nu, mu)
   const vLen = Math.hypot(vx, vy)
-  const vTip: Pt = [sat[0] + (vx / vLen) * 46, sat[1] - (vy / vLen) * 46]
+  // The arrow's length is the speed: longest at periapsis, where the satellite is fastest.
+  const vpSpeed = speeds.vp ?? vLen
+  const length = speedArrowLength(vLen, vpSpeed)
+  const vTip: Pt = [sat[0] + (vx / vLen) * length, sat[1] - (vy / vLen) * length]
+  const kms = (v: number | undefined) => (v === undefined ? '' : `${formatValue(v, 2)} km/s`)
   const gamma = Math.atan2(e * Math.sin(nu), 1 + e * Math.cos(nu))
   // Local horizontal (perpendicular to r, in the direction of motion), as a screen angle.
   const horizontal = -(nu + Math.PI / 2)
-  const sectors = showAreas
-    ? Array.from({ length: EQUAL_AREA_SECTORS }, (_, k) => {
-        const from = meanToTrue((2 * Math.PI * k) / EQUAL_AREA_SECTORS, e)
-        const to = meanToTrue((2 * Math.PI * (k + 1)) / EQUAL_AREA_SECTORS, e)
-        return sweptSector(a, e, from, to).map((p) => toScreen(p))
-      })
-    : []
+  // biome-ignore lint/correctness/useExhaustiveDependencies: toScreen is derived from these values
+  const sectors = useMemo(
+    () =>
+      showAreas
+        ? Array.from({ length: EQUAL_AREA_SECTORS }, (_, k) => {
+            const from = meanToTrue((2 * Math.PI * k) / EQUAL_AREA_SECTORS, e)
+            const to = meanToTrue((2 * Math.PI * (k + 1)) / EQUAL_AREA_SECTORS, e)
+            return sweptSector(a, e, from, to).map((p) => toScreen(p))
+          })
+        : [],
+    [showAreas, a, e, scale, ox],
+  )
   const bodyPx = Math.max(radius * scale, 3)
   const showApsides = e >= 0.01
 
@@ -137,16 +330,56 @@ function PlaneView({
         strokeDasharray="4 4"
       />
       <path d={pathOf(ellipse)} fill="none" stroke="var(--color-accent)" strokeWidth={2} />
+      {transfer && <TransferPath transfer={transfer} toScreen={toScreen} scale={scale} focus={[ox, oy]} />}
       <circle cx={focus[0]} cy={focus[1]} r={bodyPx} fill="var(--color-line-strong)" />
       {showApsides && (
         <>
+          {/* The speeds at the apsides, drawn to the same scale as the satellite's arrow. */}
+          {(
+            [
+              [rp, -1, speeds.vp],
+              [-ra, 1, speeds.va],
+            ] as const
+          ).map(([x, dir, speed]) =>
+            speed === undefined ? null : (
+              <line
+                key={x}
+                data-apsis-speed={speed}
+                x1={toScreen([x, 0])[0]}
+                y1={oy}
+                x2={toScreen([x, 0])[0]}
+                y2={oy + dir * speedArrowLength(speed, vpSpeed)}
+                stroke="var(--color-ai)"
+                strokeOpacity={0.45}
+                strokeWidth={1.5}
+                strokeDasharray="3 2"
+                markerEnd={`url(#${arrow})`}
+              />
+            ),
+          )}
           <circle cx={toScreen([rp, 0])[0]} cy={oy} r={4} fill="var(--color-accent)" />
-          <text x={toScreen([rp, 0])[0] + 8} y={oy - 8} className="fill-muted text-[12px]">
-            {t('orbit.periapsis')}
-          </text>
+          {/* Right-aligned to the edge when the periapsis is close to it, so the labels stay inside. */}
+          {(() => {
+            const x = toScreen([rp, 0])[0] + 8
+            const fits = x + LABEL_WIDTH <= SIZE - 4
+            const at = { x: fits ? x : SIZE - 4, textAnchor: fits ? 'start' : 'end' } as const
+            return (
+              <>
+                <text {...at} y={oy + 16} className="fill-muted text-[12px]">
+                  {t('orbit.periapsis')}
+                </text>
+                <text {...at} y={oy + 30} className="fill-ink text-[11px]">
+                  <SpeedLabel sub="p" value={kms(speeds.vp)} />
+                </text>
+              </>
+            )
+          })()}
           <circle cx={toScreen([-ra, 0])[0]} cy={oy} r={4} fill="var(--color-accent)" />
-          <text x={toScreen([-ra, 0])[0] - 8} y={oy - 8} textAnchor="end" className="fill-muted text-[12px]">
+          <text x={toScreen([-ra, 0])[0] - 8} y={oy - 22} textAnchor="end" className="fill-muted text-[12px]">
             {t('orbit.apoapsis')}
+          </text>
+          <text x={toScreen([-ra, 0])[0] - 8} y={oy - 8} textAnchor="end" className="fill-ink text-[11px]">
+            <SpeedLabel sub="a" value={kms(speeds.va)} />
           </text>
         </>
       )}
@@ -189,6 +422,7 @@ function PlaneView({
         />
       )}
       <line
+        data-speed-arrow={length.toFixed(1)}
         x1={sat[0]}
         y1={sat[1]}
         x2={vTip[0]}
@@ -240,7 +474,9 @@ function SpaceView({
   }
   // The half of the orbit on the far side of the reference plane is drawn dashed, under the plane.
   const viewerSide = view.pitch >= 0 ? 1 : -1
-  const path = orbitPath(el, 240)
+  // The orbit's shape only changes with the elements other than ν (with J2, Ω and ω drift slowly).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: ν, which changes every frame, does not change the path
+  const path = useMemo(() => orbitPath({ ...el, nu: 0 }, 240), [el.a, el.e, el.i, el.raan, el.argp])
   const near: Pt[][] = []
   const far: Pt[][] = []
   let current: Pt[] = []
@@ -480,6 +716,27 @@ function ElementField({
   )
 }
 
+/**
+ * `value`, updated at most every `ms` milliseconds (at once when `ms` is 0). While the orbit plays, the values table
+ * and the element fields follow at 10 Hz instead of 60, which is plenty to read and leaves the frame to the views.
+ */
+function useThrottled<T>(value: T, ms: number): T {
+  const [shown, setShown] = useState(value)
+  const last = useRef(0)
+  useEffect(() => {
+    if (ms === 0) return
+    const wait = last.current + ms - performance.now()
+    const update = () => {
+      last.current = performance.now()
+      setShown(value)
+    }
+    if (wait <= 0) return update()
+    const timer = setTimeout(update, wait)
+    return () => clearTimeout(timer)
+  }, [value, ms])
+  return ms === 0 ? value : shown
+}
+
 const clampElements = (el: OrbitalElements): OrbitalElements => ({
   a: Math.max(el.a, 1),
   e: Math.min(Math.max(el.e, 0), MAX_ECCENTRICITY),
@@ -487,6 +744,144 @@ const clampElements = (el: OrbitalElements): OrbitalElements => ({
   raan: ((el.raan % 360) + 360) % 360,
   argp: ((el.argp % 360) + 360) % 360,
   nu: ((el.nu % 360) + 360) % 360,
+})
+
+/** The six element fields. Memoised: while the orbit plays they follow the throttled orbit, not every frame. */
+const ElementFields = memo(function ElementFields({
+  el,
+  body,
+  onSet,
+}: {
+  el: OrbitalElements
+  body: CentralBody
+  onSet: (patch: Partial<OrbitalElements>) => void
+}) {
+  const { t } = useTranslation()
+  const id = useId()
+  return (
+    <div className="grid gap-x-6 gap-y-3 @xl:grid-cols-2">
+      <ElementField
+        id={`${id}-a`}
+        symbol="a"
+        label={t('orbit.a')}
+        unit="km"
+        value={el.a}
+        min={Math.round(body.radius * 1.02)}
+        max={Math.round(body.radius * 70)}
+        step={1}
+        log
+        onChange={(a) => onSet({ a })}
+      />
+      <ElementField
+        id={`${id}-e`}
+        symbol="e"
+        label={t('orbit.e')}
+        value={el.e}
+        min={0}
+        max={MAX_ECCENTRICITY}
+        step={0.001}
+        onChange={(e) => onSet({ e })}
+      />
+      <ElementField
+        id={`${id}-i`}
+        symbol="i"
+        label={t('orbit.i')}
+        unit="°"
+        value={el.i}
+        min={0}
+        max={180}
+        step={0.1}
+        onChange={(i) => onSet({ i })}
+      />
+      <ElementField
+        id={`${id}-raan`}
+        symbol="Ω"
+        label={t('orbit.raan')}
+        unit="°"
+        value={el.raan}
+        min={0}
+        max={360}
+        step={0.1}
+        onChange={(raan) => onSet({ raan })}
+      />
+      <ElementField
+        id={`${id}-argp`}
+        symbol="ω"
+        label={t('orbit.argp')}
+        unit="°"
+        value={el.argp}
+        min={0}
+        max={360}
+        step={0.1}
+        onChange={(argp) => onSet({ argp })}
+      />
+      <ElementField
+        id={`${id}-nu`}
+        symbol="ν"
+        label={t('orbit.nu')}
+        unit="°"
+        value={Math.round(el.nu * 10) / 10}
+        min={0}
+        max={360}
+        step={0.1}
+        onChange={(nu) => onSet({ nu })}
+      />
+    </div>
+  )
+})
+
+const valueRow = (label: string, value: string) => (
+  <div key={label} className="flex items-baseline justify-between gap-3 border-b border-line-soft py-1.5">
+    <dt className="text-[13px] text-muted">{label}</dt>
+    <dd className="m-0 font-mono text-[14px]">{value}</dd>
+  </div>
+)
+
+/** The derived values, from the orbit calculator. Memoised like the element fields. */
+const DerivedValues = memo(function DerivedValues({
+  results,
+  q,
+  body,
+}: {
+  results: Record<string, number>
+  q: ReturnType<typeof orbitQuantities>
+  body: CentralBody
+}) {
+  const { t } = useTranslation()
+  const row = valueRow
+  const out = (key: string) => {
+    const o = ORBIT_CALCULATOR.outputs.find((x) => x.key === key)
+    const v = results[key]
+    return o && v !== undefined
+      ? row(t(`orbit.out.${key}`), `${formatValue(v, o.precision ?? 3)} ${o.unit ?? ''}`)
+      : null
+  }
+  return (
+    <dl className="m-0 grid gap-x-8 @xl:grid-cols-2">
+      <div>
+        {out('rp')}
+        {row(t('orbit.periapsisAltitude'), `${formatValue(q.rp - body.radius, 1)} km`)}
+        {out('ra')}
+        {row(t('orbit.apoapsisAltitude'), `${formatValue(q.ra - body.radius, 1)} km`)}
+        {out('p')}
+        {row(t('orbit.period'), formatDuration(q.period))}
+      </div>
+      <div>
+        {out('r')}
+        {out('v')}
+        {out('vp')}
+        {out('va')}
+        {out('vcirc')}
+        {out('vesc')}
+        {out('dOmega')}
+        {out('domega')}
+        {out('gamma')}
+        {row(t('orbit.sincePeriapsis'), formatDuration(q.sincePeriapsis))}
+        {out('h')}
+        {out('eps')}
+      </div>
+    </dl>
+  )
 })
 
 /**
@@ -507,58 +902,91 @@ export function OrbitView({
   const { t } = useTranslation()
   const id = useId()
   const [bodyKey, setBodyKey] = useState(initialBody)
-  const [el, setEl] = useState(initialElements)
+  /** The orbit when the simulated clock last started; the orbit shown is computed from it and the elapsed time. */
+  const [epoch, setEpoch] = useState(initialElements)
   const [view, setView] = useState(initialView ?? DEFAULT_VIEW)
   const [playing, setPlaying] = useState(false)
+  const [warp, setWarp] = useState<number>(DEFAULT_WARP)
+  /** Simulated time since the orbit was last changed by hand (s). */
+  const [elapsed, setElapsed] = useState(0)
   const [showAreas, setShowAreas] = useState(false)
+  const [j2, setJ2] = useState(false)
+  const [showTrack, setShowTrack] = useState(false)
+  /** Target radius (km) of a Hohmann transfer from a circular orbit of radius a; null when not shown. */
+  const [transferTo, setTransferTo] = useState<number | null>(null)
   const body = bodyByKey(bodyKey)
-  const q = orbitQuantities(el, body.mu)
+  const el = useMemo(() => propagate(epoch, body, elapsed, j2), [epoch, body, elapsed, j2])
+  const display = useThrottled(el, playing ? 100 : 0)
+  const q = useMemo(() => orbitQuantities(display, body.mu), [display, body.mu])
   const calc = useMemo(
-    () => evaluateCalculator(ORBIT_CALCULATOR, { a: el.a, ecc: el.e, nu: el.nu, mu: body.mu }),
-    [el.a, el.e, el.nu, body.mu],
+    () =>
+      evaluateCalculator(ORBIT_CALCULATOR, {
+        a: display.a,
+        ecc: display.e,
+        nu: display.nu,
+        mu: body.mu,
+        inc: display.i,
+        J2: body.j2,
+        Re: body.radius,
+      }),
+    [display, body],
   )
-  const set = (patch: Partial<OrbitalElements>) => setEl((cur) => clampElements({ ...cur, ...patch }))
+  // The readout follows every frame: vis-viva from the live orbit.
+  const liveSpeed = Math.sqrt(body.mu * (2 / orbitQuantities(el, body.mu).r - 1 / el.a))
+  const transfer = useMemo(
+    () =>
+      transferTo === null
+        ? null
+        : evaluateCalculator(HOHMANN_CALCULATOR, { r1: el.a, r2: transferTo, mu: body.mu }),
+    [transferTo, el.a, body.mu],
+  )
+  // Changing the orbit by hand (or the model) restarts the simulated clock from the orbit as it is now.
+  const restart = (next: OrbitalElements) => {
+    setEpoch(next)
+    setElapsed(0)
+  }
+  const elNow = useRef(el)
+  elNow.current = el
+  // Stable, so the memoised element fields do not re-render on every frame.
+  const setFields = useCallback((patch: Partial<OrbitalElements>) => {
+    setEpoch(clampElements({ ...elNow.current, ...patch }))
+    setElapsed(0)
+  }, [])
+  const warpRef = useRef(warp)
+  warpRef.current = warp
 
   useEffect(() => {
-    setEl(initialElements)
+    setEpoch(initialElements)
     setBodyKey(initialBody)
+    setElapsed(0)
   }, [initialElements, initialBody])
 
-  // Animate at a steady mean anomaly, so the satellite speeds up near periapsis as Kepler's second law says.
+  // Animate on a simulated clock (real time × warp). The orbit shown is computed from the epoch orbit and the
+  // elapsed time (steady mean anomaly, plus J2 drift when on), so orbits keep their true periods relative to each
+  // other, the satellite speeds up near periapsis, and long runs do not accumulate error.
   useEffect(() => {
     if (!playing) return
     let frame = 0
     let last = performance.now()
     const tick = (now: number) => {
-      const dt = (now - last) / 1000
+      const dt = Math.min((now - last) / 1000, MAX_FRAME) * warpRef.current
       last = now
-      setEl((cur) => {
-        const M = trueToMean(toRad(cur.nu), cur.e) + (2 * Math.PI * dt) / SECONDS_PER_ORBIT
-        return { ...cur, nu: toDeg(meanToTrue(M, cur.e)) }
-      })
+      setElapsed((s) => s + dt)
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
   }, [playing])
 
+  // Only changes made by hand count: playing moves the satellite (and with J2 the orbit) but is not an edit,
+  // so the epoch orbit is what is compared and saved.
   const dirty =
     bodyKey !== initialBody ||
-    (Object.keys(el) as (keyof OrbitalElements)[]).some((k) => Math.abs(el[k] - initialElements[k]) > 1e-9)
-  const results = calc.ok ? calc.values : {}
-  const row = (label: string, value: string) => (
-    <div key={label} className="flex items-baseline justify-between gap-3 border-b border-line-soft py-1.5">
-      <dt className="text-[13px] text-muted">{label}</dt>
-      <dd className="m-0 font-mono text-[14px]">{value}</dd>
-    </div>
-  )
-  const out = (key: string) => {
-    const o = ORBIT_CALCULATOR.outputs.find((x) => x.key === key)
-    const v = results[key]
-    return o && v !== undefined
-      ? row(t(`orbit.out.${key}`), `${formatValue(v, o.precision ?? 3)} ${o.unit ?? ''}`)
-      : null
-  }
+    (Object.keys(epoch) as (keyof OrbitalElements)[]).some(
+      (k) => Math.abs(epoch[k] - initialElements[k]) > 1e-9,
+    )
+  const results = useMemo(() => (calc.ok ? calc.values : {}), [calc])
+  const row = valueRow
 
   return (
     // Sized by its own width: in a page column the two views stack, in the wide viewer they sit side by side.
@@ -569,7 +997,10 @@ export function OrbitView({
           <select
             className={`${inputCls} min-w-36`}
             value={bodyKey}
-            onChange={(e) => setBodyKey(e.target.value)}
+            onChange={(e) => {
+              setBodyKey(e.target.value)
+              restart(el)
+            }}
           >
             {CENTRAL_BODIES.map((b) => (
               <option key={b.key} value={b.key}>
@@ -586,7 +1017,7 @@ export function OrbitView({
               value=""
               onChange={(e) => {
                 const preset = ORBIT_PRESETS.find((p) => p.key === e.target.value)
-                if (preset) setEl({ ...preset.elements })
+                if (preset) restart({ ...preset.elements })
               }}
             >
               <option value="">{t('orbit.choosePreset')}</option>
@@ -607,6 +1038,16 @@ export function OrbitView({
         >
           {playing ? t('orbit.pause') : t('orbit.play')}
         </Button>
+        <label className="flex flex-col gap-1 text-[13px] font-semibold text-muted">
+          {t('orbit.timeWarp')}
+          <select className={inputCls} value={warp} onChange={(e) => setWarp(Number(e.target.value))}>
+            {TIME_WARPS.map((w) => (
+              <option key={w} value={w}>
+                {w === 1 ? t('orbit.realTime') : `×${w.toLocaleString()}`}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm font-medium">
           <input
             type="checkbox"
@@ -617,10 +1058,72 @@ export function OrbitView({
           {t('orbit.equalAreas')}
         </label>
       </div>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+        <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            className="h-[18px] w-[18px] accent-accent"
+            checked={j2}
+            onChange={(e) => {
+              setJ2(e.target.checked)
+              restart(el)
+            }}
+          />
+          {t('orbit.j2')}
+        </label>
+        <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            className="h-[18px] w-[18px] accent-accent"
+            checked={showTrack}
+            onChange={(e) => setShowTrack(e.target.checked)}
+          />
+          {t('orbit.groundTrack')}
+        </label>
+        <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            className="h-[18px] w-[18px] accent-accent"
+            checked={transferTo !== null}
+            onChange={(e) =>
+              // By default to geostationary radius from below it, otherwise out to twice the orbit.
+              setTransferTo(
+                e.target.checked
+                  ? bodyKey === 'earth' && el.a < 42164
+                    ? 42164
+                    : Math.round(el.a * 2)
+                  : null,
+              )
+            }
+          />
+          {t('orbit.hohmann')}
+        </label>
+      </div>
+
+      {/* Updated every frame while playing, so it is not announced to screen readers on each change. */}
+      <div className="flex flex-wrap gap-x-6 gap-y-1 rounded-[10px] bg-surface-2 px-4 py-2 font-mono text-[14px]">
+        <span>
+          <span className="font-sans text-[13px] text-muted">{t('orbit.speedNow')} </span>
+          <span data-testid="orbit-speed">
+            {Number.isFinite(liveSpeed) ? `${formatValue(liveSpeed, 3)} km/s` : '—'}
+          </span>
+        </span>
+        <span>
+          <span className="font-sans text-[13px] text-muted">{t('orbit.elapsed')} </span>
+          <span data-testid="orbit-elapsed">{formatDuration(elapsed)}</span>
+        </span>
+      </div>
 
       <div className="grid items-start gap-4 @3xl:grid-cols-2">
         <figure className="m-0 flex flex-col gap-1.5 rounded-[10px] border border-line-soft bg-surface p-2">
-          <PlaneView el={el} radius={body.radius} mu={body.mu} showAreas={showAreas} />
+          <PlaneView
+            el={el}
+            radius={body.radius}
+            mu={body.mu}
+            showAreas={showAreas}
+            speeds={{ v: results.v, vp: results.vp, va: results.va }}
+            transfer={transferTo === null ? null : { r1: el.a, r2: transferTo }}
+          />
           <figcaption className="px-2 pb-1 text-[13px] text-muted">
             {showAreas ? t('orbit.equalAreasCaption', { n: EQUAL_AREA_SECTORS }) : t('orbit.planeCaption')}
           </figcaption>
@@ -655,74 +1158,51 @@ export function OrbitView({
         </figure>
       </div>
 
-      <div className="grid gap-x-6 gap-y-3 @xl:grid-cols-2">
-        <ElementField
-          id={`${id}-a`}
-          symbol="a"
-          label={t('orbit.a')}
-          unit="km"
-          value={el.a}
-          min={Math.round(body.radius * 1.02)}
-          max={Math.round(body.radius * 70)}
-          step={1}
-          log
-          onChange={(a) => set({ a })}
-        />
-        <ElementField
-          id={`${id}-e`}
-          symbol="e"
-          label={t('orbit.e')}
-          value={el.e}
-          min={0}
-          max={MAX_ECCENTRICITY}
-          step={0.001}
-          onChange={(e) => set({ e })}
-        />
-        <ElementField
-          id={`${id}-i`}
-          symbol="i"
-          label={t('orbit.i')}
-          unit="°"
-          value={el.i}
-          min={0}
-          max={180}
-          step={0.1}
-          onChange={(i) => set({ i })}
-        />
-        <ElementField
-          id={`${id}-raan`}
-          symbol="Ω"
-          label={t('orbit.raan')}
-          unit="°"
-          value={el.raan}
-          min={0}
-          max={360}
-          step={0.1}
-          onChange={(raan) => set({ raan })}
-        />
-        <ElementField
-          id={`${id}-argp`}
-          symbol="ω"
-          label={t('orbit.argp')}
-          unit="°"
-          value={el.argp}
-          min={0}
-          max={360}
-          step={0.1}
-          onChange={(argp) => set({ argp })}
-        />
-        <ElementField
-          id={`${id}-nu`}
-          symbol="ν"
-          label={t('orbit.nu')}
-          unit="°"
-          value={Math.round(el.nu * 10) / 10}
-          min={0}
-          max={360}
-          step={0.1}
-          onChange={(nu) => set({ nu })}
-        />
-      </div>
+      {showTrack && (
+        <figure className="m-0 flex flex-col gap-1.5 rounded-[10px] border border-line-soft bg-surface p-2">
+          <GroundTrackView epoch={epoch} body={body} elapsed={elapsed} j2={j2} />
+          <figcaption className="px-2 pb-1 text-[13px] text-muted">
+            {t('orbit.trackCaption', { n: TRACK_ORBITS, body: body.name })}
+          </figcaption>
+        </figure>
+      )}
+
+      {transferTo !== null && (
+        <section
+          aria-label={t('orbit.hohmann')}
+          className="flex flex-col gap-3 rounded-[10px] border border-line-soft bg-surface px-4 py-3"
+        >
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 text-[13px] font-semibold text-muted">
+              {t('orbit.targetRadius')}
+              <input
+                type="number"
+                className={`${inputCls} w-40 font-mono`}
+                min={Math.round(body.radius)}
+                step={1}
+                value={transferTo}
+                onChange={(e) => {
+                  const r = Number.parseFloat(e.target.value)
+                  if (Number.isFinite(r) && r > 0) setTransferTo(r)
+                }}
+              />
+            </label>
+            <p className="m-0 min-w-0 flex-1 text-[13px] text-muted">{t('orbit.hohmannNote')}</p>
+          </div>
+          {transfer?.ok ? (
+            <dl className="m-0 grid gap-x-8 @xl:grid-cols-2">
+              {(['dv1', 'dv2', 'dv'] as const).map((key) =>
+                row(t(`orbit.hohmannOut.${key}`), `${formatValue(transfer.values[key] as number, 3)} km/s`),
+              )}
+              {row(t('orbit.hohmannOut.tt'), formatDuration(transfer.values.tt as number))}
+            </dl>
+          ) : (
+            transfer && <p className="m-0 text-sm text-danger">{transfer.error}</p>
+          )}
+        </section>
+      )}
+
+      <ElementFields el={display} body={body} onSet={setFields} />
 
       {q.rp < body.radius && (
         <p role="alert" className="m-0 rounded-[10px] bg-danger-soft px-4 py-2.5 text-sm text-danger">
@@ -730,24 +1210,7 @@ export function OrbitView({
         </p>
       )}
 
-      <dl className="m-0 grid gap-x-8 @xl:grid-cols-2">
-        <div>
-          {out('rp')}
-          {row(t('orbit.periapsisAltitude'), `${formatValue(q.rp - body.radius, 1)} km`)}
-          {out('ra')}
-          {row(t('orbit.apoapsisAltitude'), `${formatValue(q.ra - body.radius, 1)} km`)}
-          {out('p')}
-          {row(t('orbit.period'), formatDuration(q.period))}
-        </div>
-        <div>
-          {out('r')}
-          {out('v')}
-          {out('gamma')}
-          {row(t('orbit.sincePeriapsis'), formatDuration(q.sincePeriapsis))}
-          {out('h')}
-          {out('eps')}
-        </div>
-      </dl>
+      <DerivedValues results={results} q={q} body={body} />
 
       {onSave && dirty && (
         <div className="flex flex-wrap items-center gap-3 rounded-[10px] bg-accent-soft px-4 py-3">
@@ -755,13 +1218,17 @@ export function OrbitView({
           <Button
             size="sm"
             onClick={() => {
-              setEl(initialElements)
+              restart(initialElements)
               setBodyKey(initialBody)
             }}
           >
             {t('orbit.reset')}
           </Button>
-          <Button size="sm" variant="primary" onClick={() => onSave({ body: bodyKey, elements: el, view })}>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => onSave({ body: bodyKey, elements: epoch, view })}
+          >
             {t('orbit.save')}
           </Button>
         </div>
