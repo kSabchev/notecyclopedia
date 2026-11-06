@@ -8,6 +8,7 @@ import { HttpError, me, param } from '../http'
 import { removeSource } from '../services/indexing'
 import { queueReindexPage } from '../services/jobs'
 import { preparePageContent, syncPageContent } from '../services/page-content'
+import { recordVisit } from '../services/study'
 
 export const pages = Router()
 export const formulas = Router()
@@ -123,6 +124,14 @@ pages.get('/:id/references', async (req, res) => {
     .where(and(eq(schema.pageReferences.targetPageId, page.id), inArray(schema.pages.courseId, ids)))
     .orderBy(schema.pages.title)
   res.json(rows)
+})
+
+/** Remember that the user opened the page, for "Where was I" on the home page. */
+pages.post('/:id/visit', async (req, res) => {
+  const user = me(req)
+  const page = await loadPage(param(req, 'id'), user.id)
+  await recordVisit(user.id, page.id)
+  res.status(204).end()
 })
 
 pages.get('/:id', async (req, res) => {
@@ -371,14 +380,50 @@ pages.post('/:id/revisions/:rev/restore', async (req, res) => {
 })
 
 /** Formula index across all courses the user can read, in course and lecture order. */
+/** Pin a formula to your home page, or unpin it. Pins are personal: any member of the course may pin. */
+const pinInput = z.object({ pageId: z.string().uuid(), nodeId: z.string().min(1).max(100) })
+
+formulas.post('/pins', async (req, res) => {
+  const { pageId, nodeId } = pinInput.parse(req.body)
+  const user = me(req)
+  await loadPage(pageId, user.id)
+  const [formula] = await db
+    .select({ id: schema.formulas.id })
+    .from(schema.formulas)
+    .where(and(eq(schema.formulas.pageId, pageId), eq(schema.formulas.nodeId, nodeId)))
+  if (!formula) throw new HttpError(404, 'Formula not found')
+  await db.insert(schema.formulaPins).values({ userId: user.id, pageId, nodeId }).onConflictDoNothing()
+  res.status(204).end()
+})
+
+formulas.delete('/pins', async (req, res) => {
+  const { pageId, nodeId } = pinInput.parse(req.query)
+  const user = me(req)
+  await db
+    .delete(schema.formulaPins)
+    .where(
+      and(
+        eq(schema.formulaPins.userId, user.id),
+        eq(schema.formulaPins.pageId, pageId),
+        eq(schema.formulaPins.nodeId, nodeId),
+      ),
+    )
+  res.status(204).end()
+})
+
 formulas.get('/', async (req, res) => {
   const { pinned } = z.object({ pinned: z.enum(['1', '0']).optional() }).parse(req.query)
-  const ids = await memberCourseIds(me(req).id)
+  const user = me(req)
+  const ids = await memberCourseIds(user.id)
+  // Pinned by this user (pins are personal).
+  const isPinned = sql<boolean>`EXISTS (SELECT 1 FROM formula_pins fp WHERE fp.user_id = ${user.id}
+    AND fp.page_id = ${schema.formulas.pageId} AND fp.node_id = ${schema.formulas.nodeId})`
   if (!ids.length) return res.json([])
   const rows = await db
     .select({
       id: schema.formulas.id,
       pageId: schema.formulas.pageId,
+      nodeId: schema.formulas.nodeId,
       pageTitle: schema.pages.title,
       courseId: schema.pages.courseId,
       lectureNumber: schema.pages.lectureNumber,
@@ -386,13 +431,11 @@ formulas.get('/', async (req, res) => {
       label: schema.formulas.label,
       latex: schema.formulas.latex,
       description: schema.formulas.description,
-      pinned: schema.formulas.pinned,
+      pinned: isPinned,
     })
     .from(schema.formulas)
     .innerJoin(schema.pages, eq(schema.pages.id, schema.formulas.pageId))
-    .where(
-      and(inArray(schema.pages.courseId, ids), pinned === '1' ? eq(schema.formulas.pinned, true) : undefined),
-    )
+    .where(and(inArray(schema.pages.courseId, ids), pinned === '1' ? isPinned : undefined))
     .orderBy(
       sql`${schema.pages.lectureNumber} ASC NULLS LAST`,
       schema.pages.sortOrder,

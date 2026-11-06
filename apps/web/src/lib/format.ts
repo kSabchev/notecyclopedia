@@ -1,5 +1,8 @@
 import i18n from '../i18n'
 
+/** An estimated cost in US dollars, e.g. "$0.0031". */
+export const formatCost = (usd: number) => `$${usd.toFixed(usd < 0.01 ? 4 : 3)}`
+
 export function timeAgo(iso: string): string {
   const rtf = new Intl.RelativeTimeFormat(i18n.language, { numeric: 'auto' })
   const s = (new Date(iso).getTime() - Date.now()) / 1000

@@ -31,7 +31,7 @@ declare module '@tiptap/core' {
 
 function FormulaView({ node, updateAttributes, deleteNode, editor, selected }: ReactNodeViewProps) {
   const { t } = useTranslation()
-  const { latex, label, description, pinned } = node.attrs as FormulaAttrs
+  const { latex, label, description } = node.attrs as FormulaAttrs
   const [editing, setEditing] = useState(!latex)
   const editable = editor.isEditable
   const open = editable && (editing || (selected && !latex))
@@ -85,15 +85,6 @@ function FormulaView({ node, updateAttributes, deleteNode, editor, selected }: R
               </label>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium">
-                <input
-                  type="checkbox"
-                  className="h-[18px] w-[18px] accent-accent"
-                  checked={pinned}
-                  onChange={(e) => updateAttributes({ pinned: e.target.checked })}
-                />
-                {t('editor.pin')}
-              </label>
               <span className="flex-1" />
               <Button size="sm" variant="danger" onClick={deleteNode}>
                 {t('editor.remove')}

@@ -1,6 +1,7 @@
 import { type DocJSON, parsePageLink } from '@nc/shared'
 import { useNavigate } from '@tanstack/react-router'
-import { type MouseEvent, type ReactNode, memo } from 'react'
+import { type MouseEvent, type ReactNode, createContext, memo, useContext } from 'react'
+import { FormulaPin } from './PinStar'
 import {
   CalloutLabel,
   type FormulaAttrs,
@@ -104,11 +105,10 @@ function renderNode(node: DocNode, key: number): ReactNode {
         latex: str(a.latex) ?? '',
         label: str(a.label) ?? null,
         description: str(a.description) ?? null,
-        pinned: a.pinned === true,
       }
       return (
         <div key={key} {...formulaBlockProps(attrs, true)} className="my-4 whitespace-normal">
-          <FormulaFace attrs={attrs} reading />
+          <FormulaFace attrs={attrs} reading leading={<ReaderPin nodeId={attrs.id ?? null} />} />
         </div>
       )
     }
@@ -153,11 +153,22 @@ const DocBody = memo(
  * Read-only rendering of a page. It draws the saved document directly with the same blocks as the editor, so
  * reading a page does not load the editor (TipTap).
  */
+/** The page being read, so each formula can show your pin star; none in previews such as the AI review. */
+const PinPage = createContext<string | null>(null)
+
+function ReaderPin({ nodeId }: { nodeId: string | null }) {
+  const pageId = useContext(PinPage)
+  return pageId ? <FormulaPin pageId={pageId} nodeId={nodeId} /> : null
+}
+
 export function DocView({
   doc,
   onFormula,
+  pageId,
 }: {
   doc: DocJSON
+  /** The page's id: formulas then show a star to pin them to your home page. */
+  pageId?: string
   /** Called when the reader clicks a formula block. */
   onFormula?: (formula: { nodeId: string | null; latex: string; label: string | null }) => void
 }) {
@@ -182,7 +193,9 @@ export function DocView({
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: links inside are focusable and Enter on a link fires this click
     <div onClick={followReference} className="prose-nc">
-      <DocBody doc={doc} />
+      <PinPage.Provider value={pageId ?? null}>
+        <DocBody doc={doc} />
+      </PinPage.Provider>
     </div>
   )
 }

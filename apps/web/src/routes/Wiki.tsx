@@ -159,7 +159,7 @@ export function Wiki() {
     reorder.mutate(courseIds)
   }
   return (
-    <div className="flex max-w-[1100px] flex-col gap-8 px-6 pb-18 pt-10 md:px-12">
+    <div className="flex flex-col gap-8 px-6 pb-18 pt-10 md:px-12">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="m-0 text-[40px] font-extrabold tracking-[-0.025em]">{t('nav.wiki')}</h1>
         <div className="flex flex-wrap gap-2">

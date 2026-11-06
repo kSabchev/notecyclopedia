@@ -1,4 +1,12 @@
-import type { AiAttachment, AiCitation, AiMode, AiUsage, CalculatorSpec, WidgetAttrs } from '@nc/shared'
+import type {
+  AiAttachment,
+  AiCitation,
+  AiMode,
+  AiUsage,
+  CalculatorSpec,
+  QuickCheck as QuickCheckData,
+  WidgetAttrs,
+} from '@nc/shared'
 import { AI_MODES } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
@@ -6,6 +14,7 @@ import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SparkIcon } from '../components/Icons'
 import { Markdown } from '../components/Markdown'
+import { QuickCheck } from '../components/QuickCheck'
 import { ErrorNote, btn } from '../components/ui'
 import { api, streamChat } from '../lib/api'
 import { attachmentUrl, photoAttachment } from '../lib/image'
@@ -20,6 +29,9 @@ interface Msg {
   widgets: WidgetAttrs[]
   attachments: AiAttachment[]
   usage: AiUsage | null
+  /** Set once the answer is stored (loaded, or its stream finished), so a quick check can be kept with it. */
+  stored?: boolean
+  quickCheck?: QuickCheckData | null
 }
 
 // Calculators (math.js) and orbit diagrams load only when an answer shows one.
@@ -225,7 +237,7 @@ export function AiPortal() {
     setThreadId(search.thread)
     api.ai.thread(search.thread).then(({ thread, messages: m }) => {
       setMode(thread.mode)
-      setMessages(m.map((x) => ({ ...x })))
+      setMessages(m.map((x) => ({ ...x, stored: true })))
     })
   }, [search.thread])
 
@@ -270,7 +282,7 @@ export function AiPortal() {
         else if (ev.type === 'widget') patch((m) => ({ ...m, widgets: [...m.widgets, ev.widget] }))
         else if (ev.type === 'usage') patch((m) => ({ ...m, usage: ev.usage }))
         // The stored answer's id, so calculators made from it later are stored with it.
-        else if (ev.type === 'done' && ev.messageId) patch((m) => ({ ...m, id: ev.messageId }))
+        else if (ev.type === 'done' && ev.messageId) patch((m) => ({ ...m, id: ev.messageId, stored: true }))
         else if (ev.type === 'error') setError(ev.message)
       }
     } catch (e) {
@@ -429,7 +441,7 @@ export function AiPortal() {
                     )}
                   </div>
                 )}
-                {(m.usage || canBuild(m, index)) && (
+                {(m.usage || canBuild(m, index) || (m.stored && m.content)) && (
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-3">
                     {m.usage ? <UsageLine usage={m.usage} /> : <span />}
                     {!(streaming && m === last) && m.content && (
@@ -438,6 +450,9 @@ export function AiPortal() {
                         answer={m.content}
                         pages={m.citations.filter((c) => c.sourceType === 'page')}
                       />
+                    )}
+                    {m.stored && m.content && !(streaming && m === last) && (
+                      <QuickCheck key={m.id} messageId={m.id} initial={m.quickCheck} />
                     )}
                     {canBuild(m, index) && (
                       <button

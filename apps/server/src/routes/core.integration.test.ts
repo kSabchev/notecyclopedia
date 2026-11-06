@@ -620,6 +620,34 @@ test(
     const sameFormula = await formulaPage('Energy', 'v^2=\\mu\\left(\\frac{2}{r}-\\frac{1}{a}\\right)')
     await formulaPage('Unrelated', 'E = mc^2')
     const visVivaNode = visViva.content.content[0]?.attrs?.id as string
+
+    // Pins are personal: each member pins for themselves (viewers too), and the page does not change.
+    const pin = (actor: Actor, nodeId = visVivaNode) =>
+      request(actor, '/formulas/pins', { method: 'POST', body: json({ pageId: visViva.id, nodeId }) })
+    const unpin = (actor: Actor) =>
+      request(actor, `/formulas/pins?pageId=${visViva.id}&nodeId=${visVivaNode}`, { method: 'DELETE' })
+    const pinnedOf = async (actor: Actor) =>
+      ((await (await request(actor, '/formulas?pinned=1')).json()) as { pageId: string; nodeId: string }[])
+        .filter((f) => f.pageId === visViva.id)
+        .map((f) => f.nodeId)
+    assert.equal((await pin(owner)).status, 204)
+    assert.equal((await pin(owner)).status, 204, 'Pinning twice is harmless')
+    assert.deepEqual(await pinnedOf(owner), [visVivaNode])
+    assert.deepEqual(await pinnedOf(viewer), [], "Another member's pins are not yours")
+    assert.equal((await pin(viewer)).status, 204, 'Viewers can pin for themselves')
+    assert.deepEqual(await pinnedOf(viewer), [visVivaNode])
+    const allFormulas = (await (await request(owner, '/formulas')).json()) as {
+      nodeId: string
+      pinned: boolean
+    }[]
+    assert.equal(allFormulas.find((f) => f.nodeId === visVivaNode)?.pinned, true)
+    assert.equal((await pin(outsider)).status, 404)
+    assert.equal((await pin(owner, 'no-such-formula')).status, 404)
+    const afterPins = (await (await request(owner, `/pages/${visViva.id}`)).json()) as { revision: number }
+    assert.equal(afterPins.revision, 1, 'Pinning does not change the page')
+    assert.equal((await unpin(owner)).status, 204)
+    assert.deepEqual(await pinnedOf(owner), [])
+    assert.deepEqual(await pinnedOf(viewer), [visVivaNode], "Unpinning leaves others' pins alone")
     const pageCalc = (actor: Actor, courseId: string | null, name: string) =>
       request(actor, '/calculators', {
         method: 'POST',
@@ -785,6 +813,338 @@ test(
       'No API key in tests',
     )
     assert.equal((await request(viewer, '/daily', { method: 'POST', body: json({}) })).status, 503)
+
+    // Where was I: pages you opened and the pages your questions were answered from, from your own activity.
+    assert.equal((await request(owner, `/pages/${visViva.id}/visit`, { method: 'POST' })).status, 204)
+    assert.equal((await request(owner, `/pages/${lecture.id}/visit`, { method: 'POST' })).status, 204)
+    assert.equal((await request(outsider, `/pages/${lecture.id}/visit`, { method: 'POST' })).status, 404)
+    const [thread] = await db
+      .insert(schema.aiThreads)
+      .values({ userId: owner.id, title: 'Why two burns?', mode: 'tutor' })
+      .returning()
+    assert.ok(thread)
+    const [, tutorAnswer] = await db
+      .insert(schema.aiMessages)
+      .values([
+        {
+          threadId: thread.id,
+          role: 'user',
+          content: 'Why two burns?',
+          createdAt: new Date(Date.now() - 1000),
+        },
+        {
+          threadId: thread.id,
+          role: 'assistant',
+          content: 'One burn leaves the orbit, the second circularises.',
+          citations: [{ sourceType: 'page', sourceId: lecture.id, title: lecture.id }],
+        },
+      ])
+      .returning()
+    assert.ok(tutorAnswer)
+    const where = (await (await request(owner, '/study/where')).json()) as {
+      viewed: { id: string }[]
+      threads: { id: string; mode: string }[]
+      topics: { pageId: string; title: string; questions: number }[]
+    }
+    assert.deepEqual(
+      where.viewed.slice(0, 2).map((v) => v.id),
+      [lecture.id, visViva.id],
+      'Most recently opened first',
+    )
+    assert.deepEqual(where.threads[0], { ...where.threads[0], id: thread.id, mode: 'tutor' })
+    assert.deepEqual(
+      where.topics.map((tp) => [tp.pageId, tp.title, tp.questions]),
+      [[lecture.id, 'Orbital transfers', 1]],
+    )
+    const outsiderWhere = (await (await request(outsider, '/study/where')).json()) as { viewed: unknown[] }
+    assert.deepEqual(outsiderWhere.viewed, [])
+
+    // Quick check: kept with the answer, so a second request costs nothing; only for your own answers.
+    const kept = {
+      questions: [{ question: 'Why not one burn?', answer: 'One burn returns to the start.' }],
+      usage: null,
+    }
+    await db
+      .update(schema.aiMessages)
+      .set({ quickCheck: kept })
+      .where(eq(schema.aiMessages.id, tutorAnswer.id))
+    const quick = await request(owner, `/ai/messages/${tutorAnswer.id}/quick-check`, {
+      method: 'POST',
+      body: json({}),
+    })
+    assert.equal(quick.status, 200)
+    assert.deepEqual(await quick.json(), kept)
+    assert.equal(
+      (
+        await request(outsider, `/ai/messages/${tutorAnswer.id}/quick-check`, {
+          method: 'POST',
+          body: json({}),
+        })
+      ).status,
+      404,
+    )
+
+    // Exam prep: one call proposes the plan; dates and page links are made in code, then the plan is planEdit.
+    const study = await import('../services/study')
+    let planPrompt = ''
+    const fakePlan = (async (request: { messages: { content: unknown }[] }) => {
+      planPrompt = JSON.stringify(request.messages)
+      return {
+        stop_reason: 'tool_use',
+        content: [
+          {
+            type: 'tool_use',
+            id: 'plan',
+            name: 'propose_revision_plan',
+            input: {
+              title: 'Transfers exam',
+              days: [
+                { day: 1, items: [{ ref: 'P1', focus: 'Read the lecture' }] },
+                { day: 2, items: [{ ref: null, focus: 'Practice run' }] },
+              ],
+            },
+          },
+        ],
+      }
+    }) as unknown as Parameters<typeof study.generateExamPlan>[1]
+    await assert.rejects(
+      study.generateExamPlan(
+        {
+          userId: owner.id,
+          courseId: sourceCourse.id,
+          courseName: 'Source course',
+          examDate: '2026-11-06',
+          today: '2026-11-06',
+          minutesPerDay: 60,
+        },
+        fakePlan,
+      ),
+      /between tomorrow/,
+    )
+    const plan = await study.generateExamPlan(
+      {
+        userId: owner.id,
+        courseId: sourceCourse.id,
+        courseName: 'Source course',
+        examDate: '2026-11-09',
+        today: '2026-11-06',
+        minutesPerDay: 45,
+      },
+      fakePlan,
+    )
+    assert.match(planPrompt, /Day 3: Sun 2026-11-08/)
+    assert.match(planPrompt, /P1: /)
+    assert.deepEqual(
+      plan.days.map((d) => [d.date, d.items.map((i) => i.focus)]),
+      [
+        ['2026-11-06', ['Read the lecture']],
+        ['2026-11-07', ['Practice run']],
+      ],
+    )
+    const firstPage = plan.days[0]?.items[0]
+    assert.ok(firstPage?.pageId && firstPage.pageTitle)
+    assert.deepEqual(plan.studyWeekdays, [0, 1, 2, 3, 4, 5, 6])
+
+    // Weekdays only, and the exam's scope: just the lecture, marked shaky. Day numbers map to study days.
+    const scoped = await study.generateExamPlan(
+      {
+        userId: owner.id,
+        courseId: sourceCourse.id,
+        courseName: 'Source course',
+        examDate: '2026-11-12',
+        today: '2026-11-06',
+        minutesPerDay: 60,
+        weekdays: [5, 1, 2, 3, 4],
+        pages: [{ id: lecture.id, confidence: 'shaky' }],
+      },
+      fakePlan,
+    )
+    assert.match(planPrompt, /Day 1: Fri 2026-11-06.*Day 2: Mon 2026-11-09/)
+    assert.ok(!planPrompt.includes('2026-11-07'), 'The weekend is not offered')
+    assert.match(planPrompt, /P1: .*Orbital transfers.*student: shaky/)
+    assert.ok(!planPrompt.includes('P2: '), 'Only the pages in scope are listed')
+    assert.deepEqual(scoped.studyWeekdays, [1, 2, 3, 4, 5])
+    assert.deepEqual(
+      scoped.days.map((d) => d.date),
+      ['2026-11-06', '2026-11-09'],
+    )
+    assert.equal(scoped.days[0]?.items[0]?.pageId, lecture.id)
+
+    // Today's tasks for the home page, and ticking one off on its own.
+    assert.deepEqual(
+      (await study.todaysTasks(owner.id, '2026-11-09')).map((p) => [
+        p.planId,
+        p.items.map((i) => i.focus),
+        p.overdue,
+      ]),
+      [
+        [plan.id, [], 2],
+        [scoped.id, ['Practice run'], 1],
+      ],
+    )
+    const scopedTask = scoped.days[1]?.items[0]
+    assert.ok(scopedTask)
+    const ticked = await request(owner, `/study/plans/${scoped.id}/items/${scopedTask.id}`, {
+      method: 'PATCH',
+      body: json({ done: true }),
+    })
+    assert.equal(ticked.status, 200)
+    assert.equal(((await ticked.json()) as typeof scoped).days[1]?.items[0]?.done, true)
+    assert.equal(
+      (
+        await request(viewer, `/study/plans/${scoped.id}/items/${scopedTask.id}`, {
+          method: 'PATCH',
+          body: json({ done: false }),
+        })
+      ).status,
+      404,
+    )
+    const todayResponse = await request(owner, '/study/today')
+    assert.equal(todayResponse.status, 200)
+    assert.match(((await todayResponse.json()) as { today: string }).today, /^\d{4}-\d{2}-\d{2}$/)
+    assert.equal((await request(owner, `/study/plans/${scoped.id}`, { method: 'DELETE' })).status, 204)
+
+    // Pause and resume: a paused plan is kept, but left out of today's revision.
+    const paused = await request(owner, `/study/plans/${plan.id}`, {
+      method: 'PATCH',
+      body: json({ active: false }),
+    })
+    assert.equal(((await paused.json()) as typeof plan).active, false)
+    assert.deepEqual(await study.todaysTasks(owner.id, '2026-11-07'), [])
+    assert.equal(
+      (await request(viewer, `/study/plans/${plan.id}`, { method: 'PATCH', body: json({ active: true }) }))
+        .status,
+      404,
+    )
+    await request(owner, `/study/plans/${plan.id}`, { method: 'PATCH', body: json({ active: true }) })
+
+    // Export, then import: into the same course the page links come back; elsewhere tasks keep the page title.
+    const planExport = await request(owner, `/study/plans/${plan.id}/export`)
+    assert.equal(planExport.status, 200)
+    assert.match(
+      planExport.headers.get('content-disposition') ?? '',
+      /attachment; filename="Transfers-exam\.plan\.json"/,
+    )
+    const planFile = (await planExport.json()) as { format: string; courseName: string }
+    assert.equal(planFile.format, 'notecyclopedia-exam-plan')
+    assert.equal(planFile.courseName, 'Source course')
+    const importInto = async (courseId: string, actor = owner) =>
+      request(actor, '/study/plans/import', { method: 'POST', body: json({ courseId, plan: planFile }) })
+    const sameCourse = (await (await importInto(sourceCourse.id)).json()) as {
+      plan: typeof plan
+      linked: number
+      unlinked: number
+    }
+    assert.deepEqual([sameCourse.linked, sameCourse.unlinked], [1, 0])
+    assert.equal(sameCourse.plan.days[0]?.items[0]?.pageId, firstPage.pageId)
+    const otherCourse = (await (await importInto(targetCourse.id)).json()) as typeof sameCourse
+    assert.deepEqual([otherCourse.linked, otherCourse.unlinked], [0, 1])
+    assert.equal(otherCourse.plan.days[0]?.items[0]?.pageTitle, firstPage.pageTitle)
+    assert.equal((await importInto(sourceCourse.id, outsider)).status, 404, 'Only into your own courses')
+    assert.equal(
+      (
+        await request(owner, '/study/plans/import', {
+          method: 'POST',
+          body: json({ courseId: sourceCourse.id, plan: { ...planFile, format: 'other' } }),
+        })
+      ).status,
+      400,
+    )
+
+    // Share a copy with a member of the course; it becomes theirs only when they accept it.
+    const shareWith = (userId: string) =>
+      request(owner, `/study/plans/${plan.id}/share`, { method: 'POST', body: json({ userId }) })
+    assert.equal((await shareWith(outsider.id)).status, 404, 'Only members of the course')
+    assert.equal((await shareWith(owner.id)).status, 400)
+    assert.equal((await shareWith(viewer.id)).status, 201)
+    const incoming = (await (await request(viewer, '/study/shares')).json()) as {
+      id: string
+      fromName: string
+      title: string
+      tasks: number
+    }[]
+    assert.deepEqual(
+      incoming.map((sh) => [sh.fromName, sh.title, sh.tasks]),
+      [['owner', 'Transfers exam', 2]],
+    )
+    assert.deepEqual(await (await request(outsider, '/study/shares')).json(), [])
+    const shareId = incoming[0]?.id as string
+    assert.equal((await request(outsider, `/study/shares/${shareId}/accept`, { method: 'POST' })).status, 404)
+    const accepted = await request(viewer, `/study/shares/${shareId}/accept`, { method: 'POST' })
+    assert.equal(accepted.status, 201)
+    const viewerPlan = (await accepted.json()) as typeof plan
+    assert.equal(viewerPlan.courseId, sourceCourse.id)
+    assert.equal(viewerPlan.days[0]?.items[0]?.pageId, firstPage.pageId)
+    assert.ok(
+      viewerPlan.days.every((d) => d.items.every((i) => !i.done)),
+      'Progress is not shared',
+    )
+    assert.deepEqual(await (await request(viewer, '/study/shares')).json(), [])
+    assert.equal((await request(owner, `/study/plans/${viewerPlan.id}`)).status, 404, 'The copy is private')
+    // Declining removes the copy.
+    await shareWith(viewer.id)
+    const shareAgain = (await (await request(viewer, '/study/shares')).json()) as { id: string }[]
+    assert.equal(
+      (await request(viewer, `/study/shares/${shareAgain[0]?.id}`, { method: 'DELETE' })).status,
+      204,
+    )
+    assert.deepEqual(await (await request(viewer, '/study/shares')).json(), [])
+
+    const plansListed = (await (await request(owner, '/study/plans')).json()) as { id: string }[]
+    assert.ok(plansListed.some((p) => p.id === plan.id))
+    assert.equal((await request(viewer, `/study/plans/${plan.id}`)).status, 404, 'Plans are private')
+
+    // Edit: tick an item, move one to another day; a link to a page outside the course is dropped.
+    const foreign = (await (
+      await request(owner, '/pages', {
+        method: 'POST',
+        body: json({ courseId: targetCourse.id, title: 'Elsewhere', type: 'lecture' }),
+      })
+    ).json()) as { id: string }
+    const planEdit = await request(owner, `/study/plans/${plan.id}`, {
+      method: 'PUT',
+      body: json({
+        title: 'Transfers exam (planEdit)',
+        examDate: '2026-11-09',
+        days: [
+          { date: '2026-11-08', items: [{ ...firstPage, done: true }] },
+          {
+            date: '2026-11-07',
+            items: [
+              ...(plan.days[1]?.items ?? []),
+              {
+                id: crypto.randomUUID(),
+                pageId: foreign.id,
+                pageTitle: 'Elsewhere',
+                focus: 'Sneak in',
+                done: false,
+              },
+            ],
+          },
+        ],
+      }),
+    })
+    assert.equal(planEdit.status, 200)
+    const planSaved = (await planEdit.json()) as typeof plan
+    assert.deepEqual(
+      planSaved.days.map((d) => [d.date, d.items.map((i) => [i.focus, i.done, i.pageId === null])]),
+      [
+        [
+          '2026-11-07',
+          [
+            ['Practice run', false, true],
+            ['Sneak in', false, true],
+          ],
+        ],
+        ['2026-11-08', [['Read the lecture', true, false]]],
+      ],
+    )
+    assert.equal(
+      (await request(viewer, `/study/plans/${plan.id}`, { method: 'PUT', body: json({ ...planSaved }) }))
+        .status,
+      404,
+    )
+    assert.equal((await request(owner, `/study/plans/${plan.id}`, { method: 'DELETE' })).status, 204)
 
     const backup = await request(owner, '/backup/export')
     assert.equal(backup.status, 200)

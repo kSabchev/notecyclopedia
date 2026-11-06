@@ -28,6 +28,12 @@ export const BookIcon = icon(
     <path d="M4 21V5" />
   </>,
 )
+export const CalendarIcon = icon(
+  <>
+    <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
+    <path d="M3.5 10h17M8 3v4M16 3v4M8 14h3" />
+  </>,
+)
 export const SigmaIcon = icon(<path d="M18 4H6l6 8-6 8h12" />)
 export const CalcIcon = icon(
   <>

@@ -12,7 +12,6 @@ export type FormulaAttrs = {
   latex: string
   label: string | null
   description: string | null
-  pinned: boolean
 }
 
 /**
@@ -40,6 +39,7 @@ export function FormulaFace({
   reading,
   open = false,
   actions,
+  leading,
   onDoubleClick,
   children,
 }: {
@@ -47,10 +47,12 @@ export function FormulaFace({
   reading: boolean
   open?: boolean
   actions?: ReactNode
+  /** Shown in front of the formula, e.g. the reader's pin star. */
+  leading?: ReactNode
   onDoubleClick?: () => void
   children?: ReactNode
 }) {
-  const { latex, label, description, pinned } = attrs
+  const { latex, label, description } = attrs
   return (
     <div
       className={`overflow-hidden rounded-[12px] border bg-surface font-sans ${open ? 'border-2 border-accent' : 'border-line'}`}
@@ -59,12 +61,10 @@ export function FormulaFace({
         className={`graph-paper flex flex-wrap items-center gap-4 px-5 py-4 cursor-pointer ${reading ? 'hover:bg-accent-soft' : ''}`}
         onDoubleClick={onDoubleClick}
       >
+        {leading}
         <Tex latex={latex} display className="min-w-0 flex-1 overflow-x-auto text-[1.15em]" />
         {description && <span className="text-sm text-muted">{description}</span>}
         {label && <span className="font-mono text-sm text-muted">({label})</span>}
-        {pinned && !open && (
-          <span className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent">★</span>
-        )}
         {actions}
       </div>
       {children}

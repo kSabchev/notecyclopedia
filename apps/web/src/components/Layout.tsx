@@ -8,6 +8,7 @@ import { signOut, useSession } from '../lib/auth'
 import {
   BookIcon,
   CalcIcon,
+  CalendarIcon,
   CloseIcon,
   HomeIcon,
   MenuIcon,
@@ -183,6 +184,10 @@ export function Layout() {
           <Link to="/daily" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <QuestionIcon />
             {t('nav.daily')}
+          </Link>
+          <Link to="/study" className={navCls} onClick={() => setMobileNavOpen(false)}>
+            <CalendarIcon />
+            {t('nav.study')}
           </Link>
           <Link to="/wiki" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <BookIcon />

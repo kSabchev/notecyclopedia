@@ -1,0 +1,1 @@
+ALTER TABLE "exam_plans" ADD COLUMN "study_weekdays" jsonb DEFAULT '[0,1,2,3,4,5,6]'::jsonb NOT NULL;

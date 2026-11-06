@@ -13,6 +13,7 @@ import { daily } from './routes/daily'
 import { files } from './routes/files'
 import { formulas, pages } from './routes/pages'
 import { search } from './routes/search'
+import { study } from './routes/study'
 import { admin } from './services/claude-usage'
 
 export function createApp() {
@@ -37,6 +38,7 @@ export function createApp() {
   api.use('/search', search)
   api.use('/ai', ai)
   api.use('/daily', daily)
+  api.use('/study', study)
   api.use('/admin', admin)
   app.use('/api', api)
 

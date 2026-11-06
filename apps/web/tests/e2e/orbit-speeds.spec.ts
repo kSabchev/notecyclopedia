@@ -78,9 +78,11 @@ test('orbit physics: J2 drift and the ground track', async ({ page }, testInfo) 
   const dOmega = Number(/ΔΩ (-?[\d.]+)°/.exec(drift)?.[1])
   expect(dOmega).toBeGreaterThan(0.5)
   expect(dOmega).toBeLessThan(5)
-  expect(
-    Number(await page.getByLabel('Right ascension of the ascending node', { exact: true }).inputValue()),
-  ).toBeCloseTo(dOmega, 1)
+  // The field shows one decimal and the readout two, so they may differ by the rounding (up to 0.05°).
+  const raan = Number(
+    await page.getByLabel('Right ascension of the ascending node', { exact: true }).inputValue(),
+  )
+  expect(Math.abs(raan - dOmega)).toBeLessThanOrEqual(0.05 + 1e-9)
   // Drifting angles are shown rounded, so the fields stay readable.
   expect(await page.getByLabel('Argument of periapsis', { exact: true }).inputValue()).toMatch(
     /^\d+(\.\d{1,2})?$/,

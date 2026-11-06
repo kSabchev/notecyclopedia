@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router'
 import type { TFunction } from 'i18next'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { PinStar } from '../components/PinStar'
 import { Tex } from '../components/Tex'
 import { Empty, inputCls } from '../components/ui'
 import { api } from '../lib/api'
@@ -31,7 +32,7 @@ export function Formulas() {
   )
 
   return (
-    <div className="flex max-w-[1100px] flex-col gap-6 px-6 pb-18 pt-10 md:px-12">
+    <div className="flex flex-col gap-6 px-6 pb-18 pt-10 md:px-12">
       <h1 className="m-0 text-[40px] font-extrabold tracking-[-0.025em]">{t('nav.formulas')}</h1>
       <div className="flex flex-wrap items-center gap-3">
         <label htmlFor="ff" className="sr-only">
@@ -40,7 +41,7 @@ export function Formulas() {
         <input
           id="ff"
           className={`${inputCls} max-w-md flex-[1_1_240px]`}
-          placeholder="v_0, ускорение…"
+          placeholder={t('formulas.filterPlaceholder')}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
@@ -110,6 +111,7 @@ function FormulaRow({
         <Tex latex={f.latex} className="min-w-0 flex-[1_1_280px] overflow-x-auto text-[22px]" />
         {f.description && <span className="text-sm text-muted">{f.description}</span>}
         {f.label && <span className="font-mono text-sm text-muted">({f.label})</span>}
+        <PinStar pageId={f.pageId} nodeId={f.nodeId} pinned={f.pinned} />
         <Link to="/pages/$pageId" params={{ pageId: f.pageId }} className="text-sm font-semibold">
           {f.pageTitle}
         </Link>
