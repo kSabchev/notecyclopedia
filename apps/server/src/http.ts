@@ -43,6 +43,13 @@ export const me = (req: Request): SessionUser => {
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof HttpError) return res.status(err.status).json({ error: err.message })
   if (err instanceof ZodError) return res.status(400).json({ error: 'Invalid input', issues: err.issues })
+  // Errors from Express itself carry a status: malformed JSON (400), a body over the limit (413), a missing
+  // built file (404). They are the client's, not a server failure.
+  const status = (err as { status?: unknown } | null)?.status
+  if (typeof status === 'number' && status >= 400 && status < 500) {
+    const message = status === 404 ? 'Not found' : status === 413 ? 'Request too large' : 'Invalid request'
+    return res.status(status).json({ error: message })
+  }
   console.error(err)
   res.status(500).json({ error: 'Something went wrong' })
 }

@@ -36,13 +36,13 @@ search.get('/', async (req, res) => {
     (SELECT 'page', id, title, course_id,
             ts_headline('simple', content_text, websearch_to_tsquery('simple', ${q}),
                         'MaxWords=24, MinWords=8, StartSel=«, StopSel=»'),
-            ts_rank(to_tsvector('simple', title || ' ' || content_text), websearch_to_tsquery('simple', ${q}))
+            ts_rank(search_vector, websearch_to_tsquery('simple', ${q}))
               + CASE WHEN title ILIKE ${like} THEN 1 ELSE 0 END
               + CASE WHEN type = 'theory' THEN 0.5 ELSE 0 END,
             NULL
        FROM pages
       WHERE course_id = ANY(${arr})
-        AND (to_tsvector('simple', title || ' ' || content_text) @@ websearch_to_tsquery('simple', ${q})
+        AND (search_vector @@ websearch_to_tsquery('simple', ${q})
              OR title ILIKE ${like})
       ORDER BY 6 DESC LIMIT 20)
     UNION ALL

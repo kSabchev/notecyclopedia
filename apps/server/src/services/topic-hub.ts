@@ -41,10 +41,10 @@ export async function hubTargets(courseId: string, topic: string): Promise<HubTa
           AND to_tsvector('simple', t.text || ' ' || p.title) @@ to_tsquery('simple', ${terms}))
       UNION ALL
       (SELECT p.id, NULL, p.title, p.title, p.type, p.lecture_number,
-              ts_rank(to_tsvector('simple', p.title || ' ' || p.content_text), to_tsquery('simple', ${terms}))
+              ts_rank(p.search_vector, to_tsquery('simple', ${terms}))
          FROM pages p
         WHERE p.course_id = ${courseId} AND p.type IN ('lecture', 'seminar')
-          AND to_tsvector('simple', p.title || ' ' || p.content_text) @@ to_tsquery('simple', ${terms}))
+          AND p.search_vector @@ to_tsquery('simple', ${terms}))
     ) found
     ORDER BY rank DESC
     LIMIT 25`)

@@ -8,6 +8,24 @@ import { router } from './router'
 import './styles.css'
 
 document.documentElement.lang = i18n.language
+
+// After an update, a page opened before it may ask for a file the new build no longer has. Reload once to get
+// the new build; the flag stops a loop if the file is missing for another reason.
+window.addEventListener('vite:preloadError', (event) => {
+  try {
+    if (sessionStorage.getItem('nc.reloadedForUpdate')) return
+    sessionStorage.setItem('nc.reloadedForUpdate', '1')
+  } catch {
+    return
+  }
+  event.preventDefault()
+  window.location.reload()
+})
+window.addEventListener('load', () => {
+  try {
+    setTimeout(() => sessionStorage.removeItem('nc.reloadedForUpdate'), 10_000)
+  } catch {}
+})
 initializeTheme()
 
 const queryClient = new QueryClient({

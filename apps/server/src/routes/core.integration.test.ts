@@ -117,6 +117,13 @@ test(
       assert.equal(response.status, 201)
       return (await response.json()) as { id: string }
     }
+    // A malformed body is the client's error, not a server failure.
+    const malformed = await request(owner, '/courses', {
+      method: 'POST',
+      body: '{"name":',
+      headers: { 'content-type': 'application/json' },
+    })
+    assert.equal(malformed.status, 400)
     const sourceCourse = await createCourse('Source course')
     const targetCourse = await createCourse('Target course')
 
