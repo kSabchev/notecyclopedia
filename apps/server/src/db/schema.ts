@@ -7,7 +7,10 @@ import {
   DEFAULT_TIME_ZONE,
   type DailyQuestion,
   type DocJSON,
+  type ExamPlan,
   PAGE_TYPES,
+  type PlanFile,
+  type QuickCheck,
   type WidgetAttrs,
 } from '@nc/shared'
 import { sql } from 'drizzle-orm'
@@ -179,6 +182,7 @@ export const formulas = pgTable(
     label: text('label'),
     latex: text('latex').notNull(),
     description: text('description'),
+    /** The page's own "pinned" flag, from before pins were per user (see formulaPins); no longer shown. */
     pinned: boolean('pinned').notNull().default(false),
   },
   (t) => [
@@ -343,6 +347,8 @@ export const aiMessages = pgTable(
     attachments: jsonb('attachments').$type<AiAttachment[]>().notNull().default([]),
     /** Tokens and estimated cost of an assistant message. */
     usage: jsonb('usage').$type<AiUsage>(),
+    /** Questions to check the answer was understood, made on request and kept. */
+    quickCheck: jsonb('quick_check').$type<QuickCheck>(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [index('ai_messages_thread_idx').on(t.threadId)],
@@ -352,6 +358,92 @@ export const aiMessages = pgTable(
  * Study questions about topics of a user's courses: the first of a local day is "today's question", and more
  * can be made on demand.
  */
+/**
+ * Formulas each user pinned to their home page. Pins are personal (not part of the page), keyed by the formula
+ * block's id in its page, so a pin survives edits of the page and goes when the formula or page is removed.
+ */
+export const formulaPins = pgTable(
+  'formula_pins',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    pageId: uuid('page_id')
+      .notNull()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+    nodeId: text('node_id').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.pageId, t.nodeId] })],
+)
+
+/** When each user last opened each page, for "Where was I" on the home page. */
+export const pageVisits = pgTable(
+  'page_visits',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    pageId: uuid('page_id')
+      .notNull()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+    visitedAt: timestamp('visited_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.pageId] }),
+    index('page_visits_user_visited_idx').on(t.userId, t.visitedAt),
+  ],
+)
+
+/** A revision plan for an exam, proposed by Claude in one call and then edited by the user. */
+export const examPlans = pgTable(
+  'exam_plans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    /** YYYY-MM-DD. */
+    examDate: text('exam_date').notNull(),
+    /** Weekdays to study on, 0 = Sunday … 6 = Saturday. */
+    studyWeekdays: jsonb('study_weekdays').$type<number[]>().notNull().default([0, 1, 2, 3, 4, 5, 6]),
+    /** False when paused: kept, but left out of today's revision and of the duplicate warning. */
+    active: boolean('active').notNull().default(true),
+    days: jsonb('days').$type<ExamPlan['days']>().notNull().default([]),
+    usage: jsonb('usage').$type<AiUsage>(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [index('exam_plans_user_idx').on(t.userId)],
+)
+
+/**
+ * A copy of a plan sent to another member of its course, waiting until they accept it (it becomes their own plan)
+ * or decline it. The copy is taken when it is sent, so later edits by the sender do not change it.
+ */
+export const planShares = pgTable(
+  'plan_shares',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    fromUserId: text('from_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    toUserId: text('to_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    plan: jsonb('plan').$type<PlanFile>().notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('plan_shares_to_idx').on(t.toUserId)],
+)
+
 export const dailyQuestions = pgTable(
   'daily_questions',
   {

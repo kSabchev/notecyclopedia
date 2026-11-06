@@ -94,6 +94,10 @@ per question, only when asked; its cost is shown), and can be continued in the A
 
 - **Formula cards** (no AI): clicking a formula shows where else the same formula appears in your courses (LaTeX
   compared without spaces), linking to it on that page, and the calculators made from or embedded in its page.
+- **Pin a formula** to your home page with the ☆ in front of it while reading, on its card, or in the **Formulas** list
+  (★ when pinned). Pins are your own: they are not part of the page, so pinning makes no revision and every member of
+  the course, viewers included, pins for themselves. Remove one from **Pinned formulas** on the home page with its ×
+  (it asks first). Formulas pinned before pins were personal stay pinned for everyone in their course.
 - **Keep the answer:** **Add to page** opens the page editor with the answer added at the end as an unsaved change,
   under a heading naming the question; review or edit it, then save, or leave to discard it. In the AI portal,
   **Save to page…** does the same for any page an answer cites. An explanation kept this way is paid for once.
@@ -244,6 +248,38 @@ lectures. Questions are made only when you ask, one Claude call each, and answer
   The AI cost so far is shown under each question.
 
 Its model is the `daily-question` feature in `ANTHROPIC_MODELS_JSON` (a cheaper model such as Haiku suits it).
+
+## Study companion
+
+- **Where was I** (home page): the pages you opened most recently, your latest AI sessions (pick a tutor session up
+  where you left it), and **Topics you asked about**: the pages your answers of the last 30 days were drawn from,
+  most asked first. It comes from your own activity, so it costs nothing. Until you open pages, recently edited ones
+  show.
+- **Exam prep** (sidebar): choose a course, the exam date (up to 90 days ahead), minutes a day, the weekdays you study
+  on, and optionally the exam's scope (which pages it covers) and how well you know each page (*I know it*, *Shaky*,
+  *New to me*). Claude proposes a revision plan over those pages and their sections in one call, spending more time
+  on shaky and new ones; only your study days are offered, and the app fills in the dates and page links, so they
+  always point at real days and pages. Its model is the `exam-plan` feature in `ANTHROPIC_MODELS_JSON`.
+- **Keeping the plan up to date** (no AI): tick tasks off, rename, remove or add tasks (with or without a page),
+  move a task to any study day before the exam, or change the exam date. **Catch up** spreads unfinished tasks from
+  past days over the study days left, least busy days first; after moving the exam earlier, **Move before the exam**
+  does the same for tasks on or after it. Each change is saved at once.
+- **Several exams per course** (a midterm and a final, a retake): plans are not limited per course, but proposing
+  one for a course that already has a plan with its exam ahead warns first and offers to open it. Plans whose exam
+  has passed are folded under **Past exams**. Click a plan's title to rename it.
+- **Pause / Resume:** a paused plan is kept as it is, but left out of today's revision and of the reminder about
+  existing plans; paused plans are listed apart.
+- **Export / import** (no AI): **Export** downloads the plan as a JSON file. **Import a plan** reads one into any of your
+  courses: tasks are linked to that course's pages by id, else by the same title; tasks whose page is not there keep
+  its name without a link. Ticked-off tasks are reset unless you keep them.
+- **Share a copy** with another member of the plan's course: they find it under **Shared with you** and accept it (it
+  becomes their own plan, starting with nothing ticked off) or decline it. The copy is taken when you send it; plans
+  are never edited jointly, so each student keeps their own progress.
+- **Today's revision** (home page): today's tasks from your plans, ticked off in place, with a link to catch up when
+  earlier tasks are left.
+- **Check my understanding** under an answer (AI portal and the reading help panel): two or three short questions
+  about that explanation, made only when you press it (one call, feature `quick-check`) and kept with the answer, so
+  opening it again costs nothing. Answers stay hidden until you show them. No schedule and no streaks.
 
 ## Time zone
 
@@ -495,10 +531,20 @@ The plan follows four rules:
 
 ### Phase 8: Study companion
 
-- [ ] "Where was I" on the home page: recently viewed pages, open tutor threads, and topics you asked about
-      (tagged in the same AI call, no extra request).
-- [ ] Exam prep: from an exam date, propose a revision plan over the course's pages in one call; saved and editable.
-- [ ] Quick check on request: after an explanation, offer 2–3 questions only when you ask. No schedule, no streaks.
+- [x] "Where was I" on the home page: recently opened pages, AI sessions, and topics you asked about. Topics
+      come from the pages your answers cited, so no AI call is needed (not tagged by Claude as first planned).
+- [x] Exam prep: from an exam date, propose a revision plan over the course's pages in one call; saved and editable.
+- [x] Quick check on request: after an explanation, offer 2–3 questions only when you ask. No schedule, no streaks.
+
+### Phase 8b: Exam prep follow-ups
+
+- [ ] Use what the app knows when proposing a plan: pages you asked about most and pages you barely opened go into
+      the same call, at no extra cost.
+- [ ] Time per task: estimate minutes from a page's length and formulas, and show each day's load against the
+      minutes a day.
+- [ ] One-click actions on a task: open the page, *Quiz me on this* (a question about that page) or ask the tutor
+      with the page as the source; AI only when clicked.
+- [ ] Exam formula sheet: the key and pinned formulas of the pages in scope, grouped by lecture, printable (no AI).
 
 ### Package split
 

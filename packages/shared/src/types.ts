@@ -57,6 +57,8 @@ export interface FormulaVariable {
 export interface Formula {
   id: string
   pageId: string
+  /** The formula block's id in its page; null for formulas saved before blocks had ids. */
+  nodeId: string | null
   pageTitle: string
   courseId: string
   /** The lecture number of its page (for an example problem, the lecture it practises). */
@@ -220,4 +222,81 @@ export interface DailyQuestion {
   }
   usage: AiUsage | null
   createdAt: string
+}
+
+/** "Where was I" on the home page: what you read and asked recently, from your own activity (no AI). */
+export interface WhereWasI {
+  /** Pages you opened, most recent first. */
+  viewed: { id: string; title: string; courseId: string; type: PageType; visitedAt: string }[]
+  /** Your latest AI sessions; tutor sessions are the ones you can pick up. */
+  threads: { id: string; title: string; mode: AiMode; updatedAt: string }[]
+  /** Pages your recent questions were answered from, most asked first. */
+  topics: { pageId: string; title: string; courseId: string; questions: number; lastAskedAt: string }[]
+}
+
+/** One thing to do on a day of a revision plan. */
+export interface ExamPlanItem {
+  id: string
+  /** The page to revise; null for a free task (e.g. a mock exam), or when the page was deleted. */
+  pageId: string | null
+  /** Kept so the plan still names a deleted page. */
+  pageTitle: string | null
+  /** What to do, e.g. "Rework the Hohmann examples". */
+  focus: string
+  done: boolean
+}
+
+/** One study day of a revision plan. */
+export interface ExamPlanDay {
+  /** YYYY-MM-DD. */
+  date: string
+  items: ExamPlanItem[]
+}
+
+/** How well the student knows a page before revising, given when a plan is made. */
+export type Confidence = 'know' | 'shaky' | 'new'
+
+/** A revision plan for an exam: one entry per study day, editable after it is made. */
+export interface ExamPlan {
+  id: string
+  courseId: string
+  title: string
+  /** YYYY-MM-DD. */
+  examDate: string
+  /** Weekdays to study on, 0 = Sunday … 6 = Saturday; catching up and moving tasks keep to them. */
+  studyWeekdays: number[]
+  /** False when paused: kept, but left out of today's revision and of the duplicate warning. */
+  active: boolean
+  days: ExamPlanDay[]
+  usage: AiUsage | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** A copy of a plan another course member sent you, waiting to be accepted or declined. */
+export interface PlanShare {
+  id: string
+  fromName: string
+  courseId: string
+  title: string
+  examDate: string
+  /** Number of tasks in the copy. */
+  tasks: number
+  createdAt: string
+}
+
+/** Today's tasks of a plan whose exam is ahead, for the home page. */
+export interface TodaysRevision {
+  planId: string
+  title: string
+  examDate: string
+  items: ExamPlanItem[]
+  /** Unfinished tasks from earlier days. */
+  overdue: number
+}
+
+/** Two or three questions to check an explanation was understood, made only on request. */
+export interface QuickCheck {
+  questions: { question: string; answer: string }[]
+  usage: AiUsage | null
 }

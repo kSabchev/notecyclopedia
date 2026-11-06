@@ -1,12 +1,13 @@
-import { AI_MODES, type AiMode } from '@nc/shared'
-import { useQuery } from '@tanstack/react-query'
+import { AI_MODES, type AiMode, type PageSummary, type PageType } from '@nc/shared'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DailyQuestionCard } from '../components/DailyQuestionCard'
 import { FileDrop } from '../components/FileDrop'
-import { PlusIcon, SparkIcon, UploadIcon } from '../components/Icons'
+import { CloseIcon, PlusIcon, SparkIcon, UploadIcon } from '../components/Icons'
 import { Tex } from '../components/Tex'
+import { TodayRevision } from '../components/TodayRevision'
 import { Empty, FileBadge, SectionHeader, btn } from '../components/ui'
 import { api } from '../lib/api'
 import { timeAgo } from '../lib/format'
@@ -21,6 +22,13 @@ export function Home() {
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const pages = useQuery({ queryKey: ['pages', 'recent'], queryFn: () => api.pages.list() })
   const pinned = useQuery({ queryKey: ['formulas', 'pinned'], queryFn: () => api.formulas(true) })
+  const qc = useQueryClient()
+  // Unpinning asks first: the card's × is easy to hit by mistake.
+  const unpin = useMutation({
+    mutationFn: (f: { pageId: string; nodeId: string | null }) =>
+      api.pinFormula(f.pageId, f.nodeId ?? '', false),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['formulas'] }),
+  })
   const files = useQuery({ queryKey: ['files', 'recent'], queryFn: () => api.files.list() })
   const calcs = useQuery({ queryKey: ['calculators'], queryFn: api.calculators.list })
   const courseOf = (id: string) => courses.data?.find((c) => c.id === id)
@@ -49,37 +57,9 @@ export function Home() {
 
       <div className="flex flex-wrap items-start gap-8">
         <div className="flex min-w-0 flex-[2_1_520px] flex-col gap-10">
+          <TodayRevision />
           <DailyQuestionCard />
-          <section aria-labelledby="h-continue" className="flex flex-col gap-4">
-            <SectionHeader
-              id="h-continue"
-              title={t('home.continue')}
-              action={<Link to="/wiki">{t('home.allPages')}</Link>}
-            />
-            {pages.data?.length === 0 && <Empty>{t('home.empty')}</Empty>}
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-4">
-              {pages.data?.slice(0, 6).map((p) => {
-                const c = courseOf(p.courseId)
-                return (
-                  <Link
-                    key={p.id}
-                    to="/pages/$pageId"
-                    params={{ pageId: p.id }}
-                    className="flex flex-col gap-3 rounded-[12px] border border-line bg-surface p-5 text-ink no-underline hover:border-line-strong"
-                  >
-                    <span className="flex items-center gap-2 text-[13px] text-muted">
-                      <span className="h-2 w-2 rounded-[2px]" style={{ background: c?.color }} />
-                      {c?.name} · {t(`editor.types.${p.type}`)}
-                    </span>
-                    <span className="font-serif text-[21px] font-semibold leading-tight">{p.title}</span>
-                    <span className="text-[13px] text-muted">
-                      {t('page.edited', { when: timeAgo(p.updatedAt) })}
-                    </span>
-                  </Link>
-                )
-              })}
-            </div>
-          </section>
+          <WhereWasI pages={pages.data} courseOf={courseOf} />
 
           <section aria-labelledby="h-pinned" className="flex flex-col gap-4">
             <SectionHeader
@@ -93,9 +73,22 @@ export function Home() {
                 {pinned.data.slice(0, 6).map((f) => (
                   <div
                     key={f.id}
-                    className="graph-paper flex flex-col gap-2.5 rounded-[12px] border border-line bg-surface p-5"
+                    className="graph-paper relative flex flex-col gap-2.5 rounded-[12px] border border-line bg-surface p-5"
                   >
-                    <Tex latex={f.latex} className="overflow-x-auto text-[22px]" />
+                    <button
+                      type="button"
+                      aria-label={t('home.unpin', { name: f.description ?? f.pageTitle })}
+                      title={t('formulas.unpin')}
+                      disabled={unpin.isPending}
+                      onClick={() =>
+                        window.confirm(t('home.unpinConfirm', { name: f.description ?? f.pageTitle })) &&
+                        unpin.mutate(f)
+                      }
+                      className="absolute right-2 top-2 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border-0 bg-transparent text-muted hover:bg-line-soft hover:text-ink"
+                    >
+                      <CloseIcon size={16} />
+                    </button>
+                    <Tex latex={f.latex} className="overflow-x-auto pr-8 text-[22px]" />
                     <span className="font-semibold">{f.description ?? f.pageTitle}</span>
                     <Link to="/pages/$pageId" params={{ pageId: f.pageId }} className="text-sm font-semibold">
                       {f.pageTitle} →
@@ -224,5 +217,133 @@ export function Home() {
         </aside>
       </div>
     </div>
+  )
+}
+
+type CourseOf = (id: string) => { name: string; color: string } | undefined
+
+function PageCard({
+  id,
+  title,
+  courseId,
+  type,
+  when,
+  courseOf,
+}: { id: string; title: string; courseId: string; type: PageType; when: string; courseOf: CourseOf }) {
+  const { t } = useTranslation()
+  const c = courseOf(courseId)
+  return (
+    <Link
+      to="/pages/$pageId"
+      params={{ pageId: id }}
+      className="flex flex-col gap-3 rounded-[12px] border border-line bg-surface p-5 text-ink no-underline hover:border-line-strong"
+    >
+      <span className="flex items-center gap-2 text-[13px] text-muted">
+        <span className="h-2 w-2 rounded-[2px]" style={{ background: c?.color }} />
+        {c?.name} · {t(`editor.types.${type}`)}
+      </span>
+      <span className="font-serif text-[21px] font-semibold leading-tight">{title}</span>
+      <span className="text-[13px] text-muted">{when}</span>
+    </Link>
+  )
+}
+
+/**
+ * Where you left off: pages you opened, your AI sessions, and the pages your questions were answered from. It
+ * comes from your own activity, so it costs nothing. Until you have opened pages, recently edited ones show.
+ */
+function WhereWasI({ pages, courseOf }: { pages: PageSummary[] | undefined; courseOf: CourseOf }) {
+  const { t } = useTranslation()
+  const where = useQuery({ queryKey: ['study', 'where'], queryFn: api.study.where })
+  const viewed = where.data?.viewed ?? []
+  const list = 'flex flex-col rounded-[12px] border border-line bg-surface'
+  const row = 'flex min-h-12 items-center gap-3 px-4 py-2.5 text-ink no-underline hover:bg-surface-2'
+  return (
+    <section aria-labelledby="h-where" className="flex flex-col gap-4">
+      <SectionHeader
+        id="h-where"
+        title={t('home.where')}
+        action={<Link to="/wiki">{t('home.allPages')}</Link>}
+      />
+      {pages?.length === 0 && <Empty>{t('home.empty')}</Empty>}
+      <div
+        role="list"
+        aria-label={viewed.length ? t('home.viewed') : t('home.continue')}
+        className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-4"
+      >
+        {viewed.length
+          ? viewed.map((v) => (
+              <div role="listitem" key={v.id} className="flex flex-col">
+                <PageCard
+                  {...v}
+                  when={t('home.opened', { when: timeAgo(v.visitedAt) })}
+                  courseOf={courseOf}
+                />
+              </div>
+            ))
+          : pages?.slice(0, 6).map((p) => (
+              <div role="listitem" key={p.id} className="flex flex-col">
+                <PageCard
+                  {...p}
+                  when={t('page.edited', { when: timeAgo(p.updatedAt) })}
+                  courseOf={courseOf}
+                />
+              </div>
+            ))}
+      </div>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+        <section aria-labelledby="h-sessions" className="flex flex-col gap-2">
+          <h3 id="h-sessions" className="m-0 text-[15px] font-bold">
+            {t('home.sessions')}
+          </h3>
+          {where.data && !where.data.threads.length ? (
+            <p className="m-0 text-sm text-muted">{t('home.noSessions')}</p>
+          ) : (
+            <div className={list}>
+              {where.data?.threads.map((th, i) => (
+                <Link
+                  key={th.id}
+                  to="/ai"
+                  search={{ thread: th.id }}
+                  className={`${row} ${i ? 'border-t border-line' : ''}`}
+                >
+                  <span className="rounded-[5px] bg-ai-soft px-1.5 py-0.5 text-[11px] font-semibold text-ai-text">
+                    {t(`modes.${th.mode}`)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{th.title}</span>
+                  <span className="text-xs text-muted">{timeAgo(th.updatedAt)}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+        <section aria-labelledby="h-topics" className="flex flex-col gap-2">
+          <h3 id="h-topics" className="m-0 text-[15px] font-bold">
+            {t('home.topics')}
+          </h3>
+          {where.data && !where.data.topics.length ? (
+            <p className="m-0 text-sm text-muted">{t('home.noTopics')}</p>
+          ) : (
+            <div className={list}>
+              {where.data?.topics.map((tp, i) => (
+                <Link
+                  key={tp.pageId}
+                  to="/pages/$pageId"
+                  params={{ pageId: tp.pageId }}
+                  className={`${row} ${i ? 'border-t border-line' : ''}`}
+                >
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-[2px]"
+                    style={{ background: courseOf(tp.courseId)?.color }}
+                  />
+                  <span className="min-w-0 flex-1 truncate font-medium">{tp.title}</span>
+                  <span className="text-xs text-muted">{t('home.asked', { count: tp.questions })}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </section>
   )
 }

@@ -32,6 +32,16 @@ export function PageView() {
   const openHelp = (target: HelpTarget, kind: HelpKind | null) =>
     setHelp((h) => ({ target, kind, id: (h?.id ?? 0) + 1 }))
   const page = useQuery({ queryKey: ['page', pageId], queryFn: () => api.pages.get(pageId) })
+  // Remember the visit for "Where was I" on the home page, once per page opened.
+  const visited = useRef<string | null>(null)
+  useEffect(() => {
+    if (!page.data || visited.current === pageId) return
+    visited.current = pageId
+    api.pages
+      .visit(pageId)
+      .then(() => qc.invalidateQueries({ queryKey: ['study', 'where'] }))
+      .catch(() => {})
+  }, [page.data, pageId, qc])
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const references = useQuery({
     queryKey: ['references', pageId],
@@ -174,7 +184,11 @@ export function PageView() {
 
         {tab === 'read' && (
           <div ref={reading}>
-            <DocView doc={p.content} onFormula={(f) => openHelp({ type: 'formula', ...f }, null)} />
+            <DocView
+              doc={p.content}
+              pageId={p.id}
+              onFormula={(f) => openHelp({ type: 'formula', ...f }, null)}
+            />
             <SelectionHelp container={reading} onAsk={openHelp} />
           </div>
         )}

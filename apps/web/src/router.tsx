@@ -15,6 +15,8 @@ const rootRoute = createRootRoute({ component: Outlet })
 const Login = lazyRouteComponent(() => import('./routes/Login'), 'Login')
 const Home = lazyRouteComponent(() => import('./routes/Home'), 'Home')
 const DailyQuestions = lazyRouteComponent(() => import('./routes/DailyQuestions'), 'DailyQuestions')
+const Study = lazyRouteComponent(() => import('./routes/Study'), 'Study')
+const StudyPlan = lazyRouteComponent(() => import('./routes/Study'), 'StudyPlan')
 const Wiki = lazyRouteComponent(() => import('./routes/Wiki'), 'Wiki')
 const CourseView = lazyRouteComponent(() => import('./routes/Wiki'), 'CourseView')
 const PageEdit = lazyRouteComponent(() => import('./routes/PageEdit'), 'PageEdit')
@@ -53,6 +55,8 @@ const routes = [
   createRoute({ getParentRoute: () => appRoute, path: '/pages/$pageId/edit', component: PageEdit }),
   createRoute({ getParentRoute: () => appRoute, path: '/formulas', component: Formulas }),
   createRoute({ getParentRoute: () => appRoute, path: '/daily', component: DailyQuestions }),
+  createRoute({ getParentRoute: () => appRoute, path: '/study', component: Study }),
+  createRoute({ getParentRoute: () => appRoute, path: '/study/$planId', component: StudyPlan }),
   createRoute({ getParentRoute: () => appRoute, path: '/calculators', component: Calculators }),
   createRoute({
     getParentRoute: () => appRoute,

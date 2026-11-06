@@ -5,7 +5,7 @@ import {
   type CalculatorSpec,
   type WidgetAttrs,
 } from '@nc/shared'
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, lt } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
 import { assertCourse, loadPage } from '../access'
@@ -18,6 +18,7 @@ import { UsageMeter } from '../services/claude-client'
 import { assertAiBudget } from '../services/claude-usage'
 import { generatePageReview } from '../services/page-review'
 import { type RetrievedChunk, retrieve } from '../services/retrieval'
+import { generateQuickCheck } from '../services/study'
 import { generateTopicHub } from '../services/topic-hub'
 import { loadCalc } from './calculators'
 
@@ -55,6 +56,41 @@ ai.post('/topic-hub', async (req, res) => {
   const user = me(req)
   await assertCourse(courseId, user.id, 'editor')
   res.json(await generateTopicHub(courseId, topic, user.id, locale))
+})
+
+/**
+ * Two or three questions to check an answer was understood. Made once, on request, and kept with the answer,
+ * so asking again costs nothing.
+ */
+ai.post('/messages/:id/quick-check', async (req, res) => {
+  const { locale } = z.object({ locale: z.enum(['en', 'bg']).optional() }).parse(req.body ?? {})
+  const user = me(req)
+  const [answer] = await db
+    .select({ message: schema.aiMessages, threadUser: schema.aiThreads.userId })
+    .from(schema.aiMessages)
+    .innerJoin(schema.aiThreads, eq(schema.aiThreads.id, schema.aiMessages.threadId))
+    .where(and(eq(schema.aiMessages.id, param(req, 'id')), eq(schema.aiThreads.userId, user.id)))
+  if (!answer || answer.message.role !== 'assistant') throw notFound('Answer not found')
+  if (answer.message.quickCheck) return res.json(answer.message.quickCheck)
+  if (!answer.message.content.trim()) throw new HttpError(400, 'This answer has no text to check.')
+  const [question] = await db
+    .select({ content: schema.aiMessages.content })
+    .from(schema.aiMessages)
+    .where(
+      and(
+        eq(schema.aiMessages.threadId, answer.message.threadId),
+        eq(schema.aiMessages.role, 'user'),
+        lt(schema.aiMessages.createdAt, answer.message.createdAt),
+      ),
+    )
+    .orderBy(desc(schema.aiMessages.createdAt))
+    .limit(1)
+  const check = await generateQuickCheck(question?.content ?? '', answer.message.content, user.id, locale)
+  await db
+    .update(schema.aiMessages)
+    .set({ quickCheck: check })
+    .where(eq(schema.aiMessages.id, answer.message.id))
+  res.json(check)
 })
 
 ai.get('/threads', async (req, res) => {

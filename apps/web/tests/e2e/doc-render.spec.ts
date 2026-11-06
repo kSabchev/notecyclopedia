@@ -89,6 +89,8 @@ test('a page is read without loading the editor, and every kind of block is show
 
   // Hovering a link loads its route early (the router preloads on intent): keep the pointer off the page.
   await page.mouse.move(0, 0)
+  // The home page (whose daily question card uses Markdown) must finish loading before requests are recorded.
+  await page.waitForLoadState('networkidle')
   const requested: string[] = []
   page.on('request', (r) => requested.push(r.url()))
   await page.goto(`/pages/${pageId}`)

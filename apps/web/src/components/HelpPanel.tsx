@@ -7,6 +7,8 @@ import { api, streamChat } from '../lib/api'
 import { stashAppend } from '../lib/page-draft'
 import { CloseIcon, SparkIcon } from './Icons'
 import { Markdown } from './Markdown'
+import { FormulaPin } from './PinStar'
+import { QuickCheck } from './QuickCheck'
 import { Tex } from './Tex'
 import { ErrorNote, btn } from './ui'
 
@@ -107,6 +109,8 @@ export default function HelpPanel({
   const [answer, setAnswer] = useState('')
   const [threadId, setThreadId] = useState<string | null>(null)
   const [usage, setUsage] = useState<AiUsage | null>(null)
+  /** The stored answer, once its stream finished: a quick check is kept with it. */
+  const [messageId, setMessageId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [streaming, setStreaming] = useState(false)
   const abort = useRef<AbortController | null>(null)
@@ -123,6 +127,7 @@ export default function HelpPanel({
       setKind(next)
       setAnswer('')
       setUsage(null)
+      setMessageId(null)
       setError(null)
       setStreaming(true)
       try {
@@ -137,6 +142,7 @@ export default function HelpPanel({
           if (ev.type === 'thread') setThreadId(ev.threadId)
           else if (ev.type === 'text') setAnswer((a) => a + ev.text)
           else if (ev.type === 'usage') setUsage(ev.usage)
+          else if (ev.type === 'done' && ev.messageId) setMessageId(ev.messageId)
           else if (ev.type === 'error') setError(ev.message)
         }
       } catch (e) {
@@ -189,8 +195,9 @@ export default function HelpPanel({
         </button>
       </div>
       {target.type === 'formula' ? (
-        <div className="overflow-x-auto rounded-[10px] bg-surface-2 px-4 py-3">
-          <Tex latex={target.latex} display />
+        <div className="flex items-center gap-2 rounded-[10px] bg-surface-2 px-4 py-3">
+          <Tex latex={target.latex} display className="min-w-0 flex-1 overflow-x-auto" />
+          <FormulaPin pageId={page.id} nodeId={target.nodeId} />
         </div>
       ) : (
         <blockquote className="m-0 border-l-4 border-line-strong pl-3 text-sm text-muted">
@@ -241,6 +248,7 @@ export default function HelpPanel({
               )}
             </div>
           )}
+          {!streaming && answer && messageId && <QuickCheck key={messageId} messageId={messageId} />}
         </section>
       )}
     </aside>

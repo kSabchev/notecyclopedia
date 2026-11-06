@@ -7,12 +7,14 @@ import type {
   Calculator,
   CalculatorReview,
   CalculatorSpec,
+  Confidence,
   Course,
   CourseConstant,
   CourseRole,
   DailyExpansionKind,
   DailyQuestion,
   DocJSON,
+  ExamPlan,
   FileAsset,
   Formula,
   Locale,
@@ -21,7 +23,11 @@ import type {
   PageRevision,
   PageSummary,
   PageType,
+  PlanShare,
+  QuickCheck,
   SearchHit,
+  TodaysRevision,
+  WhereWasI,
 } from '@nc/shared'
 import i18n from '../i18n'
 
@@ -144,6 +150,8 @@ export const api = {
       request('POST', `/courses/${id}/members`, b),
   },
   pages: {
+    /** Remembers that you opened the page, for "Where was I". */
+    visit: (id: string) => request<void>('POST', `/pages/${id}/visit`),
     list: (courseId?: string) =>
       get<PageSummary[]>(`/pages${qs({ courseId, limit: courseId ? '500' : undefined })}`),
     reorder: (courseId: string, pageIds: string[]) =>
@@ -164,6 +172,11 @@ export const api = {
       request<Page>('POST', `/pages/${id}/revisions/${rev}/restore`, b),
   },
   /** For a formula card: the same formula elsewhere, and calculators made from its page. */
+  /** Pin a formula to your home page, or unpin it (pins are personal). */
+  pinFormula: (pageId: string, nodeId: string, pinned: boolean) =>
+    pinned
+      ? request<void>('POST', '/formulas/pins', { pageId, nodeId })
+      : request<void>('DELETE', `/formulas/pins${qs({ pageId, nodeId })}`),
   formulaRelated: (pageId: string, nodeId: string) =>
     get<{
       elsewhere: {
@@ -221,6 +234,9 @@ export const api = {
   ai: {
     status: () => get<{ configured: boolean }>('/ai/status'),
     reviewPage: (id: string) => request<PageReview>('POST', `/ai/pages/${id}/review`),
+    /** Questions to check an answer was understood: one call the first time, kept afterwards. */
+    quickCheck: (messageId: string) =>
+      request<QuickCheck>('POST', `/ai/messages/${messageId}/quick-check`, { locale: uiLocale() }),
     threads: () => get<AiThread[]>('/ai/threads'),
     thread: (id: string) => get<{ thread: AiThread; messages: AiMessage[] }>(`/ai/threads/${id}`),
     /** Calculators from a description or a solved problem; with `messageId` they are stored with that answer. */
@@ -239,6 +255,47 @@ export const api = {
         context,
         messageId,
       }),
+  },
+  study: {
+    where: () => get<WhereWasI>('/study/where'),
+    plans: () => get<ExamPlan[]>('/study/plans'),
+    plan: (id: string) => get<ExamPlan>(`/study/plans/${id}`),
+    /** Proposes a revision plan in one Claude call and saves it. */
+    createPlan: (input: {
+      courseId: string
+      examDate: string
+      minutesPerDay: number
+      weekdays: number[]
+      pages?: { id: string; confidence: Confidence | null }[]
+      note?: string
+    }) => request<ExamPlan>('POST', '/study/plans', { ...input, locale: uiLocale() }),
+    savePlan: (plan: Pick<ExamPlan, 'id' | 'title' | 'examDate' | 'days'>) =>
+      request<ExamPlan>('PUT', `/study/plans/${plan.id}`, {
+        title: plan.title,
+        examDate: plan.examDate,
+        days: plan.days,
+      }),
+    deletePlan: (id: string) => request<void>('DELETE', `/study/plans/${id}`),
+    /** Pause (kept, out of today's revision) or resume a plan. */
+    setPlanActive: (id: string, active: boolean) =>
+      request<ExamPlan>('PATCH', `/study/plans/${id}`, { active }),
+    exportUrl: (id: string) => `/api/study/plans/${id}/export`,
+    importPlan: (courseId: string, plan: unknown, keepProgress: boolean) =>
+      request<{ plan: ExamPlan; linked: number; unlinked: number }>('POST', '/study/plans/import', {
+        courseId,
+        plan,
+        keepProgress,
+      }),
+    /** Send a copy to another member of the plan's course. */
+    sharePlan: (id: string, userId: string) =>
+      request<{ id: string }>('POST', `/study/plans/${id}/share`, { userId }),
+    shares: () => get<PlanShare[]>('/study/shares'),
+    acceptShare: (id: string) => request<ExamPlan>('POST', `/study/shares/${id}/accept`),
+    declineShare: (id: string) => request<void>('DELETE', `/study/shares/${id}`),
+    setTaskDone: (planId: string, itemId: string, done: boolean) =>
+      request<ExamPlan>('PATCH', `/study/plans/${planId}/items/${itemId}`, { done }),
+    /** Today's tasks of the plans whose exam is ahead. */
+    today: () => get<{ today: string; plans: TodaysRevision[] }>('/study/today'),
   },
   daily: {
     today: () => get<{ day: string; question: DailyQuestion | null }>('/daily/today'),
