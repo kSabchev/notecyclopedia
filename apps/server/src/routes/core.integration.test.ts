@@ -603,6 +603,53 @@ test(
     ])
     assert.equal((await request(outsider, `/pages/${lecture.id}/references`)).status, 404)
 
+    // Formula cards: the same formula elsewhere (spacing ignored), and calculators made from its page.
+    const formulaPage = async (title: string, latex: string) =>
+      (await newPage(title, 'lecture', [{ type: 'formula', attrs: { latex } }])) as unknown as {
+        id: string
+        content: { content: { attrs?: { id?: string } }[] }
+      }
+    const visViva = await formulaPage('Vis-viva', 'v^2 = \\mu \\left(\\frac{2}{r} - \\frac{1}{a}\\right)')
+    const sameFormula = await formulaPage('Energy', 'v^2=\\mu\\left(\\frac{2}{r}-\\frac{1}{a}\\right)')
+    await formulaPage('Unrelated', 'E = mc^2')
+    const visVivaNode = visViva.content.content[0]?.attrs?.id as string
+    const pageCalc = (actor: Actor, courseId: string | null, name: string) =>
+      request(actor, '/calculators', {
+        method: 'POST',
+        body: json({
+          courseId,
+          sourcePageId: visViva.id,
+          spec: {
+            version: 1,
+            name,
+            inputs: [{ key: 'r', label: 'Radius', default: 7000 }],
+            outputs: [{ key: 'v', label: 'Speed', expr: 'sqrt(398600 / r)' }],
+          },
+        }),
+      })
+    assert.equal((await pageCalc(owner, sourceCourse.id, 'Vis-viva speed')).status, 201)
+    // A classmate's personal calculator from the same page is theirs alone.
+    const personal = await pageCalc(editor, null, 'Editor personal calculator')
+    assert.equal(personal.status, 201)
+    const personalId = ((await personal.json()) as { id: string }).id
+    const related = (await (
+      await request(owner, `/formulas/related?pageId=${visViva.id}&nodeId=${visVivaNode}`)
+    ).json()) as { elsewhere: { pageId: string; pageTitle: string }[]; calculators: { name: string }[] }
+    assert.deepEqual(
+      related.elsewhere.map((f) => [f.pageId, f.pageTitle]),
+      [[sameFormula.id, 'Energy']],
+    )
+    assert.deepEqual(
+      related.calculators.map((c) => c.name),
+      ['Vis-viva speed'],
+    )
+    assert.equal(
+      (await request(outsider, `/formulas/related?pageId=${visViva.id}&nodeId=${visVivaNode}`)).status,
+      404,
+    )
+    // Personal calculators are not removed with courses; clean up so the test user can be deleted.
+    assert.equal((await request(editor, `/calculators/${personalId}`, { method: 'DELETE' })).status, 204)
+
     // A topic hub may link to the course's matching sections and lectures, but not to other hubs.
     const { hubTargets } = await import('../services/topic-hub')
     const targets = await hubTargets(sourceCourse.id, 'Hohmann transfer')

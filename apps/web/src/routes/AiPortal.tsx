@@ -11,6 +11,7 @@ import { ErrorNote, btn } from '../components/ui'
 import { OrbitView } from '../components/widgets/OrbitView'
 import { api, streamChat } from '../lib/api'
 import { attachmentUrl, photoAttachment } from '../lib/image'
+import { stashAppend } from '../lib/page-draft'
 import { MODES } from './Home'
 
 interface Msg {
@@ -78,6 +79,42 @@ function ShownCalculator({ widget }: { widget: Extract<WidgetAttrs, { kind: 'cal
       </div>
       <CalculatorRunner spec={widget.spec} />
     </section>
+  )
+}
+
+/**
+ * "Save to page" for an answer: pick one of the pages it cites; the answer opens in that page's editor as an unsaved
+ * addition at the end, to review and save, so an explanation is paid for once.
+ */
+function SaveToPage({ question, answer, pages }: { question: string; answer: string; pages: AiCitation[] }) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  if (!pages.length) return null
+  const title = question.replace(/\s+/g, ' ').trim()
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      <span className="sr-only">{t('ai.saveToPage')}</span>
+      <select
+        className="h-9 cursor-pointer rounded-[10px] border border-line-strong bg-surface px-2 text-sm font-semibold"
+        value=""
+        onChange={(e) => {
+          const pageId = e.target.value
+          if (!pageId) return
+          stashAppend(pageId, {
+            title: title.length > 80 ? `${title.slice(0, 80)}…` : title,
+            markdown: answer,
+          })
+          navigate({ to: '/pages/$pageId/edit', params: { pageId } })
+        }}
+      >
+        <option value="">{t('ai.saveToPage')}</option>
+        {pages.map((c) => (
+          <option key={c.sourceId} value={c.sourceId}>
+            {c.title}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 
@@ -383,6 +420,13 @@ export function AiPortal() {
                 {(m.usage || canBuild(m, index)) && (
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-3">
                     {m.usage ? <UsageLine usage={m.usage} /> : <span />}
+                    {!(streaming && m === last) && m.content && (
+                      <SaveToPage
+                        question={messages[index - 1]?.content ?? ''}
+                        answer={m.content}
+                        pages={m.citations.filter((c) => c.sourceType === 'page')}
+                      />
+                    )}
                     {canBuild(m, index) && (
                       <button
                         type="button"

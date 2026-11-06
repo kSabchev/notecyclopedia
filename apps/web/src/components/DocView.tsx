@@ -5,7 +5,14 @@ import { type MouseEvent, useEffect } from 'react'
 import { editorExtensions } from './extensions'
 
 /** Read-only rendering of a page, using the same nodes as the editor. */
-export function DocView({ doc }: { doc: DocJSON }) {
+export function DocView({
+  doc,
+  onFormula,
+}: {
+  doc: DocJSON
+  /** Called when the reader clicks a formula block. */
+  onFormula?: (formula: { nodeId: string | null; latex: string; label: string | null }) => void
+}) {
   const navigate = useNavigate()
   const editor = useEditor({
     extensions: editorExtensions,
@@ -19,6 +26,15 @@ export function DocView({ doc }: { doc: DocJSON }) {
   }, [editor, doc])
   // Links to pages and terms open inside the app (keeping the history); other links behave normally.
   const followReference = (event: MouseEvent) => {
+    const formula = (event.target as HTMLElement).closest<HTMLElement>('[data-formula-node]')
+    if (formula && onFormula) {
+      onFormula({
+        nodeId: formula.id || null,
+        latex: formula.dataset.latex ?? '',
+        label: formula.dataset.label ?? null,
+      })
+      return
+    }
     const anchor = (event.target as HTMLElement).closest('a')
     const target = anchor && parsePageLink(anchor.getAttribute('href'))
     if (!target || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return

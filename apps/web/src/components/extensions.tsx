@@ -35,12 +35,24 @@ function FormulaView({ node, updateAttributes, deleteNode, editor, selected }: R
   const open = editable && (editing || (selected && !latex))
 
   return (
-    <NodeViewWrapper className="my-4" data-type="formula">
+    <NodeViewWrapper
+      className="my-4"
+      data-type="formula"
+      id={(node.attrs.id as string | null) ?? undefined}
+      data-formula-node=""
+      data-latex={latex}
+      data-label={label ?? undefined}
+      // While reading, a formula opens its card (see DocView); Enter does the same as a click.
+      tabIndex={editable ? undefined : 0}
+      onKeyDown={(e: KeyboardEvent) => {
+        if (!editable && e.key === 'Enter') (e.currentTarget as HTMLElement).click()
+      }}
+    >
       <div
         className={`overflow-hidden rounded-[12px] border bg-surface font-sans ${open ? 'border-2 border-accent' : 'border-line'}`}
       >
         <div
-          className={`graph-paper flex flex-wrap items-center gap-4 px-5 py-4 ${editable ? 'cursor-pointer' : ''}`}
+          className={`graph-paper flex flex-wrap items-center gap-4 px-5 py-4 cursor-pointer ${editable ? '' : 'hover:bg-accent-soft'}`}
           onDoubleClick={() => editable && setEditing(true)}
         >
           <Tex latex={latex} display className="min-w-0 flex-1 overflow-x-auto text-[1.15em]" />

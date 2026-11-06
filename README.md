@@ -86,6 +86,18 @@ course's notes and picks, from the course's matching sections and pages, where i
 the app from that list, so they always point at existing sections. The draft only fills the editor; nothing is saved
 until you save. Its model is the `topic-hub` feature in `ANTHROPIC_MODELS_JSON`.
 
+## Help while reading
+
+While reading a page, select some text and choose **Explain**, **Why does this hold?** or **Show an example**; click a
+formula block for the same questions. The answer opens in a side panel, with the page as its source (one Claude call
+per question, only when asked; its cost is shown), and can be continued in the AI portal.
+
+- **Formula cards** (no AI): clicking a formula shows where else the same formula appears in your courses (LaTeX
+  compared without spaces), linking to it on that page, and the calculators made from or embedded in its page.
+- **Keep the answer:** **Add to page** opens the page editor with the answer added at the end as an unsaved change,
+  under a heading naming the question; review or edit it, then save, or leave to discard it. In the AI portal,
+  **Save to page…** does the same for any page an answer cites. An explanation kept this way is paid for once.
+
 ## Page history and AI review
 
 Open a page's **History** tab to see every saved revision. **Show changes** lists what that revision added and
@@ -439,10 +451,11 @@ The plan follows four rules:
 
 ### Phase 6: Help where you read
 
-- [ ] Select text or a formula on a page → Explain / Why does this hold? / Show an example, answered in a side
+- [x] Select text or a formula on a page → Explain / Why does this hold? / Show an example, answered in a side
       panel with the page as context.
-- [ ] "Save to page" for any tutor answer, through the review-and-polish draft flow, so an explanation is paid for once.
-- [ ] Formula cards (no AI): where else a formula appears and which calculators use it, from the formula index.
+- [x] "Save to page" for any tutor answer: it opens in the page editor as an unsaved addition to review, so an
+      explanation is paid for once.
+- [x] Formula cards (no AI): where else a formula appears and the calculators made from or embedded in its page.
 - [x] Backlinks between pages ("Referenced by", see Course structure and references).
 
 ### Phase 7: Performance and reliability

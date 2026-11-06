@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useParams } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DocView, docHeadings } from '../components/DocView'
 import { FileDrop } from '../components/FileDrop'
 import { FilePreview, isTextPreviewable } from '../components/FilePreview'
 import { PenIcon, SparkIcon } from '../components/Icons'
+import { type HelpKind, HelpPanel, type HelpTarget, SelectionHelp } from '../components/ReadingHelp'
 import { RevisionChanges } from '../components/RevisionChanges'
 import { ErrorNote, Eyebrow, FileBadge, btn, inputCls } from '../components/ui'
 import { ApiError, api } from '../lib/api'
@@ -22,6 +23,11 @@ export function PageView() {
   const [openFile, setOpenFile] = useState<string | null>(null)
   const [moveTarget, setMoveTarget] = useState('')
   const [openRevision, setOpenRevision] = useState<number | null>(null)
+  /** A question about the page: what it is about, the question asked at once (if any), and a fresh id. */
+  const [help, setHelp] = useState<{ target: HelpTarget; kind: HelpKind | null; id: number } | null>(null)
+  const reading = useRef<HTMLDivElement>(null)
+  const openHelp = (target: HelpTarget, kind: HelpKind | null) =>
+    setHelp((h) => ({ target, kind, id: (h?.id ?? 0) + 1 }))
   const page = useQuery({ queryKey: ['page', pageId], queryFn: () => api.pages.get(pageId) })
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const references = useQuery({
@@ -163,7 +169,22 @@ export function PageView() {
           </div>
         </div>
 
-        {tab === 'read' && <DocView doc={p.content} />}
+        {tab === 'read' && (
+          <div ref={reading}>
+            <DocView doc={p.content} onFormula={(f) => openHelp({ type: 'formula', ...f }, null)} />
+            <SelectionHelp container={reading} onAsk={openHelp} />
+          </div>
+        )}
+        {help && (
+          <HelpPanel
+            page={{ id: p.id, title: p.title, content: p.content }}
+            target={help.target}
+            initialKind={help.kind}
+            requestId={help.id}
+            canEdit={!!canEdit}
+            onClose={() => setHelp(null)}
+          />
+        )}
 
         {tab === 'source' && (
           <div className="flex flex-col gap-3">

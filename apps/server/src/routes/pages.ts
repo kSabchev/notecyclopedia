@@ -1,5 +1,5 @@
 import { type DocJSON, PAGE_TYPES, docToText } from '@nc/shared'
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
 import { assertCourse, loadPage, memberCourseIds } from '../access'
@@ -400,4 +400,57 @@ formulas.get('/', async (req, res) => {
       schema.formulas.position,
     )
   res.json(rows)
+})
+
+/**
+ * For a formula card: other places the same formula appears (LaTeX compared without spaces) in the user's courses,
+ * and the calculators made from its page.
+ */
+formulas.get('/related', async (req, res) => {
+  const { pageId, nodeId } = z
+    .object({ pageId: z.string().uuid(), nodeId: z.string().min(1).max(100) })
+    .parse(req.query)
+  const user = me(req)
+  await loadPage(pageId, user.id)
+  const [formula] = await db
+    .select({ latex: schema.formulas.latex })
+    .from(schema.formulas)
+    .where(and(eq(schema.formulas.pageId, pageId), eq(schema.formulas.nodeId, nodeId)))
+  if (!formula) throw new HttpError(404, 'Formula not found')
+  const ids = await memberCourseIds(user.id)
+  const compact = (column: unknown) => sql`regexp_replace(${column}, '[[:space:]]+', '', 'g')`
+  const elsewhere = await db
+    .select({
+      pageId: schema.formulas.pageId,
+      nodeId: schema.formulas.nodeId,
+      pageTitle: schema.pages.title,
+      pageType: schema.pages.type,
+      lectureNumber: schema.pages.lectureNumber,
+    })
+    .from(schema.formulas)
+    .innerJoin(schema.pages, eq(schema.pages.id, schema.formulas.pageId))
+    .where(
+      and(
+        inArray(schema.pages.courseId, ids),
+        sql`${compact(schema.formulas.latex)} = ${compact(formula.latex)}`,
+        sql`NOT (${schema.formulas.pageId} = ${pageId} AND ${schema.formulas.nodeId} = ${nodeId})`,
+      ),
+    )
+    .orderBy(sql`${schema.pages.lectureNumber} ASC NULLS LAST`, schema.pages.title)
+    .limit(20)
+  const calculators = await db
+    .select({ id: schema.calculators.id, name: schema.calculators.name })
+    .from(schema.calculators)
+    .where(
+      and(
+        eq(schema.calculators.sourcePageId, pageId),
+        // Course calculators, or the user's own personal ones (not a classmate's).
+        or(
+          inArray(schema.calculators.courseId, ids),
+          and(isNull(schema.calculators.courseId), eq(schema.calculators.ownerId, user.id)),
+        ),
+      ),
+    )
+    .orderBy(schema.calculators.name)
+  res.json({ elsewhere, calculators })
 })
