@@ -229,3 +229,18 @@
   overflow-x: auto;
   overflow-y: hidden;
 }
+
+/* The page reader draws documents without the editor; keep the editor's text layout. */
+.doc-reader {
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  word-wrap: break-word;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+}
+.doc-reader pre {
+  white-space: pre-wrap;
+}
+.doc-reader li {
+  position: relative;
+}

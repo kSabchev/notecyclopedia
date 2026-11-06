@@ -5,6 +5,8 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
+    // The manifest lets scripts/bundle-report.mjs measure what each route downloads.
+    manifest: true,
     rollupOptions: {
       // @nc/shared is imported through one barrel file; its modules have no side effects, so a page that
       // only needs the document helpers must not pull in the calculator engine (math.js) as well.

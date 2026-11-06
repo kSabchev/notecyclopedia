@@ -185,8 +185,10 @@ ai.post('/chat', async (req, res) => {
   })
   const send = (ev: AiStreamEvent) => res.write(`data: ${JSON.stringify(ev)}\n\n`)
   let aborted = false
-  req.on('close', () => {
-    aborted = true
+  // The response closes before it ends when the browser disconnects or cancels the question. (The request's own
+  // 'close' event fires once its body has been read, so it cannot tell.)
+  res.on('close', () => {
+    if (!res.writableEnded) aborted = true
   })
 
   send({ type: 'thread', threadId: thread.id })

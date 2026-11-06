@@ -293,6 +293,8 @@ means no limit. The budget is computed from the same `claude_api_calls` log, so 
 | `pnpm db:generate` | Create a migration after changing `apps/server/src/db/schema.ts` |
 | `pnpm db:migrate` | Apply migrations |
 | `pnpm build` | Build everything; `apps/server` then serves `apps/web/dist` in production |
+| `pnpm --filter @nc/web bundle-report` | After a build: JavaScript each route downloads (gzip) |
+| `pnpm --filter @nc/server bench` | Time page view, save, search and more on a seeded course in the test database |
 
 The API and browser tests require `NC_TEST_DATABASE_URL` to point to a dedicated PostgreSQL
 database whose name ends in `_test`, set in the environment or in `.env` (the tests read only that line
@@ -301,6 +303,30 @@ workflow test applies migrations to it. The browser tests start their own server
 they can run while `pnpm dev` is running. Install Playwright's Chromium browser with
 `pnpm --filter @nc/web exec playwright install chromium`.
 CI provisions the test database and browser automatically.
+
+## Performance
+
+Measured on a desktop with the production build (JavaScript, gzip) and the test database (API, median of 40
+runs, 150 pages of about 11 kB). Rerun with the two commands above.
+
+| | Before Phase 7 | Now |
+|---|---|---|
+| Reading a page (beyond the 160 kB app shell) | 330 kB | 90 kB |
+| AI portal | 401 kB | 120 kB |
+| Search, 150 pages | 163 ms | 15 ms |
+| Search, 600 pages | — | 22 ms |
+| Open a page / references / formula card | 3 / 4 / 7 ms | unchanged |
+| Save a page | 56 ms | unchanged |
+| Orbit diagram playing, with J2 and ground track | 60 fps | unchanged |
+
+- Pages are read without the editor: the reader draws the saved document with the same blocks, and the editor
+  (TipTap) loads only to edit. The Markdown renderer loads with the first question in the help panel; the
+  calculator engine and orbit diagrams load only when an answer shows one.
+- Search reads a stored, indexed `search_vector` instead of rebuilding one from every page's text.
+- A chat answer you stop reading (closing the tab, or asking another question in the help panel) now stops
+  Claude too, so you pay only for what was streamed.
+- Built files are cached for good (their names change with every build) and `index.html` is checked on every
+  visit; a page open across an update reloads once instead of failing to load a removed file.
 
 ## How it fits together
 
@@ -460,10 +486,11 @@ The plan follows four rules:
 
 ### Phase 7: Performance and reliability
 
-- [ ] Profile the slow paths (page view, save, search, AI time to first token, orbit/plot interaction) and record
-      a baseline.
-- [ ] Read-only page view that does not load the editor (about 130 kB gzip less per page view).
-- [ ] Fix what the profile shows.
+- [x] Profile the slow paths (page view, save, search, orbit interaction) and record a baseline (see
+      [Performance](#performance)). Time to first token needs real Claude calls and was not measured.
+- [x] Read-only page view that does not load the editor (240 kB gzip less per page view).
+- [x] Fix what the profile shows: search from a stored index, lazy help panel and portal widgets, stopped chat
+      answers stop Claude, caching that survives updates, client errors no longer reported as server errors.
 - [ ] Verify PDF-to-article generation against the PDF that previously failed; add a regression fixture if reproducible.
 
 ### Phase 8: Study companion
@@ -472,6 +499,18 @@ The plan follows four rules:
       (tagged in the same AI call, no extra request).
 - [ ] Exam prep: from an exam date, propose a revision plan over the course's pages in one call; saved and editable.
 - [ ] Quick check on request: after an explanation, offer 2–3 questions only when you ask. No schedule, no streaks.
+
+### Package split
+
+Split `@nc/shared` into workspace packages with clear boundaries (not published yet). Pages that need only one
+part then load only that part, and the Vite tree-shaking override in `apps/web/vite.config.ts` can go.
+
+- [ ] `@nc/orbit`: orbit maths (Kepler propagation, J2 rates, ground track, sidereal time, transfers, mission
+      files), with no dependencies; the `CalculatorSpec` type it borrows moves behind a small interface.
+- [ ] `@nc/orbit-view`: the React orbit diagram and the coastline map, depending on `@nc/orbit`.
+- [ ] `@nc/calc`: calculator specs, the limited math.js evaluator, checks, explanations and Excel/Python export.
+- [ ] `@nc/doc`: page document helpers (block ids, terms, references, links, text) and the read-only renderer.
+- [ ] Later, if wanted: publish `@nc/orbit` / `@nc/orbit-view`, or build a standalone orbit viewer page.
 
 ### Later: sharing
 

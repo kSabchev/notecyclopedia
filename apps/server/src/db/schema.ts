@@ -139,8 +139,10 @@ export const pages = pgTable(
   },
   (t) => [
     index('pages_course_idx').on(t.courseId),
-    // 'simple' config works for both Bulgarian and English (no stemming, no stop words).
-    index('pages_fts_idx').using('gin', sql`to_tsvector('simple', ${t.title} || ' ' || ${t.contentText})`),
+    // Full-text search uses the column `search_vector`, which exists only in the database (migration 0014):
+    // to_tsvector('simple', title || ' ' || content_text), generated and stored, with a GIN index. It is left
+    // out of this schema so page queries never fetch or return it. 'simple' works for Bulgarian and English
+    // (no stemming, no stop words).
   ],
 )
 

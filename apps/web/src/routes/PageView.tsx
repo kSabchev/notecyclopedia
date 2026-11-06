@@ -1,18 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useParams } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DocView, docHeadings } from '../components/DocView'
 import { FileDrop } from '../components/FileDrop'
 import { FilePreview, isTextPreviewable } from '../components/FilePreview'
 import { PenIcon, SparkIcon } from '../components/Icons'
-import { type HelpKind, HelpPanel, type HelpTarget, SelectionHelp } from '../components/ReadingHelp'
+import { type HelpKind, type HelpTarget, SelectionHelp } from '../components/ReadingHelp'
 import { RevisionChanges } from '../components/RevisionChanges'
 import { ErrorNote, Eyebrow, FileBadge, btn, inputCls } from '../components/ui'
 import { ApiError, api } from '../lib/api'
 import { timeAgo } from '../lib/format'
 
 type Tab = 'read' | 'source' | 'history'
+
+// The help panel (and the Markdown renderer for its answers) loads when a question is first asked.
+const HelpPanel = lazy(() => import('../components/HelpPanel'))
 
 export function PageView() {
   const { t } = useTranslation()
@@ -176,14 +179,16 @@ export function PageView() {
           </div>
         )}
         {help && (
-          <HelpPanel
-            page={{ id: p.id, title: p.title, content: p.content }}
-            target={help.target}
-            initialKind={help.kind}
-            requestId={help.id}
-            canEdit={!!canEdit}
-            onClose={() => setHelp(null)}
-          />
+          <Suspense fallback={null}>
+            <HelpPanel
+              page={{ id: p.id, title: p.title, content: p.content }}
+              target={help.target}
+              initialKind={help.kind}
+              requestId={help.id}
+              canEdit={!!canEdit}
+              onClose={() => setHelp(null)}
+            />
+          </Suspense>
         )}
 
         {tab === 'source' && (

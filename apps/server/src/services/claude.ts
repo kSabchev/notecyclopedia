@@ -172,8 +172,10 @@ export async function* streamAnswer(opts: {
   userId: string
   calculators: CalculatorLibrary
   meter?: UsageMeter
+  /** Replaced in tests; Claude is never called from them. */
+  stream?: typeof streamText
 }): AsyncGenerator<AnswerEvent> {
-  const { mode, history, sources, userId, calculators, meter } = opts
+  const { mode, history, sources, userId, calculators, meter, stream: streamFn = streamText } = opts
   const question = history.at(-1)
   if (question?.role !== 'user') throw new Error('The last chat turn must be from the user')
   const earlier: Anthropic.MessageParam[] = boundHistory(history.slice(0, -1)).map((turn) => ({
@@ -203,16 +205,22 @@ export async function* streamAnswer(opts: {
       tools: CHAT_TOOLS,
       messages,
     }
-    const stream = streamText(request, {
+    const stream = streamFn(request, {
       operation: 'chat',
       userId,
       meter,
       logRequest: withoutImages(request),
     })
     let step = await stream.next()
-    while (!step.done) {
-      yield { text: step.value }
-      step = await stream.next()
+    try {
+      while (!step.done) {
+        yield { text: step.value }
+        step = await stream.next()
+      }
+    } finally {
+      // When the reader stops early (the browser went away), close the Claude stream too, so Claude stops
+      // writing (and charging for) an answer nobody reads.
+      if (!step.done) await stream.return(undefined as never)
     }
     const final = step.value
     if (final.stop_reason !== 'tool_use') return

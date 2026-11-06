@@ -42,8 +42,22 @@ export function createApp() {
 
   const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist')
   if (existsSync(webDist)) {
+    // Built files have a content hash in their name, so they never change and can be cached for good.
+    // index.html is checked on every visit: an old copy would point to files a newer build has removed.
+    app.use(
+      '/assets',
+      express.static(path.join(webDist, 'assets'), {
+        index: false,
+        immutable: true,
+        maxAge: '1y',
+        fallthrough: false,
+      }),
+    )
     app.use(express.static(webDist, { index: false, maxAge: '1h' }))
-    app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.join(webDist, 'index.html')))
+    app.get(/^(?!\/api\/).*/, (_req, res) => {
+      res.setHeader('cache-control', 'no-cache')
+      res.sendFile(path.join(webDist, 'index.html'))
+    })
   }
 
   app.use(errorHandler)

@@ -42,6 +42,8 @@ test('sign in, create/edit/read an article, attach a source, and persist theme',
   await page.getByRole('button', { name: 'Add to calculator' }).click()
   await expect(page.getByText('Speed of sound', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Save', exact: true }).click()
+  // Saving opens the saved calculator; wait for it, or that navigation could override the next click.
+  await expect(page).toHaveURL(/\/calculators\/[0-9a-f-]{36}$/)
   await expect(page.getByRole('heading', { name: 'Sound speed calculator' })).toBeVisible()
 
   await page.getByRole('link', { name: 'New page' }).click()

@@ -9,6 +9,7 @@ import {
   generateCalculators,
   orbitFromTool,
   runChatTool,
+  streamAnswer,
 } from './claude'
 import { UsageMeter, type createMessage } from './claude-client'
 
@@ -254,4 +255,33 @@ test('a cut-off reply is explained to Claude, and a lasting failure names the ca
     lastToolResults(claude.requests[1] as Anthropic.MessageCreateParamsNonStreaming),
     /cut off at the output limit/,
   )
+})
+
+test('a chat answer the reader stops reading closes the Claude stream', async () => {
+  let sent = 0
+  let closed = false
+  // Stands in for the streamed Claude call: it would write a long answer.
+  const stream = async function* () {
+    try {
+      for (let i = 0; i < 1000; i++) {
+        sent++
+        yield `word${i} `
+      }
+      return { stop_reason: 'end_turn', content: [] } as unknown as Anthropic.Message
+    } finally {
+      closed = true
+    }
+  } as never
+  const answer = streamAnswer({
+    mode: 'ask',
+    history: [{ role: 'user', content: 'Why two burns?' }],
+    sources: [],
+    userId: 'reader',
+    calculators: {} as CalculatorLibrary,
+    stream,
+  })
+  let read = 0
+  for await (const _ of answer) if (++read === 3) break // the browser went away
+  assert.equal(closed, true, 'The Claude stream is closed')
+  assert.ok(sent <= 4, `Claude stopped after ${sent} chunks`)
 })

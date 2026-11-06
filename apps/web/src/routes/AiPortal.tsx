@@ -1,18 +1,15 @@
 import type { AiAttachment, AiCitation, AiMode, AiUsage, CalculatorSpec, WidgetAttrs } from '@nc/shared'
-import { exportJSON } from '@nc/shared'
+import { AI_MODES } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CalculatorRunner } from '../components/CalculatorRunner'
 import { SparkIcon } from '../components/Icons'
 import { Markdown } from '../components/Markdown'
 import { ErrorNote, btn } from '../components/ui'
-import { OrbitView } from '../components/widgets/OrbitView'
 import { api, streamChat } from '../lib/api'
 import { attachmentUrl, photoAttachment } from '../lib/image'
 import { stashAppend } from '../lib/page-draft'
-import { MODES } from './Home'
 
 interface Msg {
   id: string
@@ -24,6 +21,15 @@ interface Msg {
   attachments: AiAttachment[]
   usage: AiUsage | null
 }
+
+// Calculators (math.js) and orbit diagrams load only when an answer shows one.
+const CalculatorRunner = lazy(() =>
+  import('../components/CalculatorRunner').then((m) => ({ default: m.CalculatorRunner })),
+)
+const OrbitView = lazy(() =>
+  import('../components/widgets/OrbitView').then((m) => ({ default: m.OrbitView })),
+)
+const loading = <div className="h-24" />
 
 /** Photos per message; the server accepts at most this many. */
 const MAX_PHOTOS = 3
@@ -55,7 +61,9 @@ function ShownOrbit({ widget }: { widget: Extract<WidgetAttrs, { kind: 'orbit' }
           {t('files.openInViewer')}
         </Link>
       </div>
-      <OrbitView body={widget.body} elements={widget.elements} view={widget.view ?? undefined} />
+      <Suspense fallback={loading}>
+        <OrbitView body={widget.body} elements={widget.elements} view={widget.view ?? undefined} />
+      </Suspense>
     </section>
   )
 }
@@ -77,7 +85,9 @@ function ShownCalculator({ widget }: { widget: Extract<WidgetAttrs, { kind: 'cal
           </Link>
         )}
       </div>
-      <CalculatorRunner spec={widget.spec} />
+      <Suspense fallback={loading}>
+        <CalculatorRunner spec={widget.spec} />
+      </Suspense>
     </section>
   )
 }
@@ -140,7 +150,7 @@ function GeneratedCalculator({ spec }: { spec: CalculatorSpec }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['calculators'] }),
   })
   const download = () => {
-    const url = URL.createObjectURL(new Blob([exportJSON(spec)], { type: 'application/json' }))
+    const url = URL.createObjectURL(new Blob([JSON.stringify(spec, null, 2)], { type: 'application/json' }))
     const a = document.createElement('a')
     a.href = url
     a.download = `${spec.name.replace(/[^\p{L}\p{N}]+/gu, '-').toLowerCase()}.json`
@@ -177,7 +187,9 @@ function GeneratedCalculator({ spec }: { spec: CalculatorSpec }) {
         </div>
       </div>
       <div className="p-5.5">
-        <CalculatorRunner spec={spec} compact />
+        <Suspense fallback={loading}>
+          <CalculatorRunner spec={spec} compact />
+        </Suspense>
       </div>
       <ErrorNote error={save.error} />
     </section>
@@ -341,7 +353,7 @@ export function AiPortal() {
             aria-label="Mode"
             className="flex flex-wrap gap-1 rounded-[12px] bg-line-soft p-1"
           >
-            {MODES.map((m) => (
+            {AI_MODES.map((m) => (
               <button
                 key={m}
                 type="button"

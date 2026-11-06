@@ -7,10 +7,17 @@ import {
   ReactNodeViewRenderer,
 } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { Suspense, lazy, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api } from '../lib/api'
-import { Tex } from './Tex'
+import {
+  CalloutLabel,
+  type FormulaAttrs,
+  FormulaFace,
+  ImageFigure,
+  WidgetSlot,
+  calloutCls,
+  formulaBlockProps,
+} from './blocks'
 import { Button, inputCls } from './ui'
 
 declare module '@tiptap/core' {
@@ -24,49 +31,27 @@ declare module '@tiptap/core' {
 
 function FormulaView({ node, updateAttributes, deleteNode, editor, selected }: ReactNodeViewProps) {
   const { t } = useTranslation()
-  const { latex, label, description, pinned } = node.attrs as {
-    latex: string
-    label: string | null
-    description: string | null
-    pinned: boolean
-  }
+  const { latex, label, description, pinned } = node.attrs as FormulaAttrs
   const [editing, setEditing] = useState(!latex)
   const editable = editor.isEditable
   const open = editable && (editing || (selected && !latex))
 
   return (
-    <NodeViewWrapper
-      className="my-4"
-      data-type="formula"
-      id={(node.attrs.id as string | null) ?? undefined}
-      data-formula-node=""
-      data-latex={latex}
-      data-label={label ?? undefined}
-      // While reading, a formula opens its card (see DocView); Enter does the same as a click.
-      tabIndex={editable ? undefined : 0}
-      onKeyDown={(e: KeyboardEvent) => {
-        if (!editable && e.key === 'Enter') (e.currentTarget as HTMLElement).click()
-      }}
-    >
-      <div
-        className={`overflow-hidden rounded-[12px] border bg-surface font-sans ${open ? 'border-2 border-accent' : 'border-line'}`}
-      >
-        <div
-          className={`graph-paper flex flex-wrap items-center gap-4 px-5 py-4 cursor-pointer ${editable ? '' : 'hover:bg-accent-soft'}`}
-          onDoubleClick={() => editable && setEditing(true)}
-        >
-          <Tex latex={latex} display className="min-w-0 flex-1 overflow-x-auto text-[1.15em]" />
-          {description && <span className="text-sm text-muted">{description}</span>}
-          {label && <span className="font-mono text-sm text-muted">({label})</span>}
-          {pinned && !open && (
-            <span className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent">★</span>
-          )}
-          {editable && !open && (
+    <NodeViewWrapper {...formulaBlockProps(node.attrs as FormulaAttrs, !editable)}>
+      <FormulaFace
+        attrs={node.attrs as FormulaAttrs}
+        reading={!editable}
+        open={open}
+        onDoubleClick={() => editable && setEditing(true)}
+        actions={
+          editable &&
+          !open && (
             <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
               {t('page.edit')}
             </Button>
-          )}
-        </div>
+          )
+        }
+      >
         {open && (
           <div className="flex flex-col gap-3 border-t border-line bg-surface-2 p-4" contentEditable={false}>
             <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wider text-muted">
@@ -119,7 +104,7 @@ function FormulaView({ node, updateAttributes, deleteNode, editor, selected }: R
             </div>
           </div>
         )}
-      </div>
+      </FormulaFace>
     </NodeViewWrapper>
   )
 }
@@ -163,12 +148,9 @@ export const Formula = Node.create({
 })
 
 function CalloutView() {
-  const { t } = useTranslation()
   return (
-    <NodeViewWrapper className="my-4 flex gap-3.5 rounded-[12px] border border-note-line bg-note px-5 py-4 font-sans text-[15px]">
-      <span contentEditable={false} className="whitespace-nowrap font-bold">
-        {t('editor.note')}
-      </span>
+    <NodeViewWrapper className={calloutCls}>
+      <CalloutLabel />
       <NodeViewContent className="min-w-0 flex-1" />
     </NodeViewWrapper>
   )
@@ -198,28 +180,16 @@ export const Callout = Node.create({
   },
 })
 
-// The calculator and plot code (math.js) loads only when a page contains one.
-const WidgetBlock = lazy(() => import('./widgets/WidgetBlock'))
-
 function WidgetView({ node, updateAttributes, deleteNode, editor }: ReactNodeViewProps) {
-  const { t } = useTranslation()
   return (
     <NodeViewWrapper className="my-5" data-type="widget" contentEditable={false}>
-      <Suspense
-        fallback={
-          <div className="rounded-[12px] border border-line bg-surface p-5 font-sans text-sm text-muted">
-            {t('common.loading')}
-          </div>
-        }
-      >
-        <WidgetBlock
-          attrs={node.attrs}
-          editable={editor.isEditable}
-          // A calculator block has no plot settings, so clear any left from a previous plot.
-          onChange={(attrs) => updateAttributes({ plot: null, view: null, ...attrs })}
-          onDelete={deleteNode}
-        />
-      </Suspense>
+      <WidgetSlot
+        attrs={node.attrs}
+        editable={editor.isEditable}
+        // A calculator block has no plot settings, so clear any left from a previous plot.
+        onChange={(attrs) => updateAttributes({ plot: null, view: null, ...attrs })}
+        onDelete={deleteNode}
+      />
     </NodeViewWrapper>
   )
 }
@@ -270,27 +240,11 @@ function ImageView({ node, updateAttributes, deleteNode, editor, selected }: Rea
     alt: string | null
     caption: string | null
   }
-  const [broken, setBroken] = useState(false)
   const editable = editor.isEditable
   return (
     <NodeViewWrapper className="my-5" data-type="image" contentEditable={false}>
-      <figure
-        className={`m-0 flex flex-col gap-2 rounded-[12px] ${selected && editable ? 'outline-2 outline-accent' : ''}`}
-      >
-        {broken ? (
-          <div className="rounded-[12px] border border-dashed border-line-strong p-6 text-center font-sans text-sm text-muted">
-            {t('widget.imageMissing')}
-          </div>
-        ) : (
-          <img
-            src={api.files.url(fileId, true)}
-            alt={alt ?? caption ?? ''}
-            loading="lazy"
-            onError={() => setBroken(true)}
-            className="mx-auto block max-h-[70vh] max-w-full rounded-[12px] border border-line bg-surface"
-          />
-        )}
-        {editable ? (
+      <ImageFigure fileId={fileId} alt={alt} caption={caption} outlined={selected && editable}>
+        {editable && (
           <div className="flex flex-wrap items-center gap-2 font-sans">
             <input
               aria-label={t('widget.caption')}
@@ -303,10 +257,8 @@ function ImageView({ node, updateAttributes, deleteNode, editor, selected }: Rea
               {t('widget.remove')}
             </Button>
           </div>
-        ) : (
-          caption && <figcaption className="text-center font-sans text-sm text-muted">{caption}</figcaption>
         )}
-      </figure>
+      </ImageFigure>
     </NodeViewWrapper>
   )
 }

@@ -99,6 +99,13 @@
       "when": 1793617661935,
       "tag": "0013_previous_baron_strucker",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793965684942,
+      "tag": "0014_page_search_vector",
+      "breakpoints": true
     }
   ]
 }
