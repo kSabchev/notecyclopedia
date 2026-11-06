@@ -1,4 +1,4 @@
-import { type DocJSON, PAGE_TYPES, type Page, type PageType } from '@nc/shared'
+import { type DocJSON, PAGE_TYPES, type Page, type PageType, markdownBlocks } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { EditorContent, type JSONContent, useEditor } from '@tiptap/react'
@@ -10,6 +10,7 @@ import { BackIcon } from '../components/Icons'
 import { editorExtensions } from '../components/extensions'
 import { ErrorNote, Field, btn, inputCls } from '../components/ui'
 import { ApiError, api } from '../lib/api'
+import { takeAppend } from '../lib/page-draft'
 
 function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCourseId?: string }) {
   const { t } = useTranslation()
@@ -43,6 +44,19 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
     editorProps: { attributes: { 'aria-label': 'Page content', class: 'min-h-[50vh]' } },
     onUpdate: () => setDirty(true),
   })
+  // An addition handed over from elsewhere (an AI answer): inserted at the end as an unsaved change to review.
+  const [appended, setAppended] = useState<string | null>(null)
+  useEffect(() => {
+    if (!editor || !page) return
+    const draft = takeAppend(page.id)
+    if (!draft) return
+    editor.commands.insertContentAt(editor.state.doc.content.size, [
+      { type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: draft.title }] },
+      ...(markdownBlocks(draft.markdown) as JSONContent[]),
+    ])
+    setDirty(true)
+    setAppended(draft.title)
+  }, [editor, page])
 
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => {
@@ -166,6 +180,11 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
         </section>
 
         <aside className="flex min-w-0 flex-[1_1_320px] flex-col gap-6">
+          {appended && (
+            <p role="status" className="m-0 rounded-[10px] bg-ai-soft px-4 py-3 text-sm">
+              {t('editor.appended', { title: appended })}
+            </p>
+          )}
           {conflict && <ErrorNote error={t('editor.conflict')} />}
           {!conflict && <ErrorNote error={save.error} />}
           <section

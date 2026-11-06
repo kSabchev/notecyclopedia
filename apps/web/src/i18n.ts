@@ -40,6 +40,25 @@ const en = {
       'file-index': 'Some uploaded files could not be queued for indexing.',
     },
   },
+  help: {
+    toolbar: 'Ask about this',
+    panel: 'Help with this page',
+    title: 'Ask about this page',
+    answer: 'Answer',
+    kind: { explain: 'Explain', why: 'Why does this hold?', example: 'Show an example' },
+    ask: {
+      explain: 'Explain this passage from my notes on "{{title}}" in plain terms:\n\n{{subject}}',
+      why: 'Why does this hold? Explain the reasoning behind this, from my notes on "{{title}}":\n\n{{subject}}',
+      example: 'Show a short worked example of this, from my notes on "{{title}}":\n\n{{subject}}',
+    },
+    formulaCard: 'About this formula',
+    elsewhere: 'Also appears in',
+    nowhereElse: 'Only on this page.',
+    calculators: 'Calculators from this page',
+    noCalculators: 'None yet.',
+    addToPage: 'Add to page',
+    continue: 'Continue in the AI portal',
+  },
   daily: {
     title: "Today's question",
     intro:
@@ -345,6 +364,8 @@ const en = {
       source: 'Source material',
     },
     reference: 'Reference',
+    appended:
+      '“{{title}}” was added at the end of the page as an unsaved change. Review or edit it, then save, or leave to discard it.',
     hub: {
       draft: 'Draft topic hub with AI',
       drafting: 'Drafting…',
@@ -531,6 +552,7 @@ const en = {
     calculatorRun: 'Calculated with "{{name}}"',
     openCalculator: 'Open calculator',
     makeCalculator: 'Make a calculator from this',
+    saveToPage: 'Save to page…',
     someCalculatorsFailed: 'Some calculators could not be made:',
     usage: '{{input}} tokens in ({{cached}} cached) · {{output}} out',
     notConfigured: 'AI is not configured yet. Add ANTHROPIC_API_KEY to the server .env file.',
@@ -703,6 +725,25 @@ const bg: Dict = {
       'page-index': 'Индексите за търсене на някои страници не бяха възстановени.',
       'file-index': 'Някои файлове не бяха добавени към опашката за индексиране.',
     },
+  },
+  help: {
+    toolbar: 'Попитай за това',
+    panel: 'Помощ за тази страница',
+    title: 'Попитай за тази страница',
+    answer: 'Отговор',
+    kind: { explain: 'Обясни', why: 'Защо е така?', example: 'Покажи пример' },
+    ask: {
+      explain: 'Обясни на разбираем език този откъс от записките ми за „{{title}}“:\n\n{{subject}}',
+      why: 'Защо е така? Обясни логиката зад това от записките ми за „{{title}}“:\n\n{{subject}}',
+      example: 'Покажи кратък решен пример за това от записките ми за „{{title}}“:\n\n{{subject}}',
+    },
+    formulaCard: 'За тази формула',
+    elsewhere: 'Среща се и в',
+    nowhereElse: 'Само на тази страница.',
+    calculators: 'Калкулатори от тази страница',
+    noCalculators: 'Още няма.',
+    addToPage: 'Добави към страницата',
+    continue: 'Продължи в AI портала',
   },
   daily: {
     title: 'Въпрос на деня',
@@ -1010,6 +1051,8 @@ const bg: Dict = {
       source: 'Източник',
     },
     reference: 'Препратка',
+    appended:
+      '„{{title}}“ е добавено в края на страницата като незапазена промяна. Прегледай го или го редактирай и запази, или излез, за да го откажеш.',
     hub: {
       draft: 'Чернова на тематичен център с AI',
       drafting: 'Пише се…',
@@ -1195,6 +1238,7 @@ const bg: Dict = {
     calculatorRun: 'Изчислено с „{{name}}“',
     openCalculator: 'Отвори калкулатора',
     makeCalculator: 'Направи калкулатор от това',
+    saveToPage: 'Запази в страница…',
     someCalculatorsFailed: 'Някои калкулатори не можаха да се създадат:',
     usage: '{{input}} входни токена ({{cached}} от кеша) · {{output}} изходни',
     notConfigured: 'AI още не е настроен. Добави ANTHROPIC_API_KEY в .env на сървъра.',

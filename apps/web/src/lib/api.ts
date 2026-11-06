@@ -163,6 +163,18 @@ export const api = {
     restore: (id: string, rev: number, b: { baseRevision: number; message?: string }) =>
       request<Page>('POST', `/pages/${id}/revisions/${rev}/restore`, b),
   },
+  /** For a formula card: the same formula elsewhere, and calculators made from its page. */
+  formulaRelated: (pageId: string, nodeId: string) =>
+    get<{
+      elsewhere: {
+        pageId: string
+        nodeId: string | null
+        pageTitle: string
+        pageType: string
+        lectureNumber: number | null
+      }[]
+      calculators: { id: string; name: string }[]
+    }>(`/formulas/related${qs({ pageId, nodeId })}`),
   formulas: (pinned?: boolean) => get<Formula[]>(`/formulas${qs({ pinned: pinned ? '1' : undefined })}`),
   files: {
     list: (o: { courseId?: string; pageId?: string } = {}) => get<FileAsset[]>(`/files${qs(o)}`),
