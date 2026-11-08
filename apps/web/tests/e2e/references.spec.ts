@@ -181,8 +181,12 @@ test('a theory page is drafted as a topic hub whose links reach the lecture', as
   await page.keyboard.press('End')
   await page.keyboard.type(' Edited.')
   await page.getByRole('button', { name: 'Save revision' }).click()
-  // Wait for the saved page: the same text is visible in the editor, where links do not navigate.
+  // Wait for the saved page in the reader: the address changes before the page view has loaded, and meanwhile the
+  // editor (where links do not navigate) still shows the same text. The editor is gone once the reader's Edit link
+  // is there.
   await expect(page).toHaveURL(/\/pages\/[0-9a-f-]{36}$/)
+  await expect(page.getByRole('link', { name: 'Edit', exact: true })).toBeVisible()
+  await expect(page.getByLabel('Page content')).toHaveCount(0)
   await expect(page.getByText('Transfers change orbits with burns. Edited.')).toBeVisible()
 
   await page.getByRole('link', { name: 'Hohmann transfer' }).click()

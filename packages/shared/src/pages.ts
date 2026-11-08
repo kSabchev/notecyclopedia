@@ -52,3 +52,30 @@ export function moveWithinSection<T extends { id: string; type: PageType; lectur
   section.pages.splice(to, 0, moved as T)
   return sections.flatMap((s) => s.pages.map((p) => p.id))
 }
+
+/** Within a lecture: the lecture itself, then its theory, notes and sources, then the example problems. */
+const LECTURE_ORDER: PageType[] = ['lecture', 'theory', 'note', 'source', 'seminar']
+
+export interface LectureGroup<T> {
+  /** null: the pages not tied to a lecture. */
+  lectureNumber: number | null
+  pages: T[]
+}
+
+/**
+ * A course's pages, given in their manual order, grouped by lecture number: ascending, with the pages not tied
+ * to a lecture last. Within a group the lecture comes first and its example problems last; the manual order is
+ * kept otherwise.
+ */
+export function lectureGroups<T extends { type: PageType; lectureNumber: number | null }>(
+  pages: T[],
+): LectureGroup<T>[] {
+  const groups = new Map<number | null, T[]>()
+  for (const p of pages) groups.set(p.lectureNumber, [...(groups.get(p.lectureNumber) ?? []), p])
+  return [...groups]
+    .map(([lectureNumber, ps]) => ({
+      lectureNumber,
+      pages: ps.sort((a, b) => LECTURE_ORDER.indexOf(a.type) - LECTURE_ORDER.indexOf(b.type)),
+    }))
+    .sort(byLecture)
+}

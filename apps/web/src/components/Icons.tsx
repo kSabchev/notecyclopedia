@@ -34,6 +34,18 @@ export const CalendarIcon = icon(
     <path d="M3.5 10h17M8 3v4M16 3v4M8 14h3" />
   </>,
 )
+export const LectureIcon = icon(
+  <>
+    <rect x="3" y="4" width="18" height="12" rx="1.5" />
+    <path d="M8 20h8M12 16v4M7 8h6M7 11h10" />
+  </>,
+)
+export const LinkIcon = icon(
+  <>
+    <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+    <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+  </>,
+)
 export const SigmaIcon = icon(<path d="M18 4H6l6 8-6 8h12" />)
 export const CalcIcon = icon(
   <>

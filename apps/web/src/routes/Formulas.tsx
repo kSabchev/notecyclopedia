@@ -106,15 +106,18 @@ function FormulaRow({
         </div>
       )}
       <div
-        className={`flex flex-wrap items-center gap-4 px-5 py-4 ${first && !heading ? '' : 'border-t border-line-soft'}`}
+        className={`flex flex-col gap-1 px-5 py-4 ${first && !heading ? '' : 'border-t border-line-soft'}`}
       >
-        <Tex latex={f.latex} className="min-w-0 flex-[1_1_280px] overflow-x-auto text-[22px]" />
-        {f.description && <span className="text-sm text-muted">{f.description}</span>}
-        {f.label && <span className="font-mono text-sm text-muted">({f.label})</span>}
-        <PinStar pageId={f.pageId} nodeId={f.nodeId} pinned={f.pinned} />
-        <Link to="/pages/$pageId" params={{ pageId: f.pageId }} className="text-sm font-semibold">
-          {f.pageTitle}
-        </Link>
+        <div className="flex flex-wrap items-center gap-4">
+          <Tex latex={f.latex} className="min-w-0 flex-[1_1_280px] overflow-x-auto text-[22px]" />
+          {f.label && <span className="font-mono text-sm text-muted">({f.label})</span>}
+          <PinStar pageId={f.pageId} nodeId={f.nodeId} pinned={f.pinned} />
+          <Link to="/pages/$pageId" params={{ pageId: f.pageId }} className="text-sm font-semibold">
+            {f.pageTitle}
+          </Link>
+        </div>
+        {/* Below the formula, so a long description never squeezes it. */}
+        {f.description && <p className="m-0 text-sm text-muted">{f.description}</p>}
       </div>
     </>
   )

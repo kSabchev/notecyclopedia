@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type PageType, moveWithinSection, pageSections, problemsPerLecture } from './pages'
+import { type PageType, lectureGroups, moveWithinSection, pageSections, problemsPerLecture } from './pages'
 
 const page = (id: string, type: PageType, lectureNumber: number | null = null) => ({
   id,
@@ -59,5 +59,16 @@ describe('moveWithinSection', () => {
     expect(moveWithinSection(course, 'hub', 1)).toBeNull()
     expect(moveWithinSection(course, 'l1', -1)).toBeNull()
     expect(moveWithinSection(course, 'missing', 0)).toBeNull()
+  })
+})
+
+describe('lectureGroups', () => {
+  it('groups by lecture in order, the lecture first and its problems last, unnumbered pages at the end', () => {
+    const groups = lectureGroups([...course, page('n1', 'note', 1), page('src2', 'source', 2)])
+    expect(groups.map((g) => [g.lectureNumber, g.pages.map((p) => p.id)])).toEqual([
+      [1, ['l1', 'n1', 'p1b', 'p1a']],
+      [2, ['l2', 'src2', 'p2']],
+      [null, ['extra', 'hub', 'notes', 'p-free']],
+    ])
   })
 })

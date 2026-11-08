@@ -1,4 +1,10 @@
-import { moveWithinSection, pageSections, problemsPerLecture } from '@nc/shared'
+import {
+  type PageSummary,
+  lectureGroups,
+  moveWithinSection,
+  pageSections,
+  problemsPerLecture,
+} from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
@@ -7,8 +13,134 @@ import { PlusIcon, UsersIcon } from '../components/Icons'
 import { Card, Empty, ErrorNote, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 import { timeAgo } from '../lib/format'
+import { useLectureExtras } from '../lib/lectures'
 
-function PageList({ courseId, editing }: { courseId: string; editing: boolean }) {
+type Grouping = 'type' | 'lecture'
+const GROUPING_KEY = 'nc.pageGrouping'
+
+/** How the Wiki and course pages group pages, remembered in this browser. */
+function useGrouping() {
+  const [grouping, setGrouping] = useState<Grouping>(() => {
+    try {
+      return localStorage.getItem(GROUPING_KEY) === 'lecture' ? 'lecture' : 'type'
+    } catch {
+      return 'type'
+    }
+  })
+  const set = (next: Grouping) => {
+    setGrouping(next)
+    try {
+      localStorage.setItem(GROUPING_KEY, next)
+    } catch {
+      // Not remembered (private window or blocked storage).
+    }
+  }
+  return [grouping, set] as const
+}
+
+function GroupingToggle({ grouping, onChange }: { grouping: Grouping; onChange: (g: Grouping) => void }) {
+  const { t } = useTranslation()
+  return (
+    <div
+      role="group"
+      aria-label={t('course.groupBy')}
+      className="flex rounded-full border border-line-strong p-0.5"
+    >
+      {(['type', 'lecture'] as const).map((g) => (
+        <button
+          key={g}
+          type="button"
+          aria-pressed={grouping === g}
+          onClick={() => onChange(g)}
+          className={`min-h-9 cursor-pointer rounded-full border-0 px-3.5 text-sm font-semibold ${grouping === g ? 'bg-inverse text-inverse-ink' : 'bg-transparent text-ink'}`}
+        >
+          {t(g === 'type' ? 'course.byType' : 'course.byLecture')}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * A course's pages by lecture: each lecture with its original (slides or PDF), its pages (the lecture, theory,
+ * notes, sources, then example problems) and its calculators; the pages not tied to a lecture last.
+ */
+function ByLecture({ courseId, pages }: { courseId: string; pages: PageSummary[] }) {
+  const { t } = useTranslation()
+  const extras = useLectureExtras()
+  const groups = lectureGroups(pages)
+  const calculators = extras.calculatorsOf(courseId)
+  // A lecture with only an original or calculators so far still gets its group.
+  const known = new Set(groups.map((g) => g.lectureNumber))
+  for (const n of [
+    ...extras.originalsOf(courseId).map((f) => f.lectureNumber),
+    ...calculators.map((c) => c.lectureNumber),
+  ])
+    if (n !== null && !known.has(n)) {
+      known.add(n)
+      groups.push({ lectureNumber: n, pages: [] })
+    }
+  groups.sort(
+    (a, b) => (a.lectureNumber ?? Number.POSITIVE_INFINITY) - (b.lectureNumber ?? Number.POSITIVE_INFINITY),
+  )
+  if (!groups.length) return <Empty>{t('home.empty')}</Empty>
+  const row = 'flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-ink no-underline hover:bg-surface-2'
+  const badge = 'rounded-md bg-line-soft px-2 py-0.5 text-xs font-semibold text-muted'
+  return (
+    <div className="flex flex-col gap-4">
+      {groups.map((g) => {
+        const label =
+          g.lectureNumber === null ? t('course.noLecture') : t('page.lectureNumber', { n: g.lectureNumber })
+        const original = extras.original(courseId, g.lectureNumber)
+        const calcs = calculators.filter((c) => c.lectureNumber === g.lectureNumber)
+        return (
+          <section key={g.lectureNumber ?? 'none'} aria-label={label} className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-1">
+              <h3 className="m-0 text-sm font-bold uppercase tracking-[0.06em] text-ink-2">{label}</h3>
+              {original && (
+                <a
+                  href={api.files.url(original.id, true)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-semibold"
+                >
+                  {t('page.original', { name: original.name })} ↗
+                </a>
+              )}
+            </div>
+            {(g.pages.length > 0 || calcs.length > 0) && (
+              <ul className="m-0 flex list-none flex-col rounded-[12px] border border-line bg-surface p-0">
+                {g.pages.map((p, i) => (
+                  <li key={p.id} className={i ? 'border-t border-line-soft' : ''}>
+                    <Link to="/pages/$pageId" params={{ pageId: p.id }} className={row}>
+                      <span className={badge}>{t(`editor.types.${p.type}`)}</span>
+                      <span className="min-w-0 flex-1 font-serif text-lg font-semibold">{p.title}</span>
+                      <span className="text-[13px] text-muted">{timeAgo(p.updatedAt)}</span>
+                    </Link>
+                  </li>
+                ))}
+                {calcs.map((c, i) => (
+                  <li key={c.id} className={g.pages.length || i ? 'border-t border-line-soft' : ''}>
+                    <Link to="/calculators/$calcId" params={{ calcId: c.id }} className={row}>
+                      <span className={badge}>{t('course.calculator')}</span>
+                      <span className="min-w-0 flex-1 font-semibold">{c.name}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )
+      })}
+    </div>
+  )
+}
+
+function PageList({
+  courseId,
+  editing,
+  grouping = 'type',
+}: { courseId: string; editing: boolean; grouping?: Grouping }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const pages = useQuery({ queryKey: ['pages', courseId], queryFn: () => api.pages.list(courseId) })
@@ -22,6 +154,7 @@ function PageList({ courseId, editing }: { courseId: string; editing: boolean })
     const ids = pageId && pages.data ? moveWithinSection(pages.data, pageId, to) : null
     if (ids) reorder.mutate(ids)
   }
+  if (grouping === 'lecture') return pages.data ? <ByLecture courseId={courseId} pages={pages.data} /> : null
   if (pages.data?.length === 0) return <Empty>{t('home.empty')}</Empty>
   const sections = pageSections(pages.data ?? [])
   const problems = problemsPerLecture(pages.data ?? [])
@@ -87,7 +220,7 @@ function PageList({ courseId, editing }: { courseId: string; editing: boolean })
                       className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5 text-ink no-underline hover:bg-surface-2"
                     >
                       <span className="min-w-0 flex-1 font-serif text-lg font-semibold">
-                        {section.type === 'lecture' && p.lectureNumber !== null && (
+                        {section.type !== 'seminar' && p.lectureNumber !== null && (
                           <span className="mr-2 text-sm font-semibold text-muted">
                             {t('page.lectureNumber', { n: p.lectureNumber })}
                           </span>
@@ -145,6 +278,7 @@ export function Wiki() {
   const qc = useQueryClient()
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const [editing, setEditing] = useState(false)
+  const [grouping, setGrouping] = useGrouping()
   const [draggedCourseId, setDraggedCourseId] = useState<string>()
   const reorder = useMutation({
     mutationFn: (courseIds: string[]) => api.courses.reorder(courseIds),
@@ -163,6 +297,7 @@ export function Wiki() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="m-0 text-[40px] font-extrabold tracking-[-0.025em]">{t('nav.wiki')}</h1>
         <div className="flex flex-wrap gap-2">
+          <GroupingToggle grouping={grouping} onChange={setGrouping} />
           <button
             type="button"
             aria-pressed={editing}
@@ -227,7 +362,7 @@ export function Wiki() {
               </div>
             )}
           </div>
-          <PageList courseId={c.id} editing={false} />
+          <PageList courseId={c.id} editing={false} grouping={grouping} />
         </section>
       ))}
     </div>
@@ -310,6 +445,7 @@ export function CourseView() {
   const { courseId } = useParams({ from: '/app/courses/$courseId' })
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const [editing, setEditing] = useState(false)
+  const [grouping, setGrouping] = useGrouping()
   const course = courses.data?.find((c) => c.id === courseId)
   if (!course) return <div className="p-10 text-muted">{t('common.loading')}</div>
   return (
@@ -320,6 +456,7 @@ export function CourseView() {
           {course.name}
         </h1>
         <div className="flex flex-wrap gap-2">
+          {!editing && <GroupingToggle grouping={grouping} onChange={setGrouping} />}
           {course.role !== 'viewer' && (
             <button
               type="button"
@@ -340,7 +477,8 @@ export function CourseView() {
       </header>
       <div className="flex flex-wrap items-start gap-8">
         <div className="min-w-0 flex-[3_1_520px]">
-          <PageList courseId={courseId} editing={editing} />
+          {/* Reordering works on the sections by type. */}
+          <PageList courseId={courseId} editing={editing} grouping={editing ? 'type' : grouping} />
         </div>
         <div className="min-w-0 flex-[1_1_280px]">
           <Members courseId={courseId} isOwner={course.role === 'owner'} />

@@ -247,12 +247,19 @@ export const files = pgTable(
       .default('uploaded'),
     error: text('error'),
     text: text('text'),
+    /** Set when this upload is the original of lecture N of its course; pages with that number are its parts. */
+    lectureNumber: integer('lecture_number'),
     uploadedBy: text('uploaded_by')
       .notNull()
       .references(() => user.id),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [index('files_course_idx').on(t.courseId), index('files_page_idx').on(t.pageId)],
+  (t) => [
+    index('files_course_idx').on(t.courseId),
+    index('files_page_idx').on(t.pageId),
+    // One original per lecture of a course.
+    uniqueIndex('files_course_lecture_idx').on(t.courseId, t.lectureNumber),
+  ],
 )
 
 export const calculators = pgTable('calculators', {
@@ -268,6 +275,8 @@ export const calculators = pgTable('calculators', {
     .notNull()
     .default('manual'),
   sourcePageId: uuid('source_page_id').references(() => pages.id, { onDelete: 'set null' }),
+  /** The lecture of its course this calculator belongs to; only a course calculator has one. */
+  lectureNumber: integer('lecture_number'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
@@ -375,6 +384,22 @@ export const formulaPins = pgTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.pageId, t.nodeId] })],
+)
+
+/** Links a user added to their Useful links page (the built-in ones live in the web app). */
+export const userLinks = pgTable(
+  'user_links',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    url: text('url').notNull(),
+    note: text('note'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('user_links_user_idx').on(t.userId)],
 )
 
 /** When each user last opened each page, for "Where was I" on the home page. */

@@ -205,6 +205,9 @@ function Detail({
   const [constantSelection, setConstantSelection] = useState('')
   const [visualSpec, setVisualSpec] = useState<CalculatorSpec>(calc?.spec ?? TEMPLATE)
   const [courseId, setCourseId] = useState<string | null>(calc?.courseId ?? null)
+  const [lecture, setLecture] = useState(calc?.lectureNumber ? String(calc.lectureNumber) : '')
+  const lectureNumber = courseId && lecture.trim() ? Number(lecture) : null
+  const lectureValid = lectureNumber === null || (Number.isSafeInteger(lectureNumber) && lectureNumber > 0)
   const [review, setReview] = useState<CalculatorReview | null>(null)
   const [applied, setApplied] = useState(false)
   const courseConstants = useQuery({
@@ -219,6 +222,7 @@ function Detail({
     setAdvanced(false)
     setEditing(isNew)
     setCourseId(calc?.courseId ?? null)
+    setLecture(calc?.lectureNumber ? String(calc.lectureNumber) : '')
     setReview(null)
     setApplied(false)
   }, [calc, isNew])
@@ -279,9 +283,10 @@ function Detail({
   const save = useMutation({
     mutationFn: () => {
       if (!parsed.spec) throw new Error(t('calc.invalid'))
+      if (!lectureValid) throw new Error(t('calc.lectureHint'))
       return calc
-        ? api.calculators.update(calc.id, { spec: parsed.spec, courseId })
-        : api.calculators.create({ spec: parsed.spec, courseId })
+        ? api.calculators.update(calc.id, { spec: parsed.spec, courseId, lectureNumber })
+        : api.calculators.create({ spec: parsed.spec, courseId, lectureNumber })
     },
     onSuccess: (c) => {
       qc.invalidateQueries({ queryKey: ['calculators'] })
@@ -308,6 +313,11 @@ function Detail({
             {spec?.name ?? calc?.name ?? t('calc.new')}
           </h2>
           {spec?.description && <span className="text-sm text-muted">{spec.description}</span>}
+          {calc?.lectureNumber != null && (
+            <span className="text-sm font-semibold text-muted">
+              {t('page.lectureNumber', { n: calc.lectureNumber })}
+            </span>
+          )}
           {calc?.sourcePageId && (
             <Link to="/pages/$pageId" params={{ pageId: calc.sourcePageId }} className="text-sm">
               ↗ source
@@ -708,6 +718,26 @@ function Detail({
                 ))}
             </select>
           </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="calc-lecture" className="text-[13px] font-semibold text-muted">
+              {t('calc.lecture')}
+            </label>
+            <input
+              id="calc-lecture"
+              type="number"
+              min={1}
+              inputMode="numeric"
+              className={`${inputCls} w-40`}
+              disabled={!courseId}
+              value={courseId ? lecture : ''}
+              aria-invalid={!lectureValid}
+              aria-describedby="calc-lecture-hint"
+              onChange={(e) => setLecture(e.target.value)}
+            />
+            <p id="calc-lecture-hint" className="m-0 text-xs text-muted">
+              {t(courseId ? 'calc.lectureHint' : 'calc.lectureNeedsCourse')}
+            </p>
+          </div>
           <ErrorNote error={save.error} />
         </div>
       )}
@@ -841,7 +871,11 @@ export function Calculators() {
                 {c.spec.outputs.map((o) => o.key).join(', ')} = f({c.spec.inputs.map((i) => i.key).join(', ')}
                 )
               </span>
-              <span className="text-[13px] text-muted">{c.courseId ? '' : t('calc.personal')}</span>
+              <span className="text-[13px] text-muted">
+                {c.courseId
+                  ? c.lectureNumber !== null && t('page.lectureNumber', { n: c.lectureNumber })
+                  : t('calc.personal')}
+              </span>
             </Link>
           ))}
         </section>

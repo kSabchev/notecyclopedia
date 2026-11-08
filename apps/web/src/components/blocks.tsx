@@ -58,14 +58,17 @@ export function FormulaFace({
       className={`overflow-hidden rounded-[12px] border bg-surface font-sans ${open ? 'border-2 border-accent' : 'border-line'}`}
     >
       <div
-        className={`graph-paper flex flex-wrap items-center gap-4 px-5 py-4 cursor-pointer ${reading ? 'hover:bg-accent-soft' : ''}`}
+        className={`graph-paper flex flex-col gap-1 px-5 py-4 cursor-pointer ${reading ? 'hover:bg-accent-soft' : ''}`}
         onDoubleClick={onDoubleClick}
       >
-        {leading}
-        <Tex latex={latex} display className="min-w-0 flex-1 overflow-x-auto text-[1.15em]" />
-        {description && <span className="text-sm text-muted">{description}</span>}
-        {label && <span className="font-mono text-sm text-muted">({label})</span>}
-        {actions}
+        <div className="flex items-center gap-4">
+          {leading}
+          <Tex latex={latex} display className="min-w-0 flex-1 overflow-x-auto text-[1.15em]" />
+          {label && <span className="shrink-0 font-mono text-sm text-muted">({label})</span>}
+          {actions}
+        </div>
+        {/* Below the formula, so a long description never squeezes it. */}
+        {description && <p className="m-0 text-center text-sm text-muted">{description}</p>}
       </div>
       {children}
     </div>

@@ -56,6 +56,32 @@ validates and previews the archive before creating new private copies owned by t
 it never merges with or overwrites existing data. Derived formula and search indexes are rebuilt,
 and uploaded files are queued for re-indexing.
 
+## Lectures and useful links
+
+- **Original lectures:** in **Uploads**, give a lecture number when uploading a lecture's slides or PDF (one file at a
+  time), or use **Mark as original lecture** on an uploaded file. Every course numbers its own lectures, so the number
+  always goes with a course: the upload course beside it, or the course picked in the mark form (a file marked as
+  another course's lecture moves to that course). The lectures of that course that already have an original are listed,
+  and a taken number is caught before saving. One original per lecture of a course, kept in backups (a file moved to
+  another course with its page is unmarked). An article created
+  from it starts with its lecture number.
+- **Lectures** (sidebar): only the originals, in lecture order. Each opens the original file and lists its subset: the
+  pages with that lecture number (the article made from it, its parts and notes), its example problems and its
+  calculators. Lectures that have pages or calculators but no original yet are named underneath, with a link to
+  Uploads. **Edit** puts a **Move lecture** button on each card: pick a course (or keep it) and the lecture number
+  there; the original moves, and by default its pages, example problems and calculators too, all renumbered. Files
+  attached to those pages and the search index follow; a number already taken in that course is caught first.
+- **Any page type can carry a lecture number** (lecture, theory, notes, sources, example problems). The Wiki and course
+  pages switch between **By type** (sections, reorderable) and **By lecture**: each lecture with a link to its
+  original, then the lecture, its theory, notes and sources, its example problems and its calculators; pages not tied
+  to a lecture come last. The choice is remembered in the browser. A page with a lecture number links to that
+  lecture's original.
+- **Calculators** shared with a course can be tagged with one of its lectures (**Lecture (optional)** in the editor);
+  a personal calculator has none. The tag is kept in backups.
+- **Useful links** (sidebar): NASA's Eyes, the Copernicus Browser, JPL Horizons and CelesTrak built in, each with a
+  note on what it is for. Add your own (name, address, note); they are saved to your profile, only `http(s)` addresses
+  are accepted, and removing one asks first.
+
 ## Course structure
 
 A course's pages are shown in sections: **Lectures** (by lecture number), **Example problems**, **Theory**, **Notes**
@@ -506,7 +532,7 @@ The plan follows four rules:
 
 - [x] J2 perturbation (toggle): nodal regression and apsidal precession, so the Sun-synchronous and 63.4° Molniya/Tundra
       presets show why they work.
-- [x] Ground track with the body's rotation, on a longitude–latitude grid (coastlines not yet drawn).
+- [x] Ground track with the body's rotation, on a longitude–latitude map with coastlines.
 - [ ] Transfer diagram, separate from the orbit diagram: two circular orbits and the Hohmann transfer between them at a
       sensible scale, a spacecraft that flies it with both burns, and the phase angle for meeting a target. Its numbers
       come from the built-in `HOHMANN_CALCULATOR` (Δv of both burns and transfer time, checked against Curtis Ex. 6.1).
