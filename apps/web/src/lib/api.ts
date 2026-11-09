@@ -199,8 +199,17 @@ export const api = {
   formulas: (pinned?: boolean) => get<Formula[]>(`/formulas${qs({ pinned: pinned ? '1' : undefined })}`),
   files: {
     /** The latest 200 uploads, or with `originals`, every lecture's original. */
-    list: (o: { courseId?: string; pageId?: string; originals?: '1' } = {}) =>
-      get<FileAsset[]>(`/files${qs(o)}`),
+    list: (
+      o: {
+        courseId?: string
+        pageId?: string
+        originals?: '1'
+        /** Part of the file name. */
+        q?: string
+        offset?: string
+        limit?: string
+      } = {},
+    ) => get<FileAsset[]>(`/files${qs(o)}`),
     /** With `lectureNumber`, the (single) upload becomes the original of that lecture. */
     upload: (courseId: string, files: File[], pageId?: string, lectureNumber?: number) => {
       const fd = new FormData()
@@ -248,6 +257,8 @@ export const api = {
   },
   backup: {
     exportUrl: () => '/api/backup/export',
+    /** When your last backup download finished (null: never). */
+    status: () => get<{ lastBackupAt: string | null }>('/backup/status'),
     preview: (file: File) => {
       const body = new FormData()
       body.set('archive', file)

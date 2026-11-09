@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { unlink } from 'node:fs/promises'
 import path from 'node:path'
-import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike, inArray, isNotNull } from 'drizzle-orm'
 import { Router } from 'express'
 import multer from 'multer'
 import { z } from 'zod'
@@ -72,8 +72,12 @@ files.get('/', async (req, res) => {
     .object({
       courseId: z.string().uuid().optional(),
       pageId: z.string().uuid().optional(),
-      /** Only the lectures' originals, all of them (the plain list is the latest 200 uploads). */
+      /** Only the lectures' originals, all of them (the plain list is paged). */
       originals: z.literal('1').optional(),
+      /** Part of the file name. */
+      q: z.string().trim().max(200).optional(),
+      offset: z.coerce.number().int().min(0).max(1_000_000).default(0),
+      limit: z.coerce.number().int().min(1).max(200).default(200),
     })
     .parse(req.query)
   const user = me(req)
@@ -89,10 +93,17 @@ files.get('/', async (req, res) => {
         inArray(schema.files.courseId, ids),
         q.pageId ? eq(schema.files.pageId, q.pageId) : undefined,
         q.originals ? isNotNull(schema.files.lectureNumber) : undefined,
+        // A literal match: % and _ in the search are not wildcards.
+        q.q ? ilike(schema.files.name, `%${q.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`) : undefined,
       ),
     )
-    .orderBy(q.originals ? asc(schema.files.lectureNumber) : desc(schema.files.createdAt))
-    .limit(q.originals ? 10_000 : 200)
+    .orderBy(
+      ...(q.originals
+        ? [asc(schema.files.lectureNumber)]
+        : [desc(schema.files.createdAt), desc(schema.files.id)]),
+    )
+    .limit(q.originals ? 10_000 : q.limit)
+    .offset(q.originals ? 0 : q.offset)
   res.json(rows)
 })
 

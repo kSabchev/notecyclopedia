@@ -1405,5 +1405,94 @@ test(
       400,
       'Already there',
     )
+
+    // Uploads: search by name (literally) and page through them.
+    const fileNames = async (query: string) =>
+      ((await (await request(owner, `/files?${query}`)).json()) as { id: string; name: string }[]).map(
+        (f) => f.name,
+      )
+    const slideMatches = await fileNames('q=SLIDES')
+    assert.ok(
+      slideMatches.length > 0 && slideMatches.every((name) => name === 'slides-3.txt'),
+      'Case-insensitive name search',
+    )
+    assert.deepEqual(await fileNames(`q=${encodeURIComponent('%')}`), [], '% is not a wildcard')
+    // Ids, not names: the restored backup holds copies with the same names.
+    const fileIds = async (query: string) =>
+      ((await (await request(owner, `/files?${query}`)).json()) as { id: string }[]).map((f) => f.id)
+    const uploadsPage1 = await fileIds('limit=1')
+    const uploadsPage2 = await fileIds('limit=1&offset=1')
+    assert.equal(uploadsPage1.length, 1)
+    assert.equal(uploadsPage2.length, 1)
+    assert.notDeepEqual(uploadsPage1, uploadsPage2)
+
+    // A page moving to another course: calculators made from it keep a lecture tag only if it is the page's own.
+    const taggedPage = (await (
+      await request(owner, '/pages', {
+        method: 'POST',
+        body: json({
+          courseId: sourceCourse.id,
+          title: 'Lecture 5',
+          type: 'lecture',
+          lectureNumber: 5,
+          content: { type: 'doc', content: [] },
+        }),
+      })
+    ).json()) as { id: string }
+    const fromPage = async (lectureNumber: number) =>
+      (
+        (await (
+          await request(owner, '/calculators', {
+            method: 'POST',
+            body: json({
+              courseId: sourceCourse.id,
+              sourcePageId: taggedPage.id,
+              lectureNumber,
+              spec: {
+                version: 1,
+                name: `From lecture 5, tagged ${lectureNumber}`,
+                inputs: [{ key: 'r', label: 'Radius', unit: 'km', default: 7000 }],
+                outputs: [{ key: 'v', label: 'Speed', unit: 'km/s', expr: 'sqrt(398600 / r)' }],
+              },
+            }),
+          })
+        ).json()) as { id: string }
+      ).id
+    const sameTag = await fromPage(5)
+    const otherTag = await fromPage(6)
+    assert.equal(
+      (
+        await request(owner, `/pages/${taggedPage.id}/move`, {
+          method: 'POST',
+          body: json({ courseId: targetCourse.id }),
+        })
+      ).status,
+      200,
+    )
+    const followed = await db
+      .select({
+        id: schema.calculators.id,
+        courseId: schema.calculators.courseId,
+        lectureNumber: schema.calculators.lectureNumber,
+      })
+      .from(schema.calculators)
+      .where(inArray(schema.calculators.id, [sameTag, otherTag]))
+    assert.deepEqual(
+      [sameTag, otherTag].map((id) => {
+        const c = followed.find((row) => row.id === id)
+        return [c?.courseId, c?.lectureNumber]
+      }),
+      [
+        [targetCourse.id, 5],
+        [targetCourse.id, null],
+      ],
+    )
+
+    // The Backup page knows when your last backup finished.
+    const lastBackup = async (actor: Actor) =>
+      ((await (await request(actor, '/backup/status')).json()) as { lastBackupAt: string | null })
+        .lastBackupAt
+    assert.ok(lastBackup && (await lastBackup(owner)), 'The owner downloaded a backup above')
+    assert.equal(await lastBackup(viewer), null)
   },
 )

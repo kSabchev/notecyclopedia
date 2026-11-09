@@ -1,8 +1,8 @@
 import type { DocJSON, FileAsset } from '@nc/shared'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { EditorContent, type JSONContent, useEditor } from '@tiptap/react'
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { EditorToolbar } from '../components/EditorToolbar'
 import { FileDrop } from '../components/FileDrop'
@@ -107,6 +107,9 @@ function LectureMark({ file, courses }: { file: FileAsset; courses: CourseOption
     </div>
   )
 }
+
+/** Uploads load a page at a time. */
+const PAGE_SIZE = 50
 
 function ArticleDraftEditor({
   file,
@@ -236,12 +239,31 @@ export function Files() {
   )
   const originalValid =
     !original.trim() || (Number.isSafeInteger(originalNumber) && originalNumber > 0 && !upTaken.taken)
-  const files = useQuery({
-    queryKey: ['files', 'all'],
-    queryFn: () => api.files.list(),
+  // Search by name and filter by course, a page of uploads at a time.
+  const [search, setSearch] = useState('')
+  const [query, setQuery] = useState('')
+  const [shownCourse, setShownCourse] = useState('')
+  useEffect(() => {
+    const id = setTimeout(() => setQuery(search.trim()), 250)
+    return () => clearTimeout(id)
+  }, [search])
+  const files = useInfiniteQuery({
+    queryKey: ['files', 'list', query, shownCourse],
+    queryFn: ({ pageParam }) =>
+      api.files.list({
+        q: query || undefined,
+        courseId: shownCourse || undefined,
+        offset: String(pageParam),
+        limit: String(PAGE_SIZE),
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (last, all) => (last.length === PAGE_SIZE ? all.length * PAGE_SIZE : undefined),
     refetchInterval: (q) =>
-      q.state.data?.some((f) => f.status === 'uploaded' || f.status === 'processing') ? 2000 : false,
+      q.state.data?.pages.flat().some((f) => f.status === 'uploaded' || f.status === 'processing')
+        ? 2000
+        : false,
   })
+  const list = files.data?.pages.flat()
   const remove = useMutation({
     mutationFn: api.files.remove,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['files'] }),
@@ -315,12 +337,44 @@ export function Files() {
         lectureNumber={original.trim() && originalValid ? originalNumber : undefined}
         onUploaded={() => setOriginal('')}
       />
-      {files.data?.length === 0 && <Empty>{t('files.none')}</Empty>}
-      {!!files.data?.length && (
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex min-w-0 flex-[1_1_280px] flex-col gap-1.5">
+          <label htmlFor="files-search" className="text-[13px] font-semibold text-muted">
+            {t('files.search')}
+          </label>
+          <input
+            id="files-search"
+            type="search"
+            className={inputCls}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="files-course" className="text-[13px] font-semibold text-muted">
+            {t('files.filterCourse')}
+          </label>
+          <select
+            id="files-course"
+            className={inputCls}
+            value={shownCourse}
+            onChange={(e) => setShownCourse(e.target.value)}
+          >
+            <option value="">{t('files.allCourses')}</option>
+            {courses.data?.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {list?.length === 0 && <Empty>{query || shownCourse ? t('files.noMatch') : t('files.none')}</Empty>}
+      {!!list?.length && (
         <div className="overflow-x-auto rounded-[12px] border border-line bg-surface">
           <table className="w-full min-w-[640px] border-collapse text-sm">
             <tbody>
-              {files.data.map((f) => (
+              {list.map((f) => (
                 <Fragment key={f.id}>
                   <tr className="border-t border-line-soft first:border-0">
                     <td className="w-16 py-3 pl-5">
@@ -418,7 +472,19 @@ export function Files() {
           </table>
         </div>
       )}
-      <ErrorNote error={createArticle.error} />
+      {files.hasNextPage && (
+        <div>
+          <button
+            type="button"
+            className={btn('secondary')}
+            disabled={files.isFetchingNextPage}
+            onClick={() => files.fetchNextPage()}
+          >
+            {t('files.more')}
+          </button>
+        </div>
+      )}
+      <ErrorNote error={files.error ?? createArticle.error} />
     </div>
   )
 }

@@ -1,8 +1,38 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, ErrorNote, Field, SectionHeader, btn } from '../components/ui'
 import { type BackupImportResult, type BackupSummary, api } from '../lib/api'
+import { timeAgo } from '../lib/format'
+
+/** A backup older than this gets a reminder. */
+const STALE_DAYS = 14
+
+/** When the last backup was made; after a download, it is checked until the new time arrives. */
+function LastBackup({ waitingSince }: { waitingSince: number | null }) {
+  const { t } = useTranslation()
+  const status = useQuery({
+    queryKey: ['backup', 'status'],
+    queryFn: api.backup.status,
+    refetchInterval: (q) => {
+      const last = q.state.data?.lastBackupAt
+      const waiting = waitingSince !== null && Date.now() - waitingSince < 120_000
+      return waiting && (!last || new Date(last).getTime() < waitingSince) ? 2000 : false
+    },
+  })
+  if (!status.data) return null
+  const last = status.data.lastBackupAt
+  const stale = !last || Date.now() - new Date(last).getTime() > STALE_DAYS * 86_400_000
+  return (
+    <p role="status" className={`m-0 text-sm ${stale ? 'font-semibold text-danger' : 'text-muted'}`}>
+      {!last
+        ? t('backup.lastNever')
+        : stale
+          ? t('backup.stale', { when: timeAgo(last) })
+          : t('backup.last', { when: timeAgo(last), date: new Date(last).toLocaleDateString() })}
+    </p>
+  )
+}
 
 export function Backup() {
   const { t } = useTranslation()
@@ -10,6 +40,7 @@ export function Backup() {
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<BackupSummary | null>(null)
   const [result, setResult] = useState<BackupImportResult | null>(null)
+  const [downloadedAt, setDownloadedAt] = useState<number | null>(null)
   const previewBackup = useMutation({
     mutationFn: api.backup.preview,
     onSuccess: (summary) => {
@@ -50,8 +81,13 @@ export function Backup() {
       <Card className="flex flex-col gap-5 p-6">
         <SectionHeader title={t('backup.exportTitle')} />
         <p className="m-0 text-sm text-muted">{t('backup.exportDescription')}</p>
+        <LastBackup waitingSince={downloadedAt} />
         <div>
-          <a href={api.backup.exportUrl()} className={btn('primary')}>
+          <a
+            href={api.backup.exportUrl()}
+            className={btn('primary')}
+            onClick={() => setDownloadedAt(Date.now())}
+          >
             {t('backup.download')}
           </a>
         </div>
