@@ -11,6 +11,8 @@ import { calculators } from './routes/calculators'
 import { courses } from './routes/courses'
 import { daily } from './routes/daily'
 import { files } from './routes/files'
+import { lectures } from './routes/lectures'
+import { links } from './routes/links'
 import { formulas, pages } from './routes/pages'
 import { search } from './routes/search'
 import { study } from './routes/study'
@@ -39,6 +41,8 @@ export function createApp() {
   api.use('/ai', ai)
   api.use('/daily', daily)
   api.use('/study', study)
+  api.use('/lectures', lectures)
+  api.use('/links', links)
   api.use('/admin', admin)
   app.use('/api', api)
 

@@ -13,6 +13,100 @@ import { Empty, ErrorNote, Field, FileBadge, btn, inputCls } from '../components
 import { api } from '../lib/api'
 import type { ArticleDraft } from '../lib/api'
 import { bytes, timeAgo } from '../lib/format'
+import { type CourseOption, useTaken } from '../lib/lectures'
+
+/** "Original · Lecture 3" on an upload, and marking or unmarking it as the original of a lecture of a course. */
+function LectureMark({ file, courses }: { file: FileAsset; courses: CourseOption[] }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const [courseId, setCourseId] = useState(file.courseId)
+  const canEdit = courses.some((c) => c.id === file.courseId)
+  const set = useMutation({
+    mutationFn: (n: number | null) =>
+      api.files.setLecture(file.id, n, n !== null && courseId !== file.courseId ? courseId : undefined),
+    onSuccess: () => {
+      setEditing(false)
+      setValue('')
+      qc.invalidateQueries({ queryKey: ['files'] })
+    },
+  })
+  const n = Number(value)
+  const course = courses.find((c) => c.id === courseId)
+  const { taken, note } = useTaken(course, value.trim() ? n : null, file.id)
+  const valid = Number.isSafeInteger(n) && n > 0 && !taken
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+      {file.lectureNumber !== null && (
+        <span className="rounded-md bg-accent-soft px-2 py-0.5 font-semibold text-accent">
+          {t('files.originalBadge', { n: file.lectureNumber })}
+        </span>
+      )}
+      {canEdit &&
+        (file.lectureNumber !== null ? (
+          <button
+            type="button"
+            className="cursor-pointer border-0 bg-transparent p-0 font-semibold text-muted underline"
+            disabled={set.isPending}
+            onClick={() => set.mutate(null)}
+          >
+            {t('files.unmark')}
+          </button>
+        ) : editing ? (
+          <form
+            className="flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (valid) set.mutate(n)
+            }}
+          >
+            <select
+              aria-label={t('files.lectureCourse')}
+              className={`${inputCls} min-h-8 py-0.5 text-xs`}
+              value={courseId}
+              onChange={(e) => setCourseId(e.target.value)}
+            >
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min={1}
+              autoFocus
+              aria-label={t('files.lectureNo')}
+              className={`${inputCls} min-h-8 w-20 py-0.5 text-xs`}
+              value={value}
+              aria-invalid={taken}
+              onChange={(e) => setValue(e.target.value)}
+            />
+            <button type="submit" className={btn('primary', 'sm')} disabled={!valid || set.isPending}>
+              {t('files.markSave')}
+            </button>
+            <button type="button" className={btn('ghost', 'sm')} onClick={() => setEditing(false)}>
+              {t('files.cancel')}
+            </button>
+            <p className={`m-0 w-full ${taken ? 'font-semibold text-danger' : 'text-muted'}`}>
+              {note}
+              {course && courseId !== file.courseId && ` ${t('files.movesTo', { course: course.name })}`}
+            </p>
+          </form>
+        ) : (
+          <button
+            type="button"
+            className="cursor-pointer border-0 bg-transparent p-0 font-semibold text-accent"
+            onClick={() => setEditing(true)}
+          >
+            {t('files.markOriginal')}
+          </button>
+        ))}
+      <ErrorNote error={set.error} />
+    </div>
+  )
+}
 
 function ArticleDraftEditor({
   file,
@@ -28,7 +122,7 @@ function ArticleDraftEditor({
   const qc = useQueryClient()
   const [title, setTitle] = useState(draft.title)
   const [tags, setTags] = useState(draft.tags.join(', '))
-  const [lectureNumber, setLectureNumber] = useState('')
+  const [lectureNumber, setLectureNumber] = useState(file.lectureNumber ? String(file.lectureNumber) : '')
   const parsedLectureNumber = lectureNumber.trim() ? Number(lectureNumber) : null
   const lectureNumberValid =
     parsedLectureNumber === null ||
@@ -133,7 +227,15 @@ export function Files() {
   const editable = courses.data?.filter((c) => c.role !== 'viewer') ?? []
   const [courseId, setCourseId] = useState<string>()
   const [preview, setPreview] = useState<string | null>(null)
+  const [original, setOriginal] = useState('')
+  const originalNumber = Number(original)
   const target = courseId ?? editable[0]?.id
+  const upTaken = useTaken(
+    editable.find((c) => c.id === target),
+    original.trim() ? originalNumber : null,
+  )
+  const originalValid =
+    !original.trim() || (Number.isSafeInteger(originalNumber) && originalNumber > 0 && !upTaken.taken)
   const files = useQuery({
     queryKey: ['files', 'all'],
     queryFn: () => api.files.list(),
@@ -160,7 +262,7 @@ export function Files() {
     )
 
   return (
-    <div className="flex max-w-[1100px] flex-col gap-6 px-6 pb-18 pt-10 md:px-12">
+    <div className="flex flex-col gap-6 px-6 pb-18 pt-10 md:px-12">
       <h1 className="m-0 text-[40px] font-extrabold tracking-[-0.025em]">{t('files.title')}</h1>
       <div className="flex flex-wrap items-end gap-4">
         <div className="flex flex-col gap-1.5">
@@ -180,8 +282,39 @@ export function Files() {
             ))}
           </select>
         </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="up-original" className="text-[13px] font-semibold text-muted">
+            {t('files.originalOf')}
+          </label>
+          <input
+            id="up-original"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            className={`${inputCls} w-40`}
+            value={original}
+            aria-invalid={!originalValid}
+            aria-describedby="up-original-hint up-original-taken"
+            onChange={(e) => setOriginal(e.target.value)}
+          />
+        </div>
       </div>
-      <FileDrop courseId={target} />
+      <div className="flex max-w-[720px] flex-col gap-1 text-xs">
+        <p id="up-original-hint" className="m-0 text-muted">
+          {t('files.originalHint')}
+        </p>
+        <p
+          id="up-original-taken"
+          className={`m-0 ${upTaken.taken ? 'font-semibold text-danger' : 'text-muted'}`}
+        >
+          {upTaken.note}
+        </p>
+      </div>
+      <FileDrop
+        courseId={originalValid ? target : undefined}
+        lectureNumber={original.trim() && originalValid ? originalNumber : undefined}
+        onUploaded={() => setOriginal('')}
+      />
       {files.data?.length === 0 && <Empty>{t('files.none')}</Empty>}
       {!!files.data?.length && (
         <div className="overflow-x-auto rounded-[12px] border border-line bg-surface">
@@ -203,6 +336,7 @@ export function Files() {
                         {f.name}
                       </a>
                       {f.error && <div className="text-xs text-danger">{f.error}</div>}
+                      <LectureMark file={f} courses={editable} />
                     </td>
                     <td className="py-3 text-muted">{courseName(f.courseId)}</td>
                     <td className="py-3 font-mono text-xs text-muted">{bytes(f.size)}</td>

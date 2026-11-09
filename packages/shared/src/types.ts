@@ -79,6 +79,8 @@ export interface FileAsset {
   size: number
   status: FileStatus
   error: string | null
+  /** Set when this upload is the original of a lecture of its course (one per lecture number). */
+  lectureNumber: number | null
   createdAt: string
 }
 
@@ -89,6 +91,8 @@ export interface Calculator {
   spec: CalculatorSpec
   origin: 'manual' | 'ai'
   sourcePageId: string | null
+  /** The lecture of its course it belongs to (course calculators only). */
+  lectureNumber: number | null
   updatedAt: string
 }
 

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { unlink } from 'node:fs/promises'
 import path from 'node:path'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm'
 import { Router } from 'express'
 import multer from 'multer'
 import { z } from 'zod'
@@ -40,12 +40,41 @@ const publicCols = {
   size: schema.files.size,
   status: schema.files.status,
   error: schema.files.error,
+  lectureNumber: schema.files.lectureNumber,
   createdAt: schema.files.createdAt,
+}
+
+const lectureNumber = z.number().int().positive().max(2_147_483_647)
+
+/** Another upload of the course is already the original of that lecture (unique index). */
+export const isLectureTaken = (e: unknown) =>
+  (e as { code?: string; cause?: { code?: string } }).code === '23505' ||
+  (e as { cause?: { code?: string } }).cause?.code === '23505'
+
+/** Which course and which file already hold the lecture, so the message says where to look. */
+export async function lectureTaken(courseId: string, n: number) {
+  const [course] = await db
+    .select({ name: schema.courses.name })
+    .from(schema.courses)
+    .where(eq(schema.courses.id, courseId))
+  const [holder] = await db
+    .select({ name: schema.files.name })
+    .from(schema.files)
+    .where(and(eq(schema.files.courseId, courseId), eq(schema.files.lectureNumber, n)))
+  return new HttpError(
+    409,
+    `Lecture ${n} of ${course?.name ?? 'this course'} already has an original${holder ? ` (${holder.name})` : ''}. Unmark that file first, or pick another number.`,
+  )
 }
 
 files.get('/', async (req, res) => {
   const q = z
-    .object({ courseId: z.string().uuid().optional(), pageId: z.string().uuid().optional() })
+    .object({
+      courseId: z.string().uuid().optional(),
+      pageId: z.string().uuid().optional(),
+      /** Only the lectures' originals, all of them (the plain list is the latest 200 uploads). */
+      originals: z.literal('1').optional(),
+    })
     .parse(req.query)
   const user = me(req)
   if (q.pageId) await loadPage(q.pageId, user.id)
@@ -55,17 +84,35 @@ files.get('/', async (req, res) => {
   const rows = await db
     .select(publicCols)
     .from(schema.files)
-    .where(and(inArray(schema.files.courseId, ids), q.pageId ? eq(schema.files.pageId, q.pageId) : undefined))
-    .orderBy(desc(schema.files.createdAt))
-    .limit(200)
+    .where(
+      and(
+        inArray(schema.files.courseId, ids),
+        q.pageId ? eq(schema.files.pageId, q.pageId) : undefined,
+        q.originals ? isNotNull(schema.files.lectureNumber) : undefined,
+      ),
+    )
+    .orderBy(q.originals ? asc(schema.files.lectureNumber) : desc(schema.files.createdAt))
+    .limit(q.originals ? 10_000 : 200)
   res.json(rows)
 })
 
 files.post('/', upload.array('files'), async (req, res) => {
   const uploaded = (req.files as Express.Multer.File[] | undefined) ?? []
   try {
-    const { courseId, pageId } = z
-      .object({ courseId: z.string().uuid(), pageId: z.string().uuid().optional() })
+    const {
+      courseId,
+      pageId,
+      lectureNumber: original,
+    } = z
+      .object({
+        courseId: z.string().uuid(),
+        pageId: z.string().uuid().optional(),
+        /** Mark the (single) upload as the original of this lecture. */
+        lectureNumber: z.preprocess(
+          (v) => (v === '' ? undefined : v),
+          z.coerce.number().pipe(lectureNumber).optional(),
+        ),
+      })
       .parse(req.body)
     const user = me(req)
     await assertCourse(courseId, user.id, 'editor')
@@ -74,6 +121,8 @@ files.post('/', upload.array('files'), async (req, res) => {
       if (page.courseId !== courseId) throw new HttpError(400, 'Page is in a different course')
     }
     if (!uploaded.length) throw new HttpError(400, 'No files received')
+    if (original !== undefined && uploaded.length > 1)
+      throw new HttpError(400, 'Upload the original of a lecture on its own.')
     const rows = await db
       .insert(schema.files)
       .values(
@@ -85,10 +134,14 @@ files.post('/', upload.array('files'), async (req, res) => {
           mime: fileType(f.originalname)?.mime ?? 'application/octet-stream',
           size: f.size,
           storageKey: f.filename,
+          lectureNumber: original ?? null,
           uploadedBy: user.id,
         })),
       )
       .returning(publicCols)
+      .catch(async (e) => {
+        throw isLectureTaken(e) && original !== undefined ? await lectureTaken(courseId, original) : e
+      })
     for (const r of rows) await queueIngest(r.id)
     res.status(201).json(rows)
   } catch (e) {
@@ -149,6 +202,40 @@ files.patch('/:id', async (req, res) => {
     .set({ pageId })
     .where(eq(schema.files.id, f.id))
     .returning(publicCols)
+  res.json(row)
+})
+
+/**
+ * Mark an upload as the original of a lecture, or unmark it (null). With another `courseId`, it becomes the original
+ * of that course's lecture: the file moves there (and leaves the page it was attached to, which stays behind).
+ */
+files.patch('/:id/lecture', async (req, res) => {
+  const user = me(req)
+  const f = await loadFile(param(req, 'id'), user.id, 'editor')
+  const body = z
+    .object({ lectureNumber: lectureNumber.nullable(), courseId: z.string().uuid().optional() })
+    .parse(req.body)
+  const n = body.lectureNumber
+  const courseId = body.courseId ?? f.courseId
+  const moving = courseId !== f.courseId
+  if (moving) await assertCourse(courseId, user.id, 'editor')
+  const row = await db
+    .transaction(async (tx) => {
+      const [updated] = await tx
+        .update(schema.files)
+        .set(moving ? { lectureNumber: n, courseId, pageId: null } : { lectureNumber: n })
+        .where(eq(schema.files.id, f.id))
+        .returning(publicCols)
+      if (moving)
+        await tx
+          .update(schema.chunks)
+          .set({ courseId })
+          .where(and(eq(schema.chunks.sourceType, 'file'), eq(schema.chunks.sourceId, f.id)))
+      return updated
+    })
+    .catch(async (e) => {
+      throw isLectureTaken(e) && n !== null ? await lectureTaken(courseId, n) : e
+    })
   res.json(row)
 })
 

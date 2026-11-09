@@ -11,6 +11,7 @@ import { RevisionChanges } from '../components/RevisionChanges'
 import { ErrorNote, Eyebrow, FileBadge, btn, inputCls } from '../components/ui'
 import { ApiError, api } from '../lib/api'
 import { timeAgo } from '../lib/format'
+import { useLectureExtras } from '../lib/lectures'
 
 type Tab = 'read' | 'source' | 'history'
 
@@ -42,6 +43,7 @@ export function PageView() {
       .then(() => qc.invalidateQueries({ queryKey: ['study', 'where'] }))
       .catch(() => {})
   }, [page.data, pageId, qc])
+  const extras = useLectureExtras()
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const references = useQuery({
     queryKey: ['references', pageId],
@@ -110,6 +112,7 @@ export function PageView() {
   if (page.error) return <div className="p-10 text-danger">{page.error.message}</div>
   const p = page.data
   const course = courses.data?.find((c) => c.id === p.courseId)
+  const original = extras.original(p.courseId, p.lectureNumber)
   const canEdit = course && course.role !== 'viewer'
   const moveCourses = courses.data?.filter((item) => item.role !== 'viewer' && item.id !== p.courseId) ?? []
   const headings = docHeadings(p.content)
@@ -132,8 +135,13 @@ export function PageView() {
         </div>
         <div className="flex flex-col gap-3">
           {p.lectureNumber !== null && (
-            <span className="text-sm font-semibold text-muted">
+            <span className="flex flex-wrap items-baseline gap-x-3 text-sm font-semibold text-muted">
               {t('page.lectureNumber', { n: p.lectureNumber })}
+              {original && (
+                <a href={api.files.url(original.id, true)} target="_blank" rel="noreferrer">
+                  {t('page.original', { name: original.name })} ↗
+                </a>
+              )}
             </span>
           )}
           <h1 className="m-0 font-serif text-[46px] font-semibold leading-[1.08] tracking-[-0.015em]">

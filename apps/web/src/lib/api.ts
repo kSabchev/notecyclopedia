@@ -32,6 +32,14 @@ import type {
 import i18n from '../i18n'
 
 /** The interface language, sent with AI requests as the fallback language for short notes. */
+/** A link you added to the Useful links page. */
+export interface UserLink {
+  id: string
+  title: string
+  url: string
+  note: string | null
+}
+
 const uiLocale = (): Locale => (i18n.language?.startsWith('bg') ? 'bg' : 'en')
 
 export class ApiError extends Error {
@@ -190,17 +198,35 @@ export const api = {
     }>(`/formulas/related${qs({ pageId, nodeId })}`),
   formulas: (pinned?: boolean) => get<Formula[]>(`/formulas${qs({ pinned: pinned ? '1' : undefined })}`),
   files: {
-    list: (o: { courseId?: string; pageId?: string } = {}) => get<FileAsset[]>(`/files${qs(o)}`),
-    upload: (courseId: string, files: File[], pageId?: string) => {
+    /** The latest 200 uploads, or with `originals`, every lecture's original. */
+    list: (o: { courseId?: string; pageId?: string; originals?: '1' } = {}) =>
+      get<FileAsset[]>(`/files${qs(o)}`),
+    /** With `lectureNumber`, the (single) upload becomes the original of that lecture. */
+    upload: (courseId: string, files: File[], pageId?: string, lectureNumber?: number) => {
       const fd = new FormData()
       fd.set('courseId', courseId)
       if (pageId) fd.set('pageId', pageId)
+      if (lectureNumber) fd.set('lectureNumber', String(lectureNumber))
       for (const f of files) fd.append('files', f)
       return request<FileAsset[]>('POST', '/files', fd)
     },
     remove: (id: string) => request<void>('DELETE', `/files/${id}`),
+    /** Mark an upload as the original of a lecture, or unmark it (null). */
+    /** With another `courseId`, the file moves there and becomes the original of that course's lecture. */
+    setLecture: (id: string, lectureNumber: number | null, courseId?: string) =>
+      request<FileAsset>('PATCH', `/files/${id}/lecture`, { lectureNumber, courseId }),
     articleDraft: (id: string) => request<ArticleDraft>('POST', `/files/${id}/article-draft`),
     url: (id: string, inline = false) => `/api/files/${id}/download${inline ? '?inline=1' : ''}`,
+  },
+  lectures: {
+    /** Move a lecture (its original, and with `withParts` its pages and calculators) to another course or number. */
+    move: (b: {
+      courseId: string
+      lectureNumber: number
+      toCourseId: string
+      toLectureNumber: number
+      withParts: boolean
+    }) => request<{ pages: number; calculators: number }>('POST', '/lectures/move', b),
   },
   calculators: {
     list: () => get<Calculator[]>('/calculators'),
@@ -210,9 +236,12 @@ export const api = {
       courseId?: string | null
       origin?: 'manual' | 'ai'
       sourcePageId?: string | null
+      lectureNumber?: number | null
     }) => request<Calculator>('POST', '/calculators', b),
-    update: (id: string, b: { spec: CalculatorSpec; courseId: string | null }) =>
-      request<Calculator>('PUT', `/calculators/${id}`, b),
+    update: (
+      id: string,
+      b: { spec: CalculatorSpec; courseId: string | null; lectureNumber: number | null },
+    ) => request<Calculator>('PUT', `/calculators/${id}`, b),
     remove: (id: string) => request<void>('DELETE', `/calculators/${id}`),
     exportUrl: (id: string, format: 'json' | 'py' | 'html' | 'xlsx') =>
       `/api/calculators/${id}/export?format=${format}`,
@@ -255,6 +284,11 @@ export const api = {
         context,
         messageId,
       }),
+  },
+  links: {
+    list: () => get<UserLink[]>('/links'),
+    add: (link: { title: string; url: string; note?: string }) => request<UserLink>('POST', '/links', link),
+    remove: (id: string) => request<void>('DELETE', `/links/${id}`),
   },
   study: {
     where: () => get<WhereWasI>('/study/where'),

@@ -1,0 +1,1 @@
+ALTER TABLE "calculators" ADD COLUMN "lecture_number" integer;

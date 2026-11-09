@@ -100,6 +100,8 @@ const backupObjectSchema = z.object({
         spec: calculatorSpecSchema,
         origin: z.enum(['manual', 'ai']),
         sourcePageId: z.string().uuid().nullable(),
+        /** Older backups have none. */
+        lectureNumber: lectureNumberSchema.nullable().optional().default(null),
         createdAt: timestampSchema,
         updatedAt: timestampSchema,
       }),
@@ -131,6 +133,8 @@ const backupObjectSchema = z.object({
         name: z.string().min(1).max(255),
         mime: z.string().min(1).max(255),
         size: z.number().int().nonnegative().max(MAX_FILE_SIZE),
+        /** The lecture this upload is the original of; older backups have none. */
+        lectureNumber: lectureNumberSchema.nullable().optional().default(null),
         entryPath: z.string().regex(/^files\/[0-9a-f-]{36}$/i),
         createdAt: timestampSchema,
       }),
@@ -139,6 +143,18 @@ const backupObjectSchema = z.object({
 })
 const backupSchema = backupObjectSchema.superRefine((backup, ctx) => {
   const courseIds = new Set(backup.courses.map((course) => course.id))
+  const originals = new Set<string>()
+  backup.files.forEach((file, index) => {
+    if (file.lectureNumber === null) return
+    const key = `${file.courseId}:${file.lectureNumber}`
+    if (originals.has(key))
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Two files are the original of the same lecture',
+        path: ['files', index, 'lectureNumber'],
+      })
+    originals.add(key)
+  })
   const keysByCourse = new Set<string>()
   const builtInKeys = new Set(BUILT_IN_CONSTANTS.map((constant) => constant.key))
   backup.constants.forEach((constant, index) => {
@@ -260,7 +276,8 @@ export async function readBackupArchive(filePath: string) {
   for (const calculator of data.calculators) {
     if (
       (calculator.courseId !== null && !courseIds.has(calculator.courseId)) ||
-      (calculator.sourcePageId !== null && !pageIds.has(calculator.sourcePageId))
+      (calculator.sourcePageId !== null && !pageIds.has(calculator.sourcePageId)) ||
+      (calculator.lectureNumber !== null && calculator.courseId === null)
     )
       return failInvalidBackup()
   }
@@ -432,13 +449,14 @@ backup.get('/export', async (req, res) => {
       }),
     ),
     calculators: calculators.map(
-      ({ id, courseId, name, spec, origin, sourcePageId, createdAt, updatedAt }) => ({
+      ({ id, courseId, name, spec, origin, sourcePageId, lectureNumber, createdAt, updatedAt }) => ({
         id,
         courseId,
         name,
         spec,
         origin,
         sourcePageId: sourcePageId && pageIds.includes(sourcePageId) ? sourcePageId : null,
+        lectureNumber,
         createdAt,
         updatedAt,
       }),
@@ -457,13 +475,14 @@ backup.get('/export', async (req, res) => {
         updatedAt,
       }),
     ),
-    files: files.map(({ id, courseId, pageId, name, mime, size, createdAt }) => ({
+    files: files.map(({ id, courseId, pageId, name, mime, size, lectureNumber, createdAt }) => ({
       id,
       courseId,
       pageId,
       name,
       mime,
       size,
+      lectureNumber,
       entryPath: `files/${id}`,
       createdAt,
     })),
@@ -668,6 +687,7 @@ backup.post('/import', receiveArchive, async (req, res) => {
               mime: fileType(file.name)?.mime ?? 'application/octet-stream',
               size: file.size,
               storageKey,
+              lectureNumber: file.lectureNumber,
               status: 'uploaded' as const,
               uploadedBy: user.id,
               createdAt: file.createdAt,
@@ -685,6 +705,7 @@ backup.post('/import', receiveArchive, async (req, res) => {
               spec: calculator.spec,
               origin: calculator.origin,
               sourcePageId: calculator.sourcePageId ? (pageMap.get(calculator.sourcePageId) as string) : null,
+              lectureNumber: calculator.lectureNumber,
               createdAt: calculator.createdAt,
               updatedAt: new Date(),
             })),

@@ -1146,6 +1146,136 @@ test(
     )
     assert.equal((await request(owner, `/study/plans/${plan.id}`, { method: 'DELETE' })).status, 204)
 
+    // Original lectures: an upload can be the original of lecture N of its course (one per lecture).
+    const uploadOriginal = (n: number | null, names = ['slides-3.txt']) => {
+      const body = new FormData()
+      body.set('courseId', sourceCourse.id)
+      if (n !== null) body.set('lectureNumber', String(n))
+      for (const name of names)
+        body.append('files', new Blob(['Lecture slides.'], { type: 'text/plain' }), name)
+      return request(owner, '/files', { method: 'POST', body })
+    }
+    const original = await uploadOriginal(3)
+    assert.equal(original.status, 201)
+    const [slides] = (await original.json()) as { id: string; lectureNumber: number | null }[]
+    assert.equal(slides?.lectureNumber, 3)
+    assert.equal((await uploadOriginal(3, ['other.txt'])).status, 409, 'One original per lecture')
+    assert.equal(
+      (await uploadOriginal(4, ['a.txt', 'b.txt'])).status,
+      400,
+      'An original is uploaded on its own',
+    )
+    const plain = ((await (await uploadOriginal(null, ['handout.txt'])).json()) as { id: string }[])[0]
+    const markLecture = (actor: Actor, id: string, lectureNumber: number | null) =>
+      request(actor, `/files/${id}/lecture`, { method: 'PATCH', body: json({ lectureNumber }) })
+    const takenLecture = await markLecture(owner, plain?.id as string, 3)
+    assert.equal(takenLecture.status, 409)
+    assert.match(
+      ((await takenLecture.json()) as { error: string }).error,
+      /^Lecture 3 of Source course already has an original \(slides-3\.txt\)\./,
+      'The message names the course and the file holding the lecture',
+    )
+    // Lecture numbers are per course: the same file can be lecture 3 of another course, and moves there.
+    const toCourse = (courseId: string, lectureNumber: number | null) =>
+      request(owner, `/files/${plain?.id}/lecture`, {
+        method: 'PATCH',
+        body: json({ lectureNumber, courseId }),
+      })
+    const movedOriginal = (await (await toCourse(targetCourse.id, 3)).json()) as {
+      courseId: string
+      pageId: string | null
+      lectureNumber: number | null
+    }
+    assert.deepEqual(
+      [movedOriginal.courseId, movedOriginal.pageId, movedOriginal.lectureNumber],
+      [targetCourse.id, null, 3],
+    )
+    const movedChunks = await db
+      .select({ courseId: schema.chunks.courseId })
+      .from(schema.chunks)
+      .where(and(eq(schema.chunks.sourceType, 'file'), eq(schema.chunks.sourceId, plain?.id as string)))
+    assert.ok(
+      movedChunks.every((c) => c.courseId === targetCourse.id),
+      'Its search index moves with it',
+    )
+    assert.equal((await toCourse(sourceCourse.id, null)).status, 200)
+    assert.equal((await markLecture(viewer, slides?.id as string, null)).status, 403)
+    const unmarked = await markLecture(owner, slides?.id as string, null)
+    assert.equal(((await unmarked.json()) as { lectureNumber: number | null }).lectureNumber, null)
+    const handout = await markLecture(owner, plain?.id as string, 3)
+    assert.equal(((await handout.json()) as { lectureNumber: number | null }).lectureNumber, 3)
+    await markLecture(owner, plain?.id as string, null)
+    await markLecture(owner, slides?.id as string, 3)
+    // Every original, however many uploads came after it (the plain list is the latest 200).
+    const originals = (await (
+      await request(viewer, `/files?courseId=${sourceCourse.id}&originals=1`)
+    ).json()) as {
+      id: string
+    }[]
+    assert.deepEqual(
+      originals.map((f) => f.id),
+      [slides?.id],
+    )
+
+    // Calculators are tagged with a lecture of their course; a personal one cannot be.
+    const lectureCalc = (body: Record<string, unknown>) =>
+      request(owner, '/calculators', {
+        method: 'POST',
+        body: json({
+          spec: {
+            version: 1,
+            name: 'Hohmann transfer',
+            inputs: [{ key: 'r', label: 'Radius', unit: 'km', default: 7000 }],
+            outputs: [{ key: 'v', label: 'Speed', unit: 'km/s', expr: 'sqrt(398600 / r)' }],
+          },
+          ...body,
+        }),
+      })
+    assert.equal(
+      (await lectureCalc({ lectureNumber: 3 })).status,
+      400,
+      'A personal calculator has no lecture',
+    )
+    const tagged = await lectureCalc({ courseId: sourceCourse.id, lectureNumber: 3 })
+    assert.equal(tagged.status, 201)
+    const taggedCalc = (await tagged.json()) as { id: string; lectureNumber: number | null; spec: unknown }
+    assert.equal(taggedCalc.lectureNumber, 3)
+    assert.equal(
+      (
+        await request(owner, `/calculators/${taggedCalc.id}`, {
+          method: 'PUT',
+          body: json({ spec: taggedCalc.spec, courseId: null, lectureNumber: 3 }),
+        })
+      ).status,
+      400,
+      'Making it personal drops the lecture first',
+    )
+    const retagged = await request(owner, `/calculators/${taggedCalc.id}`, {
+      method: 'PUT',
+      body: json({ spec: taggedCalc.spec, courseId: sourceCourse.id, lectureNumber: 4 }),
+    })
+    assert.equal(((await retagged.json()) as { lectureNumber: number | null }).lectureNumber, 4)
+
+    // Useful links: your own, web addresses only.
+    const addLink = (actor: Actor, url: string) =>
+      request(actor, '/links', {
+        method: 'POST',
+        body: json({ title: 'Space-Track', url, note: 'TLE catalogue' }),
+      })
+    assert.equal((await addLink(owner, 'javascript:alert(1)')).status, 400)
+    assert.equal((await addLink(owner, 'ftp://example.test/file')).status, 400)
+    const link = await addLink(owner, 'https://www.space-track.org/')
+    assert.equal(link.status, 201)
+    const linkId = ((await link.json()) as { id: string }).id
+    assert.deepEqual(
+      ((await (await request(owner, '/links')).json()) as { url: string }[]).map((l) => l.url),
+      ['https://www.space-track.org/'],
+    )
+    assert.deepEqual(await (await request(viewer, '/links')).json(), [])
+    assert.equal((await request(viewer, `/links/${linkId}`, { method: 'DELETE' })).status, 404)
+    assert.equal((await request(owner, '/links/not-an-id', { method: 'DELETE' })).status, 400)
+    assert.equal((await request(owner, `/links/${linkId}`, { method: 'DELETE' })).status, 204)
+
     const backup = await request(owner, '/backup/export')
     assert.equal(backup.status, 200)
     const archive = await backup.blob()
@@ -1179,6 +1309,25 @@ test(
         ),
       )
     const lectureCopy = copies.find((p) => p.title === 'Orbital transfers' && p.id !== lecture.id)
+    const restoredOriginals = await db
+      .select({ id: schema.files.id, lectureNumber: schema.files.lectureNumber })
+      .from(schema.files)
+      .innerJoin(schema.courses, eq(schema.courses.id, schema.files.courseId))
+      .where(and(eq(schema.courses.createdBy, owner.id), eq(schema.files.name, 'slides-3.txt')))
+    assert.deepEqual(
+      restoredOriginals.map((f) => f.lectureNumber),
+      [3, 3],
+      'The original and its restored copy both mark lecture 3 (in their own courses)',
+    )
+    const restoredCalcs = await db
+      .select({ lectureNumber: schema.calculators.lectureNumber })
+      .from(schema.calculators)
+      .where(and(eq(schema.calculators.ownerId, owner.id), eq(schema.calculators.name, 'Hohmann transfer')))
+    assert.deepEqual(
+      restoredCalcs.map((c) => c.lectureNumber),
+      [4, 4],
+      'A calculator keeps its lecture in the restored copy',
+    )
     const hubCopy = copies.find((p) => p.title === 'Transfers (topic hub)' && p.id !== hub.id)
     assert.ok(lectureCopy && hubCopy)
     const copiedReferences = await db
@@ -1188,6 +1337,73 @@ test(
     assert.deepEqual(
       copiedReferences.map((r) => [r.targetPageId, r.targetNodeId]),
       [[lectureCopy.id, headingId]],
+    )
+
+    // A whole lecture moves to another course: its original, its pages and its calculators, renumbered there.
+    const partResponse = await request(owner, '/pages', {
+      method: 'POST',
+      body: json({
+        courseId: sourceCourse.id,
+        title: 'Lecture 4 notes',
+        type: 'note',
+        lectureNumber: 4,
+        content: { type: 'doc', content: [] },
+      }),
+    })
+    const part = (await partResponse.json()) as { id: string }
+    await markLecture(owner, slides?.id as string, 4)
+    const moveLecture = (actor: Actor, body: Record<string, unknown>) =>
+      request(actor, '/lectures/move', {
+        method: 'POST',
+        body: json({ courseId: sourceCourse.id, lectureNumber: 4, toCourseId: targetCourse.id, ...body }),
+      })
+    assert.equal((await moveLecture(viewer, { toLectureNumber: 7 })).status, 403)
+    const lectureMoved = await moveLecture(owner, { toLectureNumber: 7 })
+    assert.equal(lectureMoved.status, 200)
+    assert.deepEqual(await lectureMoved.json(), {
+      original: { id: slides?.id, courseId: targetCourse.id, lectureNumber: 7 },
+      pages: 1,
+      calculators: 1,
+    })
+    const [movedPart] = await db
+      .select({ courseId: schema.pages.courseId, lectureNumber: schema.pages.lectureNumber })
+      .from(schema.pages)
+      .where(eq(schema.pages.id, part.id))
+    assert.deepEqual(movedPart, { courseId: targetCourse.id, lectureNumber: 7 })
+    const [movedCalc] = await db
+      .select({ courseId: schema.calculators.courseId, lectureNumber: schema.calculators.lectureNumber })
+      .from(schema.calculators)
+      .where(eq(schema.calculators.id, taggedCalc.id))
+    assert.deepEqual(movedCalc, { courseId: targetCourse.id, lectureNumber: 7 })
+    const slideChunks = await db
+      .select({ courseId: schema.chunks.courseId })
+      .from(schema.chunks)
+      .where(and(eq(schema.chunks.sourceType, 'file'), eq(schema.chunks.sourceId, slides?.id as string)))
+    assert.ok(
+      slideChunks.every((c) => c.courseId === targetCourse.id),
+      'Its search index moves with it',
+    )
+    // Moving back onto a lecture that has an original meanwhile is refused, naming the holder.
+    await markLecture(owner, plain?.id as string, 4)
+    const backOnto = await request(owner, '/lectures/move', {
+      method: 'POST',
+      body: json({
+        courseId: targetCourse.id,
+        lectureNumber: 7,
+        toCourseId: sourceCourse.id,
+        toLectureNumber: 4,
+        withParts: false,
+      }),
+    })
+    assert.equal(backOnto.status, 409)
+    assert.match(
+      ((await backOnto.json()) as { error: string }).error,
+      /Lecture 4 of Source course .*handout\.txt/,
+    )
+    assert.equal(
+      (await moveLecture(owner, { courseId: targetCourse.id, lectureNumber: 7, toLectureNumber: 7 })).status,
+      400,
+      'Already there',
     )
   },
 )

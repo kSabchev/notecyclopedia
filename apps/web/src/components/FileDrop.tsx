@@ -8,8 +8,17 @@ import { ErrorNote } from './ui'
 export function FileDrop({
   courseId,
   pageId,
+  lectureNumber,
   compact = false,
-}: { courseId: string | undefined; pageId?: string; compact?: boolean }) {
+  onUploaded,
+}: {
+  courseId: string | undefined
+  pageId?: string
+  /** Upload as the original of this lecture (one file at a time). */
+  lectureNumber?: number
+  compact?: boolean
+  onUploaded?: () => void
+}) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const id = useId()
@@ -17,9 +26,12 @@ export function FileDrop({
   const upload = useMutation({
     mutationFn: (files: File[]) => {
       if (!courseId) throw new Error(t('course.none'))
-      return api.files.upload(courseId, files, pageId)
+      return api.files.upload(courseId, files, pageId, lectureNumber)
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['files'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['files'] })
+      onUploaded?.()
+    },
   })
   const send = (list: FileList | null) => list?.length && upload.mutate([...list])
 

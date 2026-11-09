@@ -198,7 +198,11 @@ pages.post('/:id/move', async (req, res) => {
     if (!page) throw new HttpError(409, 'This page changed while it was being moved. Reload and try again.')
 
     if (linkedFileIds.length) {
-      await tx.update(schema.files).set({ courseId }).where(inArray(schema.files.id, linkedFileIds))
+      // A moved original no longer marks a lecture: the number may be taken in the other course.
+      await tx
+        .update(schema.files)
+        .set({ courseId, lectureNumber: null })
+        .where(inArray(schema.files.id, linkedFileIds))
       await tx
         .update(schema.chunks)
         .set({ courseId })

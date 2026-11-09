@@ -11,6 +11,8 @@ import {
   CalendarIcon,
   CloseIcon,
   HomeIcon,
+  LectureIcon,
+  LinkIcon,
   MenuIcon,
   OrbitIcon,
   PlusIcon,
@@ -189,6 +191,10 @@ export function Layout() {
             <CalendarIcon />
             {t('nav.study')}
           </Link>
+          <Link to="/lectures" className={navCls} onClick={() => setMobileNavOpen(false)}>
+            <LectureIcon />
+            {t('nav.lectures')}
+          </Link>
           <Link to="/wiki" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <BookIcon />
             {t('nav.wiki')}
@@ -204,6 +210,10 @@ export function Layout() {
           <Link to="/orbit" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <OrbitIcon />
             {t('nav.orbit')}
+          </Link>
+          <Link to="/links" className={navCls} onClick={() => setMobileNavOpen(false)}>
+            <LinkIcon />
+            {t('nav.links')}
           </Link>
           <Link to="/ai" className={navCls} onClick={() => setMobileNavOpen(false)}>
             <SparkIcon />
