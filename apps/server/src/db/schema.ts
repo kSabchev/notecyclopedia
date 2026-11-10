@@ -41,6 +41,8 @@ export const user = pgTable('user', {
   locale: text('locale').notNull().default('bg'),
   /** IANA time zone that defines the user's "day" for daily topics and quizzes. */
   timezone: text('timezone').notNull().default(DEFAULT_TIME_ZONE),
+  /** When a backup download last finished, for the reminder on the Backup page. */
+  lastBackupAt: timestamp('last_backup_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

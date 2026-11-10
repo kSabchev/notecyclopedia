@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "last_backup_at" timestamp;

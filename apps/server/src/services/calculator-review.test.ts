@@ -8,10 +8,9 @@ import type { createMessage } from './claude-client'
 const wrong: CalculatorSpec = {
   version: 1,
   name: 'Circular orbit',
-  inputs: [
-    { key: 'r', label: 'Radius', unit: 'km', default: 7000 },
-    { key: 'mu', label: 'Gravitational parameter', unit: 'km³/s²', default: 398600 },
-  ],
+  inputs: [{ key: 'r', label: 'Radius', unit: 'km', default: 7000 }],
+  constants: { mu: 398600 },
+  constantMetadata: { mu: { name: 'Gravitational parameter', symbol: 'μ', unit: 'km³/s²' } },
   outputs: [{ key: 'v', label: 'Speed', unit: 'km/s', expr: 'mu / r^2' }],
 }
 const fixed: CalculatorSpec = {

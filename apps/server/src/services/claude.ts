@@ -541,6 +541,7 @@ export async function generateCalculators(
       content: `Create reusable calculators for the following. Call save_calculator once for each calculator, all in the same reply.
 Make one calculator when the steps feed into each other, and separate calculators for independent calculations (different problems, or formulas that share no inputs), at most ${MAX_CALCULATORS}.
 In each calculator, inputs are the given quantities and outputs are what is asked, plus useful intermediate results, in the order they are computed. Write the theory behind the solution and explain each step, so a student can follow it. Give every input a unit where it has one, and every constant its name, symbol and unit in constantMetadata, so the app can check the units of each formula.
+Physical constants are constants, not inputs: the gravitational parameter μ (for example mu = 398600.4418 km^3/s^2 for the Earth), G, g0, c and the like go in constants with their constantMetadata, even when the problem states their value. Inputs are only the quantities a student would change from one problem to the next.
 
 ${context}`,
     },

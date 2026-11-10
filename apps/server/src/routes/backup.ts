@@ -344,6 +344,15 @@ export function validateBackupManifest(manifestJson: string) {
   return backupSchema.safeParse(JSON.parse(manifestJson))
 }
 
+/** When your last backup download finished (null: never). */
+backup.get('/status', async (req, res) => {
+  const [row] = await db
+    .select({ lastBackupAt: schema.user.lastBackupAt })
+    .from(schema.user)
+    .where(eq(schema.user.id, me(req).id))
+  res.json({ lastBackupAt: row?.lastBackupAt ?? null })
+})
+
 backup.get('/export', async (req, res) => {
   const user = me(req)
   const courseIds = await memberCourseIds(user.id)
@@ -521,6 +530,13 @@ backup.get('/export', async (req, res) => {
     `attachment; filename="notecyclopedia-backup-${new Date().toISOString().slice(0, 10)}.zip"`,
   )
   res.setHeader('x-content-type-options', 'nosniff')
+  // Counted as a backup once the whole archive has been sent.
+  res.on('finish', () => {
+    db.update(schema.user)
+      .set({ lastBackupAt: new Date() })
+      .where(eq(schema.user.id, user.id))
+      .catch((error) => console.error('Could not record the backup time', error))
+  })
   archive.pipe(res)
   archive.append(manifestJson, { name: 'manifest.json' })
   for (const file of files)

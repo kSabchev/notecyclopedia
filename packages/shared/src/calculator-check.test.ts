@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { type CalculatorSpec, checkCalculator, diffSpecs, parseUnit } from './calculator'
+import { type CalculatorSpec, checkCalculator, diffSpecs, inputToConstant, parseUnit } from './calculator'
 
 const orbit: CalculatorSpec = {
   version: 1,
   name: 'Circular orbit',
-  inputs: [
-    { key: 'r', label: 'Radius', unit: 'km', default: 7000 },
-    { key: 'mu', label: 'Gravitational parameter', unit: 'km³/s²', default: 398600 },
-  ],
+  inputs: [{ key: 'r', label: 'Radius', unit: 'km', default: 7000 }],
+  constants: { mu: 398600 },
+  constantMetadata: { mu: { name: 'Gravitational parameter', symbol: 'μ', unit: 'km³/s²' } },
   outputs: [
     { key: 'v', label: 'Speed', unit: 'km/s', expr: 'sqrt(mu / r)' },
     { key: 'T', label: 'Period', unit: 's', expr: '2 * pi * r / v' },
@@ -30,6 +29,45 @@ describe('parseUnit', () => {
 describe('checkCalculator', () => {
   it('finds nothing in a correct calculator', () => {
     expect(checkCalculator(orbit)).toEqual([])
+  })
+
+  it('flags a gravitational parameter given as an input, and turns it into a constant', () => {
+    const asInput: CalculatorSpec = {
+      ...orbit,
+      constants: undefined,
+      constantMetadata: undefined,
+      inputs: [
+        ...orbit.inputs,
+        { key: 'mu', label: 'Gravitational parameter', unit: 'km³/s²', default: 398600 },
+      ],
+    }
+    expect(checkCalculator(asInput)).toEqual([
+      { type: 'constant-input', key: 'mu', label: 'Gravitational parameter' },
+    ])
+    for (const flagged of [
+      { key: 'GM', label: 'Mass parameter' },
+      { key: 'mu_moon', label: 'Moon' },
+      { key: 'k', label: 'Standard gravitational parameter' },
+    ])
+      expect(
+        checkCalculator({ ...orbit, inputs: [...orbit.inputs, { ...flagged, default: 1 }] }).map(
+          (i) => i.type,
+        ),
+        flagged.key,
+      ).toContain('constant-input')
+    // Same key, so the formulas are unchanged; its default becomes the value, its label and unit the description.
+    const fixed = inputToConstant(asInput, 'mu')
+    expect(fixed.inputs.map((i) => i.key)).toEqual(['r'])
+    expect(fixed.constants).toEqual({ mu: 398600 })
+    expect(fixed.constantMetadata).toEqual({
+      mu: { name: 'Gravitational parameter', symbol: 'μ', unit: 'km³/s²' },
+    })
+    expect(checkCalculator(fixed)).toEqual([])
+    // A calculator keeps at least one input, and a value without a default cannot become a constant.
+    const only = { ...asInput, inputs: [asInput.inputs[1]!] }
+    expect(inputToConstant(only, 'mu')).toBe(only)
+    const noDefault = { ...asInput, inputs: [orbit.inputs[0]!, { key: 'mu', label: 'μ' }] }
+    expect(inputToConstant(noDefault, 'mu')).toBe(noDefault)
   })
 
   it('reports a formula whose units do not give the output unit', () => {
@@ -105,7 +143,7 @@ describe('checkCalculator', () => {
     const spec: CalculatorSpec = {
       ...orbit,
       inputs: [...orbit.inputs, { key: 'm', label: 'Mass', unit: 'kg', default: 1000 }],
-      constants: { G: 6.674e-20 },
+      constants: { ...orbit.constants, G: 6.674e-20 },
       outputs: [{ key: 'v', label: 'Speed', unit: 'km/s', expr: 'sqrt(mu / (r - 7000))' }],
     }
     const issues = checkCalculator(spec)
@@ -120,10 +158,7 @@ describe('diffSpecs', () => {
     const revised: CalculatorSpec = {
       ...orbit,
       theory: 'Gravity provides the centripetal force.',
-      inputs: [
-        orbit.inputs[0] as CalculatorSpec['inputs'][number],
-        { ...orbit.inputs[1], default: 398600.4418 } as never,
-      ],
+      constants: { mu: 398600.4418 },
       outputs: [
         { key: 'v', label: 'Speed', unit: 'km/s', expr: 'sqrt(mu / r)', explanation: 'From μ/r² = v²/r.' },
         { key: 'P', label: 'Period', unit: 'min', expr: '2 * pi * r / v / 60' },
@@ -137,10 +172,10 @@ describe('diffSpecs', () => {
         before: null,
         after: 'Gravity provides the centripetal force.',
       },
-      { area: 'input', key: 'mu', field: 'default', before: '398600', after: '398600.4418' },
       { area: 'output', key: 'T', field: 'removed', before: 'T = 2 * pi * r / v [s]', after: null },
       { area: 'output', key: 'v', field: 'explanation', before: null, after: 'From μ/r² = v²/r.' },
       { area: 'output', key: 'P', field: 'added', before: null, after: 'P = 2 * pi * r / v / 60 [min]' },
+      { area: 'constant', key: 'mu', field: 'value', before: '398600', after: '398600.4418' },
     ])
     expect(diffSpecs(orbit, orbit)).toEqual([])
     const unitless: CalculatorSpec = { ...orbit, constants: { g0: 9.81 } }

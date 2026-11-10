@@ -136,7 +136,11 @@ test('a calculator is checked automatically, and an AI correction is edited and 
   await page.screenshot({ path: testInfo.outputPath('calculator-review.png'), fullPage: true })
   await review.getByRole('button', { name: 'Edit with these changes' }).click()
   await expect(page.getByText('The proposed changes are in the editor.', { exact: false })).toBeVisible()
-  await expect(checks).toHaveCount(0)
+  // The units now add up; μ is still an input, which the checks point out.
+  const muCheck =
+    'Gravitational parameter (mu) is a physical constant, not a value you change per problem: make it a constant.'
+  await expect(checks.getByRole('listitem')).toHaveCount(1)
+  await expect(checks.getByRole('listitem')).toContainText(muCheck)
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Edit', exact: true })).toBeVisible()
 
@@ -147,5 +151,20 @@ test('a calculator is checked automatically, and an AI correction is edited and 
     expr: 'sqrt(mu / r)',
     explanation: 'Gravity provides the centripetal force.',
   })
+
+  // One click turns μ into a constant (same key, so the formula stays), to review and save.
+  await checks.getByRole('button', { name: 'Make it a constant' }).click()
+  await expect(checks).toHaveCount(0)
+  await expect(page.getByLabel('Default value')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Edit', exact: true })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Automatic checks' })).toHaveCount(0)
+  const constant = (await (await page.request.get(`/api/calculators/${id}`)).json()) as {
+    spec: { inputs: { key: string }[]; constants: Record<string, number>; constantMetadata: unknown }
+  }
+  expect(constant.spec.inputs.map((input) => input.key)).toEqual(['r'])
+  expect(constant.spec.constants).toEqual({ mu: 398600 })
+  expect(constant.spec.constantMetadata).toEqual({
+    mu: { name: 'Gravitational parameter', symbol: 'μ', unit: 'km³/s²' },
+  })
 })

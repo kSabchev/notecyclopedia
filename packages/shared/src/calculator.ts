@@ -159,10 +159,47 @@ export { formatValue } from './format'
 
 // ---------- automatic checks ----------
 
+/** Gravitational parameters (μ = GM) by key or label: physical constants, not values that change per problem. */
+const GRAVITATIONAL_KEY = /^(mu|μ|gm)(_[a-z0-9]+)?$/i
+const GRAVITATIONAL_LABEL = /gravitational parameter|\bGM\b/i
+
+/** Whether an input is really a physical constant such as μ. */
+export function isConstantInput(input: { key: string; label: string }): boolean {
+  return GRAVITATIONAL_KEY.test(input.key) || GRAVITATIONAL_LABEL.test(input.label)
+}
+
+/**
+ * The calculator with an input turned into a constant of the same key (so its formulas stay as they are), valued at
+ * the input's default and described by its label and unit. Unchanged when the input has no default, or is the only
+ * input (a calculator needs one).
+ */
+export function inputToConstant(spec: CalculatorSpec, key: string): CalculatorSpec {
+  const input = spec.inputs.find((i) => i.key === key)
+  if (!input || input.default === undefined || spec.inputs.length === 1) return spec
+  const symbol = GRAVITATIONAL_KEY.test(key) && /^mu/i.test(key) ? `μ${key.slice(2)}` : key
+  return {
+    ...spec,
+    inputs: spec.inputs.filter((i) => i.key !== key),
+    constants: { ...spec.constants, [key]: input.default },
+    ...(input.unit && {
+      constantMetadata: {
+        ...spec.constantMetadata,
+        [key]: {
+          name: input.label.slice(0, 120),
+          symbol: symbol.slice(0, 32),
+          unit: input.unit.slice(0, 40),
+        },
+      },
+    }),
+  }
+}
+
 /** A problem found without AI: a formula that fails, an unused value, or units that do not add up. */
 export type CalculatorIssue =
   | { type: 'evaluation'; key?: string; message: string }
   | { type: 'unused'; key: string; label: string }
+  /** An input that is a physical constant (such as μ): nobody changes it per problem, so it belongs in constants. */
+  | { type: 'constant-input'; key: string; label: string }
   | {
       type: 'units'
       key: string
@@ -235,6 +272,8 @@ export function checkCalculator(spec: CalculatorSpec): CalculatorIssue[] {
   const used = new Set(spec.outputs.flatMap((o) => symbolsOf(o.expr)))
   for (const input of spec.inputs)
     if (!used.has(input.key)) issues.push({ type: 'unused', key: input.key, label: input.label })
+  for (const input of spec.inputs)
+    if (isConstantInput(input)) issues.push({ type: 'constant-input', key: input.key, label: input.label })
   for (const key of Object.keys(spec.constants ?? {}))
     if (!used.has(key)) issues.push({ type: 'unused', key, label: spec.constantMetadata?.[key]?.name ?? key })
 

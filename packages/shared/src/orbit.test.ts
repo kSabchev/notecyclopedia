@@ -68,7 +68,7 @@ describe('orbit quantities', () => {
     expect(() => exportJSON(ORBIT_CALCULATOR)).not.toThrow()
     const el: OrbitalElements = { a: 26600, e: 0.74, i: 63.4, raan: 0, argp: 270, nu: 75 }
     const q = orbitQuantities(el, MU)
-    const run = evaluateCalculator(ORBIT_CALCULATOR, { a: el.a, ecc: el.e, nu: el.nu, mu: MU })
+    const run = evaluateCalculator(ORBIT_CALCULATOR, { a: el.a, ecc: el.e, nu: el.nu })
     expect(run.ok).toBe(true)
     if (!run.ok) return
     expect(run.values.T).toBeCloseTo(q.period, 6)
@@ -156,7 +156,7 @@ describe('animation and speeds', () => {
 
   it('gives periapsis, apoapsis, circular and escape speeds', () => {
     const mu = 398600.4418
-    const circular = evaluateCalculator(ORBIT_CALCULATOR, { a: 6795, ecc: 0, nu: 0, mu })
+    const circular = evaluateCalculator(ORBIT_CALCULATOR, { a: 6795, ecc: 0, nu: 0 })
     expect(circular.ok).toBe(true)
     if (!circular.ok) return
     const v = circular.values
@@ -164,7 +164,7 @@ describe('animation and speeds', () => {
     expect(v.va).toBeCloseTo(v.vp as number, 9)
     expect(v.vcirc).toBeCloseTo(v.v as number, 9)
     expect(v.vesc).toBeCloseTo(Math.SQRT2 * (v.vcirc as number), 9)
-    const molniya = evaluateCalculator(ORBIT_CALCULATOR, { a: 26600, ecc: 0.74, nu: 0, mu })
+    const molniya = evaluateCalculator(ORBIT_CALCULATOR, { a: 26600, ecc: 0.74, nu: 0 })
     expect(molniya.ok && (molniya.values.vp as number) / (molniya.values.va as number)).toBeCloseTo(
       1.74 / 0.26,
       9,
@@ -201,7 +201,6 @@ describe('J2, ground tracks and Hohmann transfers', () => {
       a: el.a,
       ecc: el.e,
       nu: el.nu,
-      mu: earth.mu,
       inc: el.i,
       J2: earth.j2,
       Re: earth.radius,
@@ -238,13 +237,13 @@ describe('J2, ground tracks and Hohmann transfers', () => {
   })
 
   it('computes a Hohmann transfer from LEO to GEO (Curtis, Example 6.1)', () => {
-    const h = evaluateCalculator(HOHMANN_CALCULATOR, { r1: 6678, r2: 42164, mu: earth.mu })
+    const h = evaluateCalculator(HOHMANN_CALCULATOR, { r1: 6678, r2: 42164 })
     expect(h.ok).toBe(true)
     if (!h.ok) return
     expect(h.values.dv).toBeCloseTo(3.893, 3)
     expect((h.values.tt as number) / 3600).toBeCloseTo(5.275, 2)
     // Going down costs the same Δv as going up.
-    const down = evaluateCalculator(HOHMANN_CALCULATOR, { r1: 42164, r2: 6678, mu: earth.mu })
+    const down = evaluateCalculator(HOHMANN_CALCULATOR, { r1: 42164, r2: 6678 })
     expect(down.ok && down.values.dv).toBeCloseTo(h.values.dv as number, 9)
     expect(checkCalculator(HOHMANN_CALCULATOR)).toEqual([])
   })
@@ -255,15 +254,18 @@ describe('display without the calculator engine', () => {
     for (const body of CENTRAL_BODIES)
       for (const { elements: el } of ORBIT_PRESETS) {
         const orbit = { ...el, a: Math.max(el.a, body.radius * 1.2), nu: 137 }
-        const calc = evaluateCalculator(ORBIT_CALCULATOR, {
-          a: orbit.a,
-          ecc: orbit.e,
-          nu: orbit.nu,
-          mu: body.mu,
-          inc: orbit.i,
-          J2: body.j2,
-          Re: body.radius,
-        })
+        // μ is the calculator's constant (the Earth's); here it takes each body's value.
+        const calc = evaluateCalculator(
+          { ...ORBIT_CALCULATOR, constants: { mu: body.mu } },
+          {
+            a: orbit.a,
+            ecc: orbit.e,
+            nu: orbit.nu,
+            inc: orbit.i,
+            J2: body.j2,
+            Re: body.radius,
+          },
+        )
         expect(calc.ok).toBe(true)
         if (!calc.ok) continue
         const plain = orbitValues(orbit, body)

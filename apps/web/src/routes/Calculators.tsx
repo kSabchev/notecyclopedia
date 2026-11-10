@@ -7,6 +7,7 @@ import {
   calculatorSpecSchema,
   checkCalculator,
   diffSpecs,
+  inputToConstant,
 } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
@@ -42,6 +43,8 @@ function IssueText({ issue }: { issue: CalculatorIssue }) {
   const { t } = useTranslation()
   if (issue.type === 'evaluation') return <>{t('calc.check.evaluation', { message: issue.message })}</>
   if (issue.type === 'unused') return <>{t('calc.check.unused', { label: issue.label, key: issue.key })}</>
+  if (issue.type === 'constant-input')
+    return <>{t('calc.check.constantInput', { label: issue.label, key: issue.key })}</>
   if (issue.actual === null) return <>{t('calc.check.unitsMixed', { label: issue.label })}</>
   if (issue.actual === '1')
     return <>{t('calc.check.unitsPlain', { label: issue.label, expected: issue.expected })}</>
@@ -51,7 +54,14 @@ function IssueText({ issue }: { issue: CalculatorIssue }) {
 }
 
 /** Problems found without AI, shown while viewing and live while editing. */
-function AutomaticChecks({ issues }: { issues: CalculatorIssue[] }) {
+function AutomaticChecks({
+  issues,
+  onMakeConstant,
+}: {
+  issues: CalculatorIssue[]
+  /** Fix a constant given as an input (opens the editor with the change, to review and save). */
+  onMakeConstant?: (key: string) => void
+}) {
   const { t } = useTranslation()
   if (!issues.length) return null
   return (
@@ -66,6 +76,15 @@ function AutomaticChecks({ issues }: { issues: CalculatorIssue[] }) {
         {issues.map((issue) => (
           <li key={`${issue.type}-${'key' in issue ? issue.key : ''}`}>
             <IssueText issue={issue} />
+            {issue.type === 'constant-input' && onMakeConstant && (
+              <button
+                type="button"
+                className={`${btn('secondary', 'sm')} ml-2`}
+                onClick={() => onMakeConstant(issue.key)}
+              >
+                {t('calc.makeConstant')}
+              </button>
+            )}
           </li>
         ))}
       </ul>
@@ -248,6 +267,14 @@ function Detail({
     setVisualSpec(next)
     setText(JSON.stringify(next, null, 2))
   }
+  // An input that is really a constant (such as μ) becomes one, in the editor, to review and save.
+  const makeConstant = (key: string) => {
+    const next = inputToConstant(editing ? visualSpec : (calc?.spec ?? visualSpec), key)
+    setVisualSpec(next)
+    setText(JSON.stringify(next, null, 2))
+    setAdvanced(false)
+    setEditing(true)
+  }
   const constantOptions = [
     ...BUILT_IN_CONSTANTS,
     ...(courseConstants.data ?? []).map((constant) => ({
@@ -382,7 +409,7 @@ function Detail({
         </div>
       )}
 
-      <AutomaticChecks issues={issues} />
+      <AutomaticChecks issues={issues} onMakeConstant={calc || editing ? makeConstant : undefined} />
       {check.error && (
         <div className="border-t border-line px-6 py-4">
           <ErrorNote error={check.error} />
@@ -508,19 +535,30 @@ function Detail({
                         />
                       </label>
                     ))}
-                    <button
-                      type="button"
-                      className={`${btn('danger', 'sm')} sm:col-span-2 lg:col-span-4 sm:justify-self-end`}
-                      disabled={visualSpec.inputs.length === 1}
-                      onClick={() =>
-                        updateSpec((current) => ({
-                          ...current,
-                          inputs: current.inputs.filter((_, i) => i !== index),
-                        }))
-                      }
-                    >
-                      {t('calc.removeInput')}
-                    </button>
+                    <div className="flex flex-wrap justify-end gap-2 sm:col-span-2 lg:col-span-4">
+                      <button
+                        type="button"
+                        className={btn('secondary', 'sm')}
+                        title={t('calc.inputToConstantHint')}
+                        disabled={visualSpec.inputs.length === 1 || input.default === undefined}
+                        onClick={() => makeConstant(input.key)}
+                      >
+                        {t('calc.inputToConstant')}
+                      </button>
+                      <button
+                        type="button"
+                        className={btn('danger', 'sm')}
+                        disabled={visualSpec.inputs.length === 1}
+                        onClick={() =>
+                          updateSpec((current) => ({
+                            ...current,
+                            inputs: current.inputs.filter((_, i) => i !== index),
+                          }))
+                        }
+                      >
+                        {t('calc.removeInput')}
+                      </button>
+                    </div>
                   </div>
                 ))}
                 <button

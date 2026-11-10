@@ -399,16 +399,19 @@ export function sweptSector(
 export const ORBIT_CALCULATOR: CalculatorSpec = {
   version: 1,
   name: 'Elliptical orbit',
-  description: 'Two-body orbit quantities from the semi-major axis, eccentricity and true anomaly.',
+  description:
+    'Two-body orbit quantities around the Earth from the semi-major axis, eccentricity and true anomaly.',
   inputs: [
     { key: 'a', label: 'Semi-major axis', unit: 'km', default: 7000, min: 1 },
     { key: 'ecc', label: 'Eccentricity', default: 0.1, min: 0, max: 0.99, step: 0.01 },
     { key: 'nu', label: 'True anomaly', unit: 'deg', default: 0, min: 0, max: 360 },
-    { key: 'mu', label: 'Gravitational parameter', unit: 'km³/s²', default: 398600.4418 },
     { key: 'inc', label: 'Inclination', unit: 'deg', default: 0, min: 0, max: 180 },
     { key: 'J2', label: 'Oblateness J2', default: 1.08262668e-3 },
     { key: 'Re', label: 'Equatorial radius', unit: 'km', default: 6378.137 },
   ],
+  // μ is a physical constant of the central body (the orbit diagram uses its own body's), not an input.
+  constants: { mu: 398600.4418 },
+  constantMetadata: { mu: { name: 'Gravitational parameter of the Earth', symbol: 'μ', unit: 'km³/s²' } },
   outputs: [
     { key: 'rp', label: 'Periapsis radius', unit: 'km', expr: 'a * (1 - ecc)', precision: 1 },
     { key: 'ra', label: 'Apoapsis radius', unit: 'km', expr: 'a * (1 + ecc)', precision: 1 },
@@ -498,8 +501,10 @@ export const HOHMANN_CALCULATOR: CalculatorSpec = {
   inputs: [
     { key: 'r1', label: 'Initial orbit radius', unit: 'km', default: 6678, min: 1 },
     { key: 'r2', label: 'Target orbit radius', unit: 'km', default: 42164, min: 1 },
-    { key: 'mu', label: 'Gravitational parameter', unit: 'km³/s²', default: 398600.4418 },
   ],
+  // μ is a physical constant of the central body, not a value to change per problem.
+  constants: { mu: 398600.4418 },
+  constantMetadata: { mu: { name: 'Gravitational parameter of the Earth', symbol: 'μ', unit: 'km³/s²' } },
   outputs: [
     { key: 'at', label: 'Transfer semi-major axis', unit: 'km', expr: '(r1 + r2) / 2', precision: 1 },
     { key: 'v1', label: 'Initial circular speed', unit: 'km/s', expr: 'sqrt(mu / r1)', precision: 3 },

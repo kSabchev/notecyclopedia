@@ -56,6 +56,9 @@ validates and previews the archive before creating new private copies owned by t
 it never merges with or overwrites existing data. Derived formula and search indexes are rebuilt,
 and uploaded files are queued for re-indexing.
 
+The page shows when your last backup download finished. With no backup yet, or one older than 14 days, it reminds you
+to download a fresh one. Nothing is backed up automatically.
+
 ## Lectures and useful links
 
 - **Original lectures:** in **Uploads**, give a lecture number when uploading a lecture's slides or PDF (one file at a
@@ -164,6 +167,13 @@ the default values, every input and constant must be used, and each formula's un
 (units are compared as SI dimensions with math.js, so `sqrt(mu / r)` with μ in km³/s² and r in km gives km/s). Inputs
 without a unit count as plain numbers, angles in degrees or radians are treated as numbers, and formulas that use a
 constant without a stated unit, or a unit math.js does not know (`AU`, `%`), are not unit-checked rather than guessed.
+
+Physical constants are constants, not inputs. A gravitational parameter given as an input (key `mu`, `μ`, `GM` or
+`mu_…`, or labelled "gravitational parameter") is flagged, and **Make it a constant** turns it into one in the editor:
+the same key, so the formulas and pages that embed the calculator are unaffected, with the input's default as its value
+and its label and unit as its description. Any other input can be turned into a constant with **Make constant** in the
+editor. The built-in orbit and Hohmann calculators hold the Earth's μ as a constant (the orbit diagram uses its central
+body's own μ), and AI-generated calculators are asked to put μ, G, g₀, c and the like in their constants.
 
 **Check formulas with AI** asks Claude to review the physics or mathematics of each formula, units and conversions,
 defaults, the theory and the step explanations, with the automatic checks attached. It lists its findings and, when
@@ -314,6 +324,9 @@ Each account has a time zone (`user.timezone`) that defines its day for daily fe
 `localDate()` in `packages/shared/src/time.ts` gives the date of a moment in a user's zone.
 
 ## Create wiki articles from PDFs
+
+**Uploads** lists your files 50 at a time (**Show more** loads the next ones), with a search by file name and a
+course filter.
 
 After a text-based PDF finishes indexing, open **Uploads** and choose **Create wiki article**.
 The AI creates an editable draft from the extracted PDF text; review and edit the title, tags,
@@ -561,9 +574,27 @@ The plan follows four rules:
       come from the pages your answers cited, so no AI call is needed (not tagged by Claude as first planned).
 - [x] Exam prep: from an exam date, propose a revision plan over the course's pages in one call; saved and editable.
 - [x] Quick check on request: after an explanation, offer 2–3 questions only when you ask. No schedule, no streaks.
+- [ ] Run the exam plan and quick check once against real Claude (tests mock every AI call), and measure time to
+      first token in the same session (open from Phase 7).
+
+### Lectures and links
+
+- [x] Original lectures: an upload (slides or PDF) marked as the original of lecture N of a course, while uploading
+      or later; numbers are per course, taken ones are caught before saving.
+- [x] Lectures tab: only the originals, in order, each with its pages, example problems and calculators; **Edit →
+      Move lecture** moves a whole lecture to another course or number.
+- [x] Wiki and course pages grouped **By type** or **By lecture**; a page links to its lecture's original.
+- [x] Calculators tagged with a lecture of their course.
+- [x] Useful links: built-in tools (NASA's Eyes, Copernicus Browser, JPL Horizons, CelesTrak) and your own.
+- [ ] Article from the original: start **Create wiki article** from a lecture card whose original has no article
+      yet (together with the PDF check from Phase 7).
+- [ ] *Quiz me on this lecture* on a lecture card: a quick check with the lecture's pages as the source, only when
+      clicked.
 
 ### Phase 8b: Exam prep follow-ups
 
+- [ ] Lecture-aware plans: scope a plan by lectures (e.g. "Lectures 1–6") instead of a page list, and show each day's
+      lecture with its original, pages and example problems.
 - [ ] Use what the app knows when proposing a plan: pages you asked about most and pages you barely opened go into
       the same call, at no extra cost.
 - [ ] Time per task: estimate minutes from a page's length and formulas, and show each day's load against the
@@ -572,10 +603,21 @@ The plan follows four rules:
       with the page as the source; AI only when clicked.
 - [ ] Exam formula sheet: the key and pinned formulas of the pages in scope, grouped by lecture, printable (no AI).
 
+### Small fixes
+
+- [x] Uploads: search by file name, filter by course, and 50 at a time with **Show more** (the list used to stop at the
+      latest 200 files).
+- [x] Moving a single page to another course: calculators made from it keep their lecture tag only when it is the
+      page's own lecture number (the page keeps its number); any other tag is cleared, as the page's original is
+      unmarked.
+- [x] Backup reminder: the Backup page shows when your last backup download finished, and warns after 14 days or
+      when there is none (no automatic job).
+
 ### Package split
 
 Split `@nc/shared` into workspace packages with clear boundaries (not published yet). Pages that need only one
-part then load only that part, and the Vite tree-shaking override in `apps/web/vite.config.ts` can go.
+part then load only that part, and the Vite tree-shaking override in `apps/web/vite.config.ts` can go. Lower
+priority: it has no visible benefit until something is published, so it comes after Phase 8b and the transfer diagram.
 
 - [ ] `@nc/orbit`: orbit maths (Kepler propagation, J2 rates, ground track, sidereal time, transfers, mission
       files), with no dependencies; the `CalculatorSpec` type it borrows moves behind a small interface.

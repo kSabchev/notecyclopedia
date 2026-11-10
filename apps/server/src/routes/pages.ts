@@ -226,7 +226,12 @@ pages.post('/:id/move', async (req, res) => {
       )
     await tx
       .update(schema.calculators)
-      .set({ courseId, updatedAt: new Date() })
+      // The page keeps its lecture number, so a tag that matches it still holds; any other means nothing there.
+      .set({
+        courseId,
+        lectureNumber: sql`case when ${schema.calculators.lectureNumber} = ${current.lectureNumber} then ${schema.calculators.lectureNumber} else null end`,
+        updatedAt: new Date(),
+      })
       .where(
         and(
           eq(schema.calculators.sourcePageId, current.id),
