@@ -11,7 +11,11 @@ export function useLectureExtras() {
     queryKey: ['files', 'originals'],
     queryFn: () => api.files.list({ originals: '1' }),
   })
-  const calculators = useQuery({ queryKey: ['calculators'], queryFn: api.calculators.list })
+  const calculators = useQuery({
+    queryKey: ['calculators'],
+    queryFn: api.calculators.list,
+    select: (rows) => rows.filter((c) => !c.archivedAt),
+  })
   return {
     isPending: originals.isPending || calculators.isPending,
     originalsOf: (courseId: string) => (originals.data ?? []).filter((f) => f.courseId === courseId),

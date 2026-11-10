@@ -17,7 +17,7 @@ import {
   withBlockIds,
 } from '@nc/shared'
 import { ZipArchive } from 'archiver'
-import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
+import { asc, eq, inArray, or } from 'drizzle-orm'
 import { type Request, type RequestHandler, Router } from 'express'
 import multer from 'multer'
 import unzipper from 'unzipper'
@@ -102,6 +102,7 @@ const backupObjectSchema = z.object({
         sourcePageId: z.string().uuid().nullable(),
         /** Older backups have none. */
         lectureNumber: lectureNumberSchema.nullable().optional().default(null),
+        archivedAt: timestampSchema.nullable().optional().default(null),
         createdAt: timestampSchema,
         updatedAt: timestampSchema,
       }),
@@ -393,8 +394,8 @@ backup.get('/export', async (req, res) => {
     .from(schema.calculators)
     .where(
       or(
-        and(isNull(schema.calculators.courseId), eq(schema.calculators.ownerId, user.id)),
-        courseIds.length ? inArray(schema.calculators.courseId, courseIds) : undefined,
+        // Calculators are personal: yours only, whatever their course tag.
+        eq(schema.calculators.ownerId, user.id),
       ),
     )
   const constants = courseIds.length
@@ -458,14 +459,27 @@ backup.get('/export', async (req, res) => {
       }),
     ),
     calculators: calculators.map(
-      ({ id, courseId, name, spec, origin, sourcePageId, lectureNumber, createdAt, updatedAt }) => ({
+      ({
         id,
         courseId,
         name,
         spec,
         origin,
-        sourcePageId: sourcePageId && pageIds.includes(sourcePageId) ? sourcePageId : null,
+        sourcePageId,
         lectureNumber,
+        archivedAt,
+        createdAt,
+        updatedAt,
+      }) => ({
+        id,
+        // A tag of a course not in the backup (one you left) is dropped.
+        courseId: courseId && courseIds.includes(courseId) ? courseId : null,
+        archivedAt,
+        name,
+        spec,
+        origin,
+        sourcePageId: sourcePageId && pageIds.includes(sourcePageId) ? sourcePageId : null,
+        lectureNumber: courseId && courseIds.includes(courseId) ? lectureNumber : null,
         createdAt,
         updatedAt,
       }),
@@ -722,6 +736,7 @@ backup.post('/import', receiveArchive, async (req, res) => {
               origin: calculator.origin,
               sourcePageId: calculator.sourcePageId ? (pageMap.get(calculator.sourcePageId) as string) : null,
               lectureNumber: calculator.lectureNumber,
+              archivedAt: calculator.archivedAt,
               createdAt: calculator.createdAt,
               updatedAt: new Date(),
             })),

@@ -104,7 +104,14 @@ lectures.post('/move', async (req, res) => {
         ? await tx
             .update(schema.calculators)
             .set({ courseId: to, lectureNumber: toN, updatedAt: new Date() })
-            .where(and(eq(schema.calculators.courseId, from), eq(schema.calculators.lectureNumber, n)))
+            .where(
+              and(
+                eq(schema.calculators.courseId, from),
+                eq(schema.calculators.lectureNumber, n),
+                // Tags are personal: your calculators move with the lecture.
+                eq(schema.calculators.ownerId, user.id),
+              ),
+            )
             .returning({ id: schema.calculators.id })
         : []
       // As when a page moves: calculators made from a moved page follow it.
@@ -113,7 +120,11 @@ lectures.post('/move', async (req, res) => {
           .update(schema.calculators)
           .set({ courseId: to, updatedAt: new Date() })
           .where(
-            and(eq(schema.calculators.courseId, from), inArray(schema.calculators.sourcePageId, pageIds)),
+            and(
+              eq(schema.calculators.courseId, from),
+              inArray(schema.calculators.sourcePageId, pageIds),
+              eq(schema.calculators.ownerId, user.id),
+            ),
           )
 
       if (to !== from) {

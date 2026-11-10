@@ -162,6 +162,13 @@
       "when": 1794220802721,
       "tag": "0022_backup_reminder",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794308682317,
+      "tag": "0023_personal_calculators",
+      "breakpoints": true
     }
   ]
 }

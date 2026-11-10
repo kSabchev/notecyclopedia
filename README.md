@@ -79,8 +79,8 @@ to download a fresh one. Nothing is backed up automatically.
   original, then the lecture, its theory, notes and sources, its example problems and its calculators; pages not tied
   to a lecture come last. The choice is remembered in the browser. A page with a lecture number links to that
   lecture's original.
-- **Calculators** shared with a course can be tagged with one of its lectures (**Lecture (optional)** in the editor);
-  a personal calculator has none. The tag is kept in backups.
+- **Calculators** tagged with a course can also be tagged with one of its lectures (**Lecture (optional)** in the
+  editor); an untagged calculator has none. The tag is kept in backups.
 - **Useful links** (sidebar): NASA's Eyes, the Copernicus Browser, JPL Horizons and CelesTrak built in, each with a
   note on what it is for. Add your own (name, address, note); they are saved to your profile, only `http(s)` addresses
   are accepted, and removing one asks first.
@@ -149,9 +149,9 @@ interactive calculator or as a **plot**: choose the input to sweep along the x-a
 outputs. Outputs with different units get a chart each, so no chart has two y-scales. Readers can change the other
 inputs, read values with the pointer or the arrow keys, and open a table of the values.
 
-A block stores a copy of the calculator, so it works for everyone who can read the page (even when the library
-calculator is personal), survives backups, and is visible to search and the AI. Editors can choose
-**Update from library** to pull in later changes to the original. Blocks are validated when a page is saved.
+A block stores a copy of the calculator, so it works for everyone who can read the page (library calculators are
+personal), survives backups, and is visible to search and the AI. Editors can choose **Update from library** to pull
+in later changes to their own original. Blocks are validated when a page is saved.
 
 The **Image** button uploads a PNG, JPEG, GIF or WebP file to the page's course and shows it with an optional
 caption. Images are indexed like other uploads: with `ANTHROPIC_API_KEY` set, Claude transcribes each one for search,
@@ -159,6 +159,23 @@ which is a paid API call per image.
 
 Uploaded files are served with the type that matches their extension, and only PDFs, images and plain text open in
 the browser; everything else downloads.
+
+### Your calculator library
+
+Calculators are personal: only you see, change and run yours. The **Course** field is a tag, not sharing: it can be
+any course you belong to, and it sorts the library and links the calculator to the course's lectures. Deleting a
+course, or leaving it, clears the tag; the calculators stay yours.
+
+- **Sort and filter:** the library is grouped by course (in course order, untagged last) and then by lecture, or
+  sorted by name or by last edited, with a **Show course** filter.
+- **Archive:** hides a calculator from the library, the calculator picker and the tutor; pages that embed it keep
+  working. It is listed under **Archived**, where **Restore** brings it back.
+- **Duplicate:** a copy (with its course and lecture tags) to rework while the original stays as it is for the pages
+  that embed it. The copy links to its original.
+- **Rework with AI:** describe the change ("solve for the radius instead", "add the escape speed"); one Claude call,
+  only when you press **Propose changes**, returns the reworked calculator as changes, like **Check formulas with
+  AI**. **Edit with these changes** opens them in the editor; nothing is saved until you press Save. Duplicate first
+  to keep the original.
 
 ### Checking calculators
 
@@ -247,8 +264,8 @@ the problem. **Summarize**, **Solve** and **Build calculator** work as before.
 
 - **Numbers come from your calculators.** In every mode Claude can search your saved calculators
   (`find_calculators`) and run one (`run_calculator`) instead of doing the arithmetic itself. Each run is shown under
-  the answer with the values used and its step-by-step solution; you can change the inputs there. Only calculators
-  of your courses and your personal ones are visible to it.
+  the answer with the values used and its step-by-step solution; you can change the inputs there. Only your own
+  calculators, not archived ones, are visible to it.
 - **Calculators on request.** Only Build calculator makes calculators automatically. Under a Solve answer, or a full
   solution from the tutor, **Make a calculator from this** makes them from the solution and stores them with the
   answer, so you pay only when you want them. A request with several independent calculations gets one calculator
@@ -612,6 +629,14 @@ The plan follows four rules:
       unmarked.
 - [x] Backup reminder: the Backup page shows when your last backup download finished, and warns after 14 days or
       when there is none (no automatic job).
+
+### Calculator library
+
+- [x] Calculators are personal, with a course tag that sorts and links them to lectures without sharing them.
+- [x] Library grouped by course and lecture, sortable by name or last edited, with a course filter.
+- [x] Archive and restore; pages that embed an archived calculator keep working.
+- [x] Rework: **Duplicate** (a copy linked to its original) and **Rework with AI** (one call on request, shown as
+      changes to review before saving).
 
 ### Package split
 

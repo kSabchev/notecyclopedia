@@ -252,6 +252,11 @@ export const api = {
       b: { spec: CalculatorSpec; courseId: string | null; lectureNumber: number | null },
     ) => request<Calculator>('PUT', `/calculators/${id}`, b),
     remove: (id: string) => request<void>('DELETE', `/calculators/${id}`),
+    /** Hide it from the list, the picker and the tutor (pages that embed it keep working), or restore it. */
+    archive: (id: string, archived: boolean) =>
+      request<Calculator>('PATCH', `/calculators/${id}/archive`, { archived }),
+    /** A copy to rework, leaving the original for the pages that embed it. */
+    duplicate: (id: string) => request<Calculator>('POST', `/calculators/${id}/duplicate`, {}),
     exportUrl: (id: string, format: 'json' | 'py' | 'html' | 'xlsx') =>
       `/api/calculators/${id}/export?format=${format}`,
   },
@@ -290,6 +295,9 @@ export const api = {
     /** Claude's check of a saved calculator, with a proposed correction; nothing is saved. */
     reviewCalculator: (id: string) =>
       request<CalculatorReview>('POST', `/ai/calculators/${id}/review`, { locale: uiLocale() }),
+    /** Proposed changes for "solve for r instead" and the like; nothing is saved. */
+    reworkCalculator: (id: string, instructions: string) =>
+      request<CalculatorReview>('POST', `/ai/calculators/${id}/rework`, { locale: uiLocale(), instructions }),
     calculator: (context: string, messageId?: string) =>
       request<{ calculators: CalculatorSpec[]; failed: string[] }>('POST', '/ai/calculator', {
         context,
