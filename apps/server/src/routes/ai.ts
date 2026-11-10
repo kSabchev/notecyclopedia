@@ -44,6 +44,16 @@ ai.post('/calculators/:id/review', async (req, res) => {
   res.json(await reviewCalculator(calc.spec, user.id, locale))
 })
 
+/** Rework a calculator as asked ("solve for r instead"); the proposal is shown as changes, nothing is saved. */
+ai.post('/calculators/:id/rework', async (req, res) => {
+  const user = me(req)
+  const calc = await loadCalc(param(req, 'id'), user.id)
+  const { locale, instructions } = z
+    .object({ locale: z.enum(['en', 'bg']).optional(), instructions: z.string().trim().min(3).max(2000) })
+    .parse(req.body ?? {})
+  res.json(await reviewCalculator(calc.spec, user.id, locale, undefined, instructions))
+})
+
 /** Draft a topic hub (theory page) for a course from its notes, linking to where the topic is covered. Nothing is saved. */
 ai.post('/topic-hub', async (req, res) => {
   const { courseId, topic, locale } = z

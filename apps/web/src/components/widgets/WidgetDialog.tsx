@@ -37,7 +37,13 @@ export function WidgetDialog({
   const { t } = useTranslation()
   const dialog = useRef<HTMLDialogElement>(null)
   // Always refetch: a calculator may have been created moments ago, e.g. in another tab.
-  const calculators = useQuery({ queryKey: ['calculators'], queryFn: api.calculators.list, staleTime: 0 })
+  const calculators = useQuery({
+    queryKey: ['calculators'],
+    queryFn: api.calculators.list,
+    staleTime: 0,
+    // Archived calculators are not offered.
+    select: (rows) => rows.filter((c) => !c.archivedAt),
+  })
   const initialSpec = initial && initial.kind !== 'orbit' ? initial.spec : undefined
   const [sourceId, setSourceId] = useState(initialSpec ? KEEP : '')
   const [preset, setPreset] = useState(ORBIT_PRESETS[0]?.key ?? '')

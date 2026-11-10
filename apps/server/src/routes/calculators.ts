@@ -1,34 +1,32 @@
 import { calculatorSpecSchema, calculatorWorkbook, exportHTML, exportJSON, exportPython } from '@nc/shared'
 import { ZipArchive } from 'archiver'
-import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
-import { assertCourse, memberCourseIds } from '../access'
+import { assertCourse } from '../access'
 import { db, schema } from '../db'
 import { HttpError, me, notFound, param } from '../http'
 
 export const calculators = Router()
 
-export async function loadCalc(id: string, userId: string, edit = false) {
-  const [c] = await db.select().from(schema.calculators).where(eq(schema.calculators.id, id))
+/** Calculators are personal: only their owner can open, change or run them. */
+export async function loadCalc(id: string, userId: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw notFound('Calculator not found')
+  const [c] = await db
+    .select()
+    .from(schema.calculators)
+    .where(and(eq(schema.calculators.id, id), eq(schema.calculators.ownerId, userId)))
   if (!c) throw notFound('Calculator not found')
-  if (c.courseId) await assertCourse(c.courseId, userId, edit ? 'editor' : 'viewer')
-  else if (c.ownerId !== userId) throw notFound('Calculator not found')
   return c
 }
 
+/** Your calculators, archived ones included (the page filters them). */
 calculators.get('/', async (req, res) => {
   const user = me(req)
-  const ids = await memberCourseIds(user.id)
   const rows = await db
     .select()
     .from(schema.calculators)
-    .where(
-      or(
-        and(isNull(schema.calculators.courseId), eq(schema.calculators.ownerId, user.id)),
-        ids.length ? inArray(schema.calculators.courseId, ids) : undefined,
-      ),
-    )
+    .where(eq(schema.calculators.ownerId, user.id))
     .orderBy(desc(schema.calculators.updatedAt))
   res.json(rows)
 })
@@ -52,7 +50,8 @@ calculators.post('/', async (req, res) => {
   const body = input.parse(req.body)
   const user = me(req)
   checkLecture(body)
-  if (body.courseId) await assertCourse(body.courseId, user.id, 'editor')
+  // A tag, not sharing: any course you belong to.
+  if (body.courseId) await assertCourse(body.courseId, user.id)
   const [c] = await db
     .insert(schema.calculators)
     .values({ ...body, name: body.spec.name, ownerId: user.id })
@@ -66,10 +65,10 @@ calculators.get('/:id', async (req, res) => {
 
 calculators.put('/:id', async (req, res) => {
   const user = me(req)
-  const c = await loadCalc(param(req, 'id'), user.id, true)
+  const c = await loadCalc(param(req, 'id'), user.id)
   const body = input.pick({ spec: true, courseId: true, lectureNumber: true }).parse(req.body)
   checkLecture(body)
-  if (body.courseId && body.courseId !== c.courseId) await assertCourse(body.courseId, user.id, 'editor')
+  if (body.courseId && body.courseId !== c.courseId) await assertCourse(body.courseId, user.id)
   const [row] = await db
     .update(schema.calculators)
     .set({
@@ -84,8 +83,42 @@ calculators.put('/:id', async (req, res) => {
   res.json(row)
 })
 
+/** Archive (hide) or restore a calculator. Pages that embed it keep their copy. */
+calculators.patch('/:id/archive', async (req, res) => {
+  const c = await loadCalc(param(req, 'id'), me(req).id)
+  const { archived } = z.object({ archived: z.boolean() }).parse(req.body)
+  const [row] = await db
+    .update(schema.calculators)
+    .set({ archivedAt: archived ? new Date() : null })
+    .where(eq(schema.calculators.id, c.id))
+    .returning()
+  res.json(row)
+})
+
+/** A copy to rework, leaving the original as it is for the pages that embed it. */
+calculators.post('/:id/duplicate', async (req, res) => {
+  const user = me(req)
+  const c = await loadCalc(param(req, 'id'), user.id)
+  const { name } = z.object({ name: z.string().trim().min(1).max(200).optional() }).parse(req.body ?? {})
+  const copyName = (name ?? `${c.name} (copy)`).slice(0, 200)
+  const [row] = await db
+    .insert(schema.calculators)
+    .values({
+      ownerId: user.id,
+      courseId: c.courseId,
+      lectureNumber: c.lectureNumber,
+      name: copyName,
+      spec: { ...c.spec, name: copyName },
+      origin: c.origin,
+      sourcePageId: c.sourcePageId,
+      copiedFromId: c.id,
+    })
+    .returning()
+  res.status(201).json(row)
+})
+
 calculators.delete('/:id', async (req, res) => {
-  const c = await loadCalc(param(req, 'id'), me(req).id, true)
+  const c = await loadCalc(param(req, 'id'), me(req).id)
   await db.delete(schema.calculators).where(eq(schema.calculators.id, c.id))
   res.status(204).end()
 })

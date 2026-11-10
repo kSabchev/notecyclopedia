@@ -1,5 +1,5 @@
 import { type DocJSON, PAGE_TYPES, docToText } from '@nc/shared'
-import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
 import { assertCourse, loadPage, memberCourseIds } from '../access'
@@ -236,6 +236,8 @@ pages.post('/:id/move', async (req, res) => {
         and(
           eq(schema.calculators.sourcePageId, current.id),
           eq(schema.calculators.courseId, current.courseId),
+          // Tags are personal: yours follow the page; a classmate's keep theirs.
+          eq(schema.calculators.ownerId, user.id),
         ),
       )
     return page
@@ -496,11 +498,9 @@ formulas.get('/related', async (req, res) => {
     .where(
       and(
         eq(schema.calculators.sourcePageId, pageId),
-        // Course calculators, or the user's own personal ones (not a classmate's).
-        or(
-          inArray(schema.calculators.courseId, ids),
-          and(isNull(schema.calculators.courseId), eq(schema.calculators.ownerId, user.id)),
-        ),
+        // Calculators are personal: yours, not archived.
+        eq(schema.calculators.ownerId, user.id),
+        isNull(schema.calculators.archivedAt),
       ),
     )
     .orderBy(schema.calculators.name)

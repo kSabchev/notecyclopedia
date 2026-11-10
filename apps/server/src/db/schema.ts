@@ -15,6 +15,7 @@ import {
 } from '@nc/shared'
 import { sql } from 'drizzle-orm'
 import {
+  type AnyPgColumn,
   boolean,
   doublePrecision,
   index,
@@ -266,8 +267,11 @@ export const files = pgTable(
 
 export const calculators = pgTable('calculators', {
   id: uuid('id').primaryKey().defaultRandom(),
-  /** null = personal calculator, visible only to its owner */
-  courseId: uuid('course_id').references(() => courses.id, { onDelete: 'cascade' }),
+  /**
+   * The course it is tagged with, for sorting and its lectures; null = untagged. Calculators are personal: only
+   * the owner sees them, whatever the tag. Deleting the course clears the tag.
+   */
+  courseId: uuid('course_id').references(() => courses.id, { onDelete: 'set null' }),
   ownerId: text('owner_id')
     .notNull()
     .references(() => user.id),
@@ -279,6 +283,12 @@ export const calculators = pgTable('calculators', {
   sourcePageId: uuid('source_page_id').references(() => pages.id, { onDelete: 'set null' }),
   /** The lecture of its course this calculator belongs to; only a course calculator has one. */
   lectureNumber: integer('lecture_number'),
+  /** Set when archived: hidden from the list, the calculator picker and the tutor, still shown where embedded. */
+  archivedAt: timestamp('archived_at'),
+  /** The calculator this one was duplicated from, to rework without touching the original. */
+  copiedFromId: uuid('copied_from_id').references((): AnyPgColumn => calculators.id, {
+    onDelete: 'set null',
+  }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

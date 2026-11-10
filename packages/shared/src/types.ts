@@ -93,6 +93,10 @@ export interface Calculator {
   sourcePageId: string | null
   /** The lecture of its course it belongs to (course calculators only). */
   lectureNumber: number | null
+  /** Set when archived. */
+  archivedAt: string | null
+  /** The calculator this one was duplicated from. */
+  copiedFromId: string | null
   updatedAt: string
 }
 

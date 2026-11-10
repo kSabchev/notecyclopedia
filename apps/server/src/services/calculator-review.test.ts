@@ -77,3 +77,32 @@ test('an invalid correction is sent back once to be fixed', async () => {
     /could not produce a valid review/,
   )
 })
+
+test('a rework sends what the student asked for and returns the reworked calculator', async () => {
+  const reworked: CalculatorSpec = {
+    ...fixed,
+    outputs: [
+      ...fixed.outputs,
+      {
+        key: 'v_esc',
+        label: 'Escape speed',
+        unit: 'km/s',
+        expr: 'sqrt(2) * v',
+        explanation: 'v_esc = √2 · v.',
+      },
+    ],
+  }
+  const claude = fakeClaude([
+    { findings: [{ severity: 'note', key: 'v_esc', message: 'Added the escape speed.' }], revised: reworked },
+  ])
+  const review = await reviewCalculator(fixed, 'user', 'en', claude.create, 'Add the escape speed')
+  assert.deepEqual(
+    review.revised?.outputs.map((o) => o.key),
+    ['v', 'v_esc'],
+  )
+  assert.equal(review.findings[0]?.message, 'Added the escape speed.')
+  const prompt = JSON.stringify(claude.requests[0]?.messages)
+  assert.match(prompt, /Rework this calculator/)
+  assert.match(prompt, /Add the escape speed/)
+  assert.match(prompt, /μ in constants/)
+})

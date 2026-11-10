@@ -106,7 +106,14 @@ courses.patch('/:id', async (req, res) => {
 courses.delete('/:id', async (req, res) => {
   const id = param(req, 'id')
   await assertCourse(id, me(req).id, 'owner')
-  await db.delete(schema.courses).where(eq(schema.courses.id, id))
+  await db.transaction(async (tx) => {
+    // Calculators are personal: deleting the course clears their tag instead of deleting them.
+    await tx
+      .update(schema.calculators)
+      .set({ courseId: null, lectureNumber: null })
+      .where(eq(schema.calculators.courseId, id))
+    await tx.delete(schema.courses).where(eq(schema.courses.id, id))
+  })
   res.status(204).end()
 })
 
@@ -220,8 +227,15 @@ courses.delete('/:id/members/:userId', async (req, res) => {
   const userId = param(req, 'userId')
   await assertCourse(id, me(req).id, 'owner')
   if (userId === me(req).id) throw new HttpError(400, 'Owners cannot remove themselves')
-  await db
-    .delete(schema.courseMembers)
-    .where(and(eq(schema.courseMembers.courseId, id), eq(schema.courseMembers.userId, userId)))
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(schema.courseMembers)
+      .where(and(eq(schema.courseMembers.courseId, id), eq(schema.courseMembers.userId, userId)))
+    // Their calculators stay theirs, untagged from a course they no longer belong to.
+    await tx
+      .update(schema.calculators)
+      .set({ courseId: null, lectureNumber: null })
+      .where(and(eq(schema.calculators.courseId, id), eq(schema.calculators.ownerId, userId)))
+  })
   res.status(204).end()
 })

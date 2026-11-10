@@ -11,7 +11,7 @@ import {
 } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CalculatorRunner } from '../components/CalculatorRunner'
 import { Empty, ErrorNote, Eyebrow, btn, inputCls } from '../components/ui'
@@ -108,11 +108,14 @@ function ReviewPanel({
   current,
   onApply,
   onDismiss,
+  title,
 }: {
   review: CalculatorReview
   current: CalculatorSpec
   onApply: (spec: CalculatorSpec) => void
   onDismiss: () => void
+  /** "AI check" or "AI rework". */
+  title?: string
 }) {
   const { t } = useTranslation()
   const changes = review.revised ? diffSpecs(current, review.revised) : []
@@ -124,7 +127,7 @@ function ReviewPanel({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 id="h-review" className="m-0 text-base font-bold">
-          {t('calc.review.title')}
+          {title ?? t('calc.review.title')}
         </h3>
         {cost != null && <span className="text-xs text-muted">≈ ${cost.toFixed(cost < 0.01 ? 4 : 3)}</span>}
       </div>
@@ -228,7 +231,12 @@ function Detail({
   const lectureNumber = courseId && lecture.trim() ? Number(lecture) : null
   const lectureValid = lectureNumber === null || (Number.isSafeInteger(lectureNumber) && lectureNumber > 0)
   const [review, setReview] = useState<CalculatorReview | null>(null)
+  const [reviewKind, setReviewKind] = useState<'check' | 'rework'>('check')
+  const [reworking, setReworking] = useState(false)
+  const [instructions, setInstructions] = useState('')
   const [applied, setApplied] = useState(false)
+  const library = useQuery({ queryKey: ['calculators'], queryFn: api.calculators.list })
+  const copiedFrom = calc?.copiedFromId ? library.data?.find((c) => c.id === calc.copiedFromId) : undefined
   const courseConstants = useQuery({
     queryKey: ['course-constants', courseId],
     queryFn: () => api.courses.constants(courseId ?? ''),
@@ -243,6 +251,8 @@ function Detail({
     setCourseId(calc?.courseId ?? null)
     setLecture(calc?.lectureNumber ? String(calc.lectureNumber) : '')
     setReview(null)
+    setReworking(false)
+    setInstructions('')
     setApplied(false)
   }, [calc, isNew])
 
@@ -251,7 +261,30 @@ function Detail({
   const issues = useMemo(() => (spec ? checkCalculator(spec) : []), [spec])
   const check = useMutation({
     mutationFn: () => api.ai.reviewCalculator(calc?.id ?? ''),
-    onSuccess: setReview,
+    onSuccess: (r) => {
+      setReview(r)
+      setReviewKind('check')
+    },
+  })
+  // Rework with AI: one call on request, shown as changes like the check, nothing saved until Save.
+  const rework = useMutation({
+    mutationFn: () => api.ai.reworkCalculator(calc?.id ?? '', instructions.trim()),
+    onSuccess: (r) => {
+      setReview(r)
+      setReviewKind('rework')
+      setReworking(false)
+    },
+  })
+  const archive = useMutation({
+    mutationFn: (archived: boolean) => api.calculators.archive(calc?.id ?? '', archived),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['calculators'] }),
+  })
+  const duplicate = useMutation({
+    mutationFn: () => api.calculators.duplicate(calc?.id ?? ''),
+    onSuccess: (copy) => {
+      qc.invalidateQueries({ queryKey: ['calculators'] })
+      navigate({ to: '/calculators/$calcId', params: { calcId: copy.id } })
+    },
   })
   // A proposed correction goes into the editor, where it can be changed before saving.
   const applyReview = (revised: CalculatorSpec) => {
@@ -350,6 +383,14 @@ function Detail({
               ↗ source
             </Link>
           )}
+          {copiedFrom && (
+            <Link to="/calculators/$calcId" params={{ calcId: copiedFrom.id }} className="text-sm">
+              {t('calc.copyOf', { name: copiedFrom.name })}
+            </Link>
+          )}
+          {calc?.archivedAt && (
+            <span className="text-sm font-semibold text-muted">{t('calc.archivedNote')}</span>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {editing ? (
@@ -386,8 +427,32 @@ function Detail({
               >
                 {check.isPending ? t('calc.review.running') : t('calc.review.button')}
               </button>
+              <button
+                type="button"
+                className={btn('ai', 'sm')}
+                aria-expanded={reworking}
+                onClick={() => setReworking((value) => !value)}
+              >
+                {t('calc.rework')}
+              </button>
               <button type="button" className={btn('secondary', 'sm')} onClick={() => setEditing(true)}>
                 {t('calc.edit')}
+              </button>
+              <button
+                type="button"
+                className={btn('secondary', 'sm')}
+                disabled={duplicate.isPending}
+                onClick={() => duplicate.mutate()}
+              >
+                {t('calc.duplicate')}
+              </button>
+              <button
+                type="button"
+                className={btn('secondary', 'sm')}
+                disabled={archive.isPending}
+                onClick={() => archive.mutate(!calc?.archivedAt)}
+              >
+                {calc?.archivedAt ? t('calc.restore') : t('calc.archive')}
               </button>
               <button
                 type="button"
@@ -410,9 +475,42 @@ function Detail({
       )}
 
       <AutomaticChecks issues={issues} onMakeConstant={calc || editing ? makeConstant : undefined} />
-      {check.error && (
+      {reworking && calc && !editing && (
+        <form
+          className="flex flex-col gap-2 border-t-2 border-ai bg-ai-soft px-6 py-5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (instructions.trim().length >= 3) rework.mutate()
+          }}
+        >
+          <label htmlFor="calc-rework" className="text-sm font-bold">
+            {t('calc.reworkLabel')}
+          </label>
+          <textarea
+            id="calc-rework"
+            rows={3}
+            className="rounded-[10px] border border-line-strong bg-surface p-3 text-[15px] text-ink"
+            placeholder={t('calc.reworkPlaceholder')}
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className={btn('ai', 'sm')}
+              disabled={instructions.trim().length < 3 || rework.isPending}
+            >
+              {rework.isPending ? t('calc.reworking') : t('calc.reworkRun')}
+            </button>
+            <button type="button" className={btn('ghost', 'sm')} onClick={() => setReworking(false)}>
+              {t('calc.cancel')}
+            </button>
+          </div>
+        </form>
+      )}
+      {(check.error || rework.error || archive.error || duplicate.error) && (
         <div className="border-t border-line px-6 py-4">
-          <ErrorNote error={check.error} />
+          <ErrorNote error={check.error ?? rework.error ?? archive.error ?? duplicate.error} />
         </div>
       )}
       {review && calc && !editing && (
@@ -421,6 +519,7 @@ function Detail({
           current={calc.spec}
           onApply={applyReview}
           onDismiss={() => setReview(null)}
+          title={reviewKind === 'rework' ? t('calc.reworkTitle') : undefined}
         />
       )}
       {applied && editing && (
@@ -745,16 +844,18 @@ function Detail({
               className={`${inputCls} max-w-xs`}
               value={courseId ?? ''}
               onChange={(e) => setCourseId(e.target.value || null)}
+              aria-describedby="calc-course-hint"
             >
               <option value="">{t('calc.onlyMe')}</option>
-              {courses.data
-                ?.filter((c) => c.role !== 'viewer')
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+              {courses.data?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
             </select>
+            <p id="calc-course-hint" className="m-0 text-xs text-muted">
+              {t('calc.courseHint')}
+            </p>
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="calc-lecture" className="text-[13px] font-semibold text-muted">
@@ -803,9 +904,19 @@ export function Calculators() {
   const qc = useQueryClient()
   const navigate = useNavigate()
   const params = useParams({ strict: false }) as { calcId?: string }
-  const [filter, setFilter] = useState<'all' | 'ai'>('all')
+  const [filter, setFilter] = useState<'all' | 'ai' | 'archived'>('all')
+  const [sort, setSort] = useState<'course' | 'name' | 'edited'>('course')
+  const [shownCourse, setShownCourse] = useState('')
   const [creating, setCreating] = useState(false)
   const list = useQuery({ queryKey: ['calculators'], queryFn: api.calculators.list })
+  const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
+  const courseName = (id: string | null) =>
+    (id && courses.data?.find((c) => c.id === id)?.name) || t('calc.personal')
+  // Courses in their own order, untagged calculators last.
+  const courseOrder = (id: string | null) => {
+    const i = id ? (courses.data?.findIndex((c) => c.id === id) ?? -1) : -1
+    return i < 0 ? Number.POSITIVE_INFINITY : i
+  }
   const importJson = useMutation({
     mutationFn: async (file: File) => {
       const { spec, error } = parseSpec(await file.text())
@@ -818,7 +929,19 @@ export function Calculators() {
     },
   })
 
-  const shown = (list.data ?? []).filter((c) => filter === 'all' || c.origin === 'ai')
+  const shown = (list.data ?? [])
+    .filter((c) => (filter === 'archived' ? c.archivedAt : !c.archivedAt))
+    .filter((c) => filter !== 'ai' || c.origin === 'ai')
+    .filter((c) => !shownCourse || (shownCourse === 'none' ? !c.courseId : c.courseId === shownCourse))
+    .sort((a, b) =>
+      sort === 'name'
+        ? a.name.localeCompare(b.name)
+        : sort === 'course'
+          ? courseOrder(a.courseId) - courseOrder(b.courseId) ||
+            (a.lectureNumber ?? Number.POSITIVE_INFINITY) - (b.lectureNumber ?? Number.POSITIVE_INFINITY) ||
+            a.name.localeCompare(b.name)
+          : 0,
+    )
   const selected = list.data?.find((c) => c.id === params.calcId) ?? (creating ? null : (shown[0] ?? null))
 
   return (
@@ -875,7 +998,7 @@ export function Calculators() {
       <div className="flex flex-wrap items-start gap-7">
         <section aria-label={t('calc.title')} className="flex min-w-0 flex-[1_1_320px] flex-col gap-3">
           <div className="flex flex-wrap gap-2">
-            {(['all', 'ai'] as const).map((f) => (
+            {(['all', 'ai', 'archived'] as const).map((f) => (
               <button
                 key={f}
                 type="button"
@@ -883,38 +1006,78 @@ export function Calculators() {
                 onClick={() => setFilter(f)}
                 className={`min-h-9 cursor-pointer rounded-full border px-3.5 text-sm font-semibold ${filter === f ? 'border-inverse bg-inverse text-inverse-ink' : 'border-line-strong bg-surface text-ink'}`}
               >
-                {f === 'all' ? t('calc.all') : t('calc.aiMade')}
+                {f === 'all' ? t('calc.all') : f === 'ai' ? t('calc.aiMade') : t('calc.archivedFilter')}
               </button>
             ))}
           </div>
+          <div className="flex flex-wrap gap-3">
+            <label className="flex flex-col gap-1 text-xs font-semibold text-muted">
+              {t('calc.sortBy')}
+              <select
+                className={`${inputCls} min-h-9 py-1 text-sm`}
+                value={sort}
+                onChange={(e) => setSort(e.target.value as typeof sort)}
+              >
+                <option value="course">{t('calc.sortCourse')}</option>
+                <option value="name">{t('calc.sortName')}</option>
+                <option value="edited">{t('calc.sortEdited')}</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-semibold text-muted">
+              {t('calc.filterCourse')}
+              <select
+                className={`${inputCls} min-h-9 py-1 text-sm`}
+                value={shownCourse}
+                onChange={(e) => setShownCourse(e.target.value)}
+              >
+                <option value="">{t('calc.allCourses')}</option>
+                {courses.data?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+                <option value="none">{t('calc.personal')}</option>
+              </select>
+            </label>
+          </div>
           {shown.length === 0 && !list.isPending && <Empty>{t('calc.empty')}</Empty>}
-          {shown.map((c) => (
-            <Link
-              key={c.id}
-              to="/calculators/$calcId"
-              params={{ calcId: c.id }}
-              onClick={() => setCreating(false)}
-              aria-current={selected?.id === c.id ? 'true' : undefined}
-              className={`flex flex-col items-start gap-1.5 rounded-[12px] bg-surface px-4.5 py-4 text-ink no-underline ${selected?.id === c.id ? 'border-2 border-accent' : 'border border-line'}`}
-            >
-              <span className="flex items-center gap-2 text-base font-bold">
-                {c.name}
-                {c.origin === 'ai' && (
-                  <span className="rounded-[5px] bg-ai-soft px-1.5 py-0.5 text-[11px] font-semibold text-ai-text">
-                    {t('calc.aiMade')}
-                  </span>
-                )}
-              </span>
-              <span className="font-mono text-[13px] text-accent">
-                {c.spec.outputs.map((o) => o.key).join(', ')} = f({c.spec.inputs.map((i) => i.key).join(', ')}
-                )
-              </span>
-              <span className="text-[13px] text-muted">
-                {c.courseId
-                  ? c.lectureNumber !== null && t('page.lectureNumber', { n: c.lectureNumber })
-                  : t('calc.personal')}
-              </span>
-            </Link>
+          {shown.map((c, i) => (
+            <Fragment key={c.id}>
+              {sort === 'course' && c.courseId !== shown[i - 1]?.courseId && (
+                <h3 className="m-0 mt-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted">
+                  {courseName(c.courseId)}
+                </h3>
+              )}
+              <Link
+                key={c.id}
+                to="/calculators/$calcId"
+                params={{ calcId: c.id }}
+                onClick={() => setCreating(false)}
+                aria-current={selected?.id === c.id ? 'true' : undefined}
+                className={`flex flex-col items-start gap-1.5 rounded-[12px] bg-surface px-4.5 py-4 text-ink no-underline ${selected?.id === c.id ? 'border-2 border-accent' : 'border border-line'}`}
+              >
+                <span className="flex items-center gap-2 text-base font-bold">
+                  {c.name}
+                  {c.origin === 'ai' && (
+                    <span className="rounded-[5px] bg-ai-soft px-1.5 py-0.5 text-[11px] font-semibold text-ai-text">
+                      {t('calc.aiMade')}
+                    </span>
+                  )}
+                </span>
+                <span className="font-mono text-[13px] text-accent">
+                  {c.spec.outputs.map((o) => o.key).join(', ')} = f(
+                  {c.spec.inputs.map((i) => i.key).join(', ')})
+                </span>
+                <span className="text-[13px] text-muted">
+                  {[
+                    courseName(c.courseId),
+                    c.courseId && c.lectureNumber !== null && t('page.lectureNumber', { n: c.lectureNumber }),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+              </Link>
+            </Fragment>
           ))}
         </section>
         {(selected || creating) && (

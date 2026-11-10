@@ -54,6 +54,10 @@ test(
       }
       if (state.jobsStarted) await jobs.stopJobs()
       if (state.ownerId) await db.delete(schema.courses).where(eq(schema.courses.createdBy, state.ownerId))
+      // Calculators are personal and outlive courses: remove the test users' own.
+      const testUsers = [...state.extraUserIds, ...(state.ownerId ? [state.ownerId] : [])]
+      if (testUsers.length)
+        await db.delete(schema.calculators).where(inArray(schema.calculators.ownerId, testUsers))
       if (state.extraUserIds.length)
         await db.delete(schema.user).where(inArray(schema.user.id, state.extraUserIds))
       if (state.ownerId) await db.delete(schema.user).where(eq(schema.user.id, state.ownerId))
@@ -487,8 +491,15 @@ test(
     })
     assert.equal(created.status, 201)
     const calculator = (await created.json()) as { id: string }
+    // Calculators are personal: a member of the course it is tagged with cannot open it.
+    assert.equal((await request(viewer, `/calculators/${calculator.id}`)).status, 404)
+    assert.ok(
+      !((await (await request(viewer, '/calculators')).json()) as { id: string }[]).some(
+        (c) => c.id === calculator.id,
+      ),
+    )
     const exported = async (format: string) => {
-      const response = await request(viewer, `/calculators/${calculator.id}/export?format=${format}`)
+      const response = await request(editor, `/calculators/${calculator.id}/export?format=${format}`)
       assert.equal(response.status, 200, `export ${format}`)
       return response
     }
@@ -509,23 +520,24 @@ test(
     const sheet = (await entry('xl/worksheets/sheet1.xml')?.buffer())?.toString('utf8') ?? ''
     assert.match(sheet, /<f>SQRT\(\(\$B\$5\/\$B\$4\)\)<\/f><v>7\.54/)
 
-    // The chat tools find course calculators by keyword, only for course members, and run them.
+    // The chat tools find your own calculators by keyword (not a classmate's), and run them.
     const { calculatorLibrary } = await import('../services/calculator-library')
     const { runChatTool } = await import('../services/claude')
     const outsider = await signup('outsider')
     state.extraUserIds.push(outsider.id)
-    const viewerLibrary = calculatorLibrary(viewer.id)
-    const found = await viewerLibrary.find('circular speed')
+    const editorLibrary = calculatorLibrary(editor.id)
+    const found = await editorLibrary.find('circular speed')
     assert.deepEqual(
       found.map((c) => c.id),
       [calculator.id],
     )
+    assert.deepEqual(await calculatorLibrary(viewer.id).find('circular speed'), [], 'Not a classmate’s')
     assert.deepEqual(await calculatorLibrary(outsider.id).find('circular speed'), [])
     assert.equal(await calculatorLibrary(outsider.id).get(calculator.id), null)
     const run = await runChatTool(
       'run_calculator',
       { calculatorId: calculator.id, inputs: [{ key: 'r', value: 42164 }] },
-      viewerLibrary,
+      editorLibrary,
     )
     assert.match(
       run.content,
@@ -1494,5 +1506,74 @@ test(
         .lastBackupAt
     assert.ok(lastBackup && (await lastBackup(owner)), 'The owner downloaded a backup above')
     assert.equal(await lastBackup(viewer), null)
+
+    // Personal calculators with a course tag: a viewer of the course may tag their own with it, unshared.
+    const viewerCalcResponse = await request(viewer, '/calculators', {
+      method: 'POST',
+      body: json({
+        courseId: sourceCourse.id,
+        lectureNumber: 2,
+        spec: {
+          version: 1,
+          name: 'Escape speed',
+          inputs: [{ key: 'r', label: 'Radius', unit: 'km', default: 7000 }],
+          constants: { mu: 398600.4418 },
+          constantMetadata: { mu: { name: 'Gravitational parameter', symbol: 'μ', unit: 'km³/s²' } },
+          outputs: [{ key: 'v', label: 'Escape speed', unit: 'km/s', expr: 'sqrt(2 * mu / r)' }],
+        },
+      }),
+    })
+    assert.equal(viewerCalcResponse.status, 201)
+    const viewerCalc = (await viewerCalcResponse.json()) as { id: string }
+    assert.equal((await request(owner, `/calculators/${viewerCalc.id}`)).status, 404, 'Not shared')
+    // Archived: out of the tutor's search, still yours; restored, back.
+    const archived = await request(viewer, `/calculators/${viewerCalc.id}/archive`, {
+      method: 'PATCH',
+      body: json({ archived: true }),
+    })
+    assert.ok(((await archived.json()) as { archivedAt: string | null }).archivedAt)
+    assert.deepEqual(await calculatorLibrary(viewer.id).find('escape speed'), [])
+    assert.equal((await request(viewer, `/calculators/${viewerCalc.id}`)).status, 200)
+    await request(viewer, `/calculators/${viewerCalc.id}/archive`, {
+      method: 'PATCH',
+      body: json({ archived: false }),
+    })
+    assert.equal((await calculatorLibrary(viewer.id).find('escape speed')).length, 1)
+    // Duplicate: a copy with its tag, remembering the original.
+    const copyResponse = await request(viewer, `/calculators/${viewerCalc.id}/duplicate`, { method: 'POST' })
+    assert.equal(copyResponse.status, 201)
+    const copy = (await copyResponse.json()) as {
+      name: string
+      courseId: string
+      lectureNumber: number
+      copiedFromId: string
+      spec: { name: string }
+    }
+    assert.deepEqual(
+      [copy.name, copy.spec.name, copy.courseId, copy.lectureNumber, copy.copiedFromId],
+      ['Escape speed (copy)', 'Escape speed (copy)', sourceCourse.id, 2, viewerCalc.id],
+    )
+    assert.equal(
+      (await request(owner, `/calculators/${viewerCalc.id}/duplicate`, { method: 'POST' })).status,
+      404,
+    )
+    // Rework with AI: needs instructions; only yours.
+    const reworkAsk = (actor: Actor, instructions: string) =>
+      request(actor, `/ai/calculators/${viewerCalc.id}/rework`, {
+        method: 'POST',
+        body: json({ instructions }),
+      })
+    assert.equal((await reworkAsk(viewer, '')).status, 400)
+    assert.equal((await reworkAsk(owner, 'Solve for the radius instead')).status, 404)
+    // Leaving the course clears the tag of your calculators; they stay yours.
+    assert.equal(
+      (await request(owner, `/courses/${sourceCourse.id}/members/${viewer.id}`, { method: 'DELETE' })).status,
+      204,
+    )
+    const untagged = (await (await request(viewer, `/calculators/${viewerCalc.id}`)).json()) as {
+      courseId: string | null
+      lectureNumber: number | null
+    }
+    assert.deepEqual([untagged.courseId, untagged.lectureNumber], [null, null])
   },
 )

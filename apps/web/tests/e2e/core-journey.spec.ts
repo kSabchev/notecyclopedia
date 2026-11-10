@@ -36,7 +36,7 @@ test('sign in, create/edit/read an article, attach a source, and persist theme',
 
   await page.getByRole('tab', { name: 'Calculators' }).click()
   await page.getByRole('button', { name: 'New calculator' }).click()
-  await page.getByLabel('Visible to').selectOption({ label: 'Browser test course' })
+  await page.getByLabel('Course', { exact: true }).selectOption({ label: 'Browser test course' })
   await page.getByLabel('Name', { exact: true }).fill('Sound speed calculator')
   await page.getByLabel('Add a constant to this calculator').selectOption('SOUND_SPEED')
   await page.getByRole('button', { name: 'Add to calculator' }).click()

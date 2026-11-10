@@ -30,7 +30,11 @@ export function Home() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['formulas'] }),
   })
   const files = useQuery({ queryKey: ['files', 'recent'], queryFn: () => api.files.list() })
-  const calcs = useQuery({ queryKey: ['calculators'], queryFn: api.calculators.list })
+  const calcs = useQuery({
+    queryKey: ['calculators'],
+    queryFn: api.calculators.list,
+    select: (rows) => rows.filter((c) => !c.archivedAt),
+  })
   const courseOf = (id: string) => courses.data?.find((c) => c.id === id)
   const firstEditable = courses.data?.find((c) => c.role !== 'viewer')
 
