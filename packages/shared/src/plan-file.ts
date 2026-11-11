@@ -26,6 +26,8 @@ export const planFileSchema = z.object({
             z.object({
               focus: z.string().trim().min(1).max(300),
               done: z.boolean().default(false),
+              /** The lecture it is about (calculators are personal and not in the file). */
+              lectureNumber: z.number().int().positive().max(2_147_483_647).nullable().optional(),
               page: z
                 .object({ id: z.string().max(100), title: z.string().max(200) })
                 .nullable()
@@ -53,6 +55,7 @@ export function toPlanFile(plan: ExamPlan, courseName?: string): PlanFile {
       items: d.items.map((i) => ({
         focus: i.focus,
         done: i.done,
+        ...(i.lectureNumber != null && { lectureNumber: i.lectureNumber }),
         page: i.pageTitle ? { id: i.pageId ?? '', title: i.pageTitle } : null,
       })),
     })),
@@ -90,6 +93,7 @@ export function importPlanDays(
           pageTitle: page?.title ?? i.page?.title ?? null,
           focus: i.focus,
           done: keepProgress && i.done,
+          ...(i.lectureNumber != null && { lectureNumber: i.lectureNumber }),
         }
       }),
     }))

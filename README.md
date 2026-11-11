@@ -85,6 +85,22 @@ to download a fresh one. Nothing is backed up automatically.
   note on what it is for. Add your own (name, address, note); they are saved to your profile, only `http(s)` addresses
   are accepted, and removing one asks first.
 
+## Getting around: what links to what
+
+Pages, lectures, exam-prep tasks, calculators and courses link to one another, so each is a click from the others.
+
+- **Exam-prep tasks** can point at a lecture of the plan's course and at your calculators: **Link** on a task sets
+  them, and the task shows them as links. A task linked to a page counts for that page's lecture. A plan file or a
+  plan sent to a classmate keeps each task's lecture, not its calculators (calculators are personal).
+- **Connected** (on a page, beside the reading view, and under a calculator): its lecture, linking to the lecture's
+  card, and the lecture's original; the other pages of that lecture; the calculators tagged with it or made from the
+  page; and the tasks of your active exam plans that point at the page, the lecture or the calculator.
+- **Lecture cards** list the tasks about the lecture. Links to a lecture (`/lectures#lecture-…`) scroll to its card
+  and highlight it.
+- **A calculator** shows its course (to the course page) and its lecture (to the lecture's card).
+- **A course page** has **In this course**: its lectures, your calculators tagged with it (the library opens
+  filtered to the course, `/calculators?course=…`), formulas, and your exam plans for it.
+
 ## Course structure
 
 A course's pages are shown in sections: **Lectures** (by lecture number), **Example problems**, **Theory**, **Notes**
@@ -566,6 +582,8 @@ The plan follows four rules:
 - [ ] Transfer diagram, separate from the orbit diagram: two circular orbits and the Hohmann transfer between them at a
       sensible scale, a spacecraft that flies it with both burns, and the phase angle for meeting a target. Its numbers
       come from the built-in `HOHMANN_CALCULATOR` (Δv of both burns and transfer time, checked against Curtis Ex. 6.1).
+- [ ] TLE import: paste a two-line element set (e.g. from CelesTrak) and see the real satellite's orbit and ground
+      track in the orbit viewer; built together with the transfer diagram.
 
 ### Phase 6: Help where you read
 
@@ -622,6 +640,7 @@ The plan follows four rules:
 
 ### Small fixes
 
+- [ ] Phone-width check: the reading view, Lectures, the calculator runner and exam plans at 360–400 px.
 - [x] Uploads: search by file name, filter by course, and 50 at a time with **Show more** (the list used to stop at the
       latest 200 files).
 - [x] Moving a single page to another course: calculators made from it keep their lecture tag only when it is the
@@ -637,6 +656,32 @@ The plan follows four rules:
 - [x] Archive and restore; pages that embed an archived calculator keep working.
 - [x] Rework: **Duplicate** (a copy linked to its original) and **Rework with AI** (one call on request, shown as
       changes to review before saving).
+
+### Connected navigation
+
+- [x] Exam-prep tasks link to a lecture and to your calculators.
+- [x] **Connected** on pages and calculators: lecture and original, the lecture's pages, calculators and tasks.
+- [x] Lecture cards list their tasks; links jump to a lecture's card.
+- [x] A calculator links to its course and lecture; a course page links to its lectures, calculators, formulas and
+      exam plans.
+
+### Practice and teaching
+
+- [ ] Practice problems from calculators (no AI): a calculator with random inputs within its min/max becomes "a problem
+      like this one", with the exact answer and steps from the calculator. Unlimited, for students and for
+      professors making seminar or exam variants.
+- [ ] Notation sheet per lecture: the symbols a lecture uses (μ, a, e, ν, h…) with their meaning and unit, collected
+      from its formulas and calculator constants.
+- [ ] Presentation mode for a page: full screen, large type, interactive orbit diagrams, so notes double as slides.
+- [ ] Printable handouts: a page, or the exam formula sheet, as clean print or PDF output with formulas rendered.
+- [ ] Course packs: a course exported without personal data, for students to import as their own copy (built on
+      backup).
+
+### Next up
+
+In order: one session against real Claude (open from Phase 8), practice problems from calculators, Phase 8b
+(lecture-aware plans and the formula sheet first), the lecture card actions (*Quiz me on this lecture*, *Article from
+the original*), then the transfer diagram with TLE import. Package split and sharing come later.
 
 ### Package split
 

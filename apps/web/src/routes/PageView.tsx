@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useParams } from '@tanstack/react-router'
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Connections } from '../components/Connections'
 import { DocView, docHeadings } from '../components/DocView'
 import { FileDrop } from '../components/FileDrop'
 import { FilePreview, isTextPreviewable } from '../components/FilePreview'
@@ -12,6 +13,7 @@ import { ErrorNote, Eyebrow, FileBadge, btn, inputCls } from '../components/ui'
 import { ApiError, api } from '../lib/api'
 import { timeAgo } from '../lib/format'
 import { useLectureExtras } from '../lib/lectures'
+import { lectureAnchor } from '../lib/links'
 
 type Tab = 'read' | 'source' | 'history'
 
@@ -136,7 +138,13 @@ export function PageView() {
         <div className="flex flex-col gap-3">
           {p.lectureNumber !== null && (
             <span className="flex flex-wrap items-baseline gap-x-3 text-sm font-semibold text-muted">
-              {t('page.lectureNumber', { n: p.lectureNumber })}
+              {original ? (
+                <Link to="/lectures" hash={lectureAnchor(p.courseId, p.lectureNumber)} className="text-muted">
+                  {t('page.lectureNumber', { n: p.lectureNumber })}
+                </Link>
+              ) : (
+                t('page.lectureNumber', { n: p.lectureNumber })
+              )}
               {original && (
                 <a href={api.files.url(original.id, true)} target="_blank" rel="noreferrer">
                   {t('page.original', { name: original.name })} ↗
@@ -405,6 +413,7 @@ export function PageView() {
             )}
           </nav>
         )}
+        <Connections courseId={p.courseId} lectureNumber={p.lectureNumber} pageId={p.id} />
         {(references.data?.length ?? 0) > 0 && (
           <section aria-labelledby="h-refs" className="flex flex-col gap-2">
             <h2 id="h-refs" className="m-0 mb-1">

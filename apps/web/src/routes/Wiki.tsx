@@ -14,6 +14,7 @@ import { Card, Empty, ErrorNote, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 import { timeAgo } from '../lib/format'
 import { useLectureExtras } from '../lib/lectures'
+import { courseAnchor } from '../lib/links'
 
 type Grouping = 'type' | 'lecture'
 const GROUPING_KEY = 'nc.pageGrouping'
@@ -369,6 +370,46 @@ export function Wiki() {
   )
 }
 
+/** Quick ways from a course to its lectures, calculators, exam plans and formulas. */
+function CourseLinks({ courseId }: { courseId: string }) {
+  const { t } = useTranslation()
+  const extras = useLectureExtras()
+  const plans = useQuery({ queryKey: ['study', 'plans'], queryFn: api.study.plans })
+  const coursePlans = (plans.data ?? []).filter((p) => p.courseId === courseId)
+  const originals = extras.originalsOf(courseId).length
+  const calculators = extras.allCalculatorsOf(courseId).length
+  const row = 'flex items-baseline justify-between gap-3 text-sm'
+  return (
+    <Card className="flex flex-col gap-2.5 p-5">
+      <h2 className="m-0 text-base font-bold">{t('connect.inCourse')}</h2>
+      <Link to="/lectures" hash={courseAnchor(courseId)} className={row}>
+        <span className="font-semibold">{t('connect.lectures')}</span>
+        <span className="text-xs text-muted">{t('connect.lectureCount', { count: originals })}</span>
+      </Link>
+      <Link to="/calculators" search={{ course: courseId }} className={row}>
+        <span className="font-semibold">{t('connect.calculators')}</span>
+        <span className="text-xs text-muted">{t('connect.calculatorCount', { count: calculators })}</span>
+      </Link>
+      <Link to="/formulas" className={row}>
+        <span className="font-semibold">{t('connect.formulas')}</span>
+      </Link>
+      <div className="flex flex-col gap-1 border-t border-line-soft pt-2.5">
+        <span className="text-xs font-semibold text-muted">{t('connect.plans')}</span>
+        {coursePlans.length === 0 && (
+          <Link to="/study" className="text-sm">
+            {t('connect.noPlans')}
+          </Link>
+        )}
+        {coursePlans.map((plan) => (
+          <Link key={plan.id} to="/study/$planId" params={{ planId: plan.id }} className="text-sm">
+            {plan.title}
+          </Link>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
 function Members({ courseId, isOwner }: { courseId: string; isOwner: boolean }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -480,7 +521,8 @@ export function CourseView() {
           {/* Reordering works on the sections by type. */}
           <PageList courseId={courseId} editing={editing} grouping={editing ? 'type' : grouping} />
         </div>
-        <div className="min-w-0 flex-[1_1_280px]">
+        <div className="flex min-w-0 flex-[1_1_280px] flex-col gap-4">
+          <CourseLinks courseId={courseId} />
           <Members courseId={courseId} isOwner={course.role === 'owner'} />
         </div>
       </div>

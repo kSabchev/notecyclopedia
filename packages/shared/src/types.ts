@@ -252,6 +252,10 @@ export interface ExamPlanItem {
   /** What to do, e.g. "Rework the Hohmann examples". */
   focus: string
   done: boolean
+  /** The lecture of the plan's course it is about; when absent, the linked page's lecture. */
+  lectureNumber?: number | null
+  /** Your calculators to use for it (personal: not kept when the plan is shared or exported). */
+  calculatorIds?: string[]
 }
 
 /** One study day of a revision plan. */

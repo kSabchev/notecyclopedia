@@ -52,7 +52,7 @@ test('sign in, create/edit/read an article, attach a source, and persist theme',
   await page.locator('#lecture-number').fill('7')
   await page.getByRole('button', { name: 'Save revision' }).click()
   await expect(page.getByRole('heading', { name: 'Browser journey article' })).toBeVisible()
-  await expect(page.getByText('Lecture 7')).toBeVisible()
+  await expect(page.getByText('Lecture 7').first()).toBeVisible()
 
   await page.getByRole('link', { name: 'Edit' }).click()
   await page.locator('#page-title').fill('Edited browser article')

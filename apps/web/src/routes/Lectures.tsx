@@ -1,11 +1,13 @@
 import type { Calculator, FileAsset, PageSummary } from '@nc/shared'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { Link, useLocation } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useShortDay } from '../components/Connections'
 import { Empty, ErrorNote, FileBadge, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 import { type CourseOption, useLectureExtras, useTaken } from '../lib/lectures'
+import { type PlanTask, courseAnchor, lectureAnchor, usePlanTasks } from '../lib/links'
 
 type Original = FileAsset & { lectureNumber: number }
 
@@ -42,6 +44,12 @@ export function Lectures() {
   })
   const loaded = courses.data && !extras.isPending && pages.every((p) => !p.isPending)
   const none = loaded && groups.every((g) => !g.originals.length)
+  const tasksFor = usePlanTasks()
+  // A link to a lecture (#lecture-…) or a course (#lec-…) scrolls to it once the cards are there.
+  const target = useLocation().hash
+  useEffect(() => {
+    if (loaded && target) document.getElementById(target)?.scrollIntoView({ block: 'start' })
+  }, [loaded, target])
 
   return (
     <div className="flex flex-col gap-8 px-6 pb-18 pt-10 md:px-12">
@@ -69,8 +77,8 @@ export function Lectures() {
       {groups
         .filter((g) => g.originals.length || g.missing.length)
         .map(({ course, originals, coursePages, calculators, missing }) => (
-          <section key={course.id} aria-labelledby={`lec-${course.id}`} className="flex flex-col gap-3">
-            <h2 id={`lec-${course.id}`} className="m-0 flex items-center gap-2.5 text-xl font-bold">
+          <section key={course.id} aria-labelledby={courseAnchor(course.id)} className="flex flex-col gap-3">
+            <h2 id={courseAnchor(course.id)} className="m-0 flex items-center gap-2.5 text-xl font-bold">
               <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: course.color }} />
               <Link
                 to="/courses/$courseId"
@@ -88,6 +96,11 @@ export function Lectures() {
                   original={original}
                   pages={coursePages.filter((p) => p.lectureNumber === original.lectureNumber)}
                   calculators={calculators.filter((c) => c.lectureNumber === original.lectureNumber)}
+                  tasks={tasksFor(
+                    { courseId: course.id, lectureNumber: original.lectureNumber },
+                    (id) => coursePages.find((p) => p.id === id)?.lectureNumber,
+                  )}
+                  highlighted={target === lectureAnchor(course.id, original.lectureNumber)}
                   moveTo={editing && course.role !== 'viewer' ? editable : undefined}
                 />
               ))}
@@ -201,15 +214,22 @@ function LectureCard({
   original,
   pages,
   calculators,
+  tasks,
+  highlighted,
   moveTo,
 }: {
   original: Original
   pages: PageSummary[]
   calculators: Calculator[]
+  /** Exam prep tasks about this lecture. */
+  tasks: PlanTask[]
+  /** The card a link jumped to. */
+  highlighted: boolean
   /** In edit mode: the courses it can move to. */
   moveTo?: CourseOption[]
 }) {
   const { t } = useTranslation()
+  const shortDay = useShortDay()
   const [moving, setMoving] = useState(false)
   const parts = pages.filter((p) => p.type !== 'seminar')
   const problems = pages.filter((p) => p.type === 'seminar')
@@ -229,8 +249,9 @@ function LectureCard({
   )
   return (
     <li
+      id={lectureAnchor(original.courseId, original.lectureNumber)}
       aria-label={t('page.lectureNumber', { n: original.lectureNumber })}
-      className="flex flex-col gap-3 rounded-[12px] border border-line bg-surface p-4"
+      className={`flex scroll-mt-6 flex-col gap-3 rounded-[12px] bg-surface p-4 ${highlighted ? 'border-2 border-accent' : 'border border-line'}`}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-semibold uppercase tracking-[0.06em] text-muted">
@@ -275,6 +296,25 @@ function LectureCard({
                 <Link to="/calculators/$calcId" params={{ calcId: c.id }} className="text-sm">
                   {c.name}
                 </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {tasks.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {heading(t('connect.tasks'))}
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            {tasks.slice(0, 5).map((task) => (
+              <li key={`${task.planId}-${task.item.id}`} className="text-sm">
+                <Link
+                  to="/study/$planId"
+                  params={{ planId: task.planId }}
+                  className={task.item.done ? 'text-muted line-through' : ''}
+                >
+                  {task.item.focus}
+                </Link>{' '}
+                <span className="text-xs text-muted">· {shortDay(task.date)}</span>
               </li>
             ))}
           </ul>

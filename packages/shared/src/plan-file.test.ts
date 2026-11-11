@@ -14,7 +14,15 @@ const plan: ExamPlan = {
       date: '2026-11-10',
       items: [
         { id: 'a', pageId: 'p-kepler', pageTitle: 'Kepler orbits', focus: 'Read', done: true },
-        { id: 'b', pageId: null, pageTitle: null, focus: 'Mock exam', done: false },
+        {
+          id: 'b',
+          pageId: null,
+          pageTitle: null,
+          focus: 'Mock exam',
+          done: false,
+          lectureNumber: 3,
+          calculatorIds: ['calc-mine'],
+        },
       ],
     },
     {
@@ -37,6 +45,15 @@ describe('plan files', () => {
       page: { id: 'p-kepler', title: 'Kepler orbits' },
     })
     expect(() => planFileSchema.parse({ ...file, format: 'something-else' })).toThrow()
+  })
+
+  it('keeps a task’s lecture but not its calculators, which are personal', () => {
+    const file = toPlanFile(plan)
+    expect(file.days[0]?.items[1]).toEqual({ focus: 'Mock exam', done: false, lectureNumber: 3, page: null })
+    const { days } = importPlanDays(file, [])
+    const mock = days.flatMap((d) => d.items).find((i) => i.focus === 'Mock exam')
+    expect(mock?.lectureNumber).toBe(3)
+    expect(mock?.calculatorIds).toBeUndefined()
   })
 
   it('links tasks to the target course by id, then by title; others keep the title without a link', () => {
