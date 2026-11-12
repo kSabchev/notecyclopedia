@@ -1,3 +1,4 @@
+import { inlineContent, tidyLatex } from '@nc/shared'
 import { z } from 'zod'
 import { HttpError } from '../http'
 
@@ -51,7 +52,7 @@ export function parseArticleDraftResponse(response: {
           return {
             type: 'formula',
             attrs: {
-              latex: item.latex,
+              latex: tidyLatex(item.latex),
               label: item.label || null,
               description: item.description || null,
               pinned: false,
@@ -61,9 +62,10 @@ export function parseArticleDraftResponse(response: {
           return {
             type: 'heading',
             attrs: { level: 2 },
-            content: [{ type: 'text', text: item.text }],
+            content: inlineContent(item.text),
           }
-        return { type: 'paragraph', content: [{ type: 'text', text: item.text }] }
+        // Inline $…$ becomes math, not dollar signs on the page.
+        return { type: 'paragraph', content: inlineContent(item.text, { markdown: true }) }
       }),
     },
   }

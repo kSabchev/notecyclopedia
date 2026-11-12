@@ -1,5 +1,6 @@
+import { type DocJSON, tidyDoc } from '@nc/shared'
 import { useQueryClient } from '@tanstack/react-query'
-import { type Editor, useEditorState } from '@tiptap/react'
+import { type Editor, type JSONContent, useEditorState } from '@tiptap/react'
 import { Suspense, lazy, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
@@ -26,6 +27,14 @@ export function EditorToolbar({
   const [referencing, setReferencing] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<unknown>(null)
+  const [tidied, setTidied] = useState<number | null>(null)
+  // Math left as $…$ text (older AI saves, pasted notes) becomes typeset math; formulas get the LaTeX tidy-up.
+  // The change is an ordinary edit: review it, undo it (Ctrl+Z) or leave without saving.
+  const tidyFormulas = () => {
+    const { doc, changes } = tidyDoc(editor.getJSON() as DocJSON)
+    if (changes) editor.commands.setContent(doc as JSONContent, { emitUpdate: true })
+    setTidied(changes)
+  }
   const picker = useRef<HTMLInputElement>(null)
 
   const uploadImage = async (file: File) => {
@@ -124,6 +133,9 @@ export function EditorToolbar({
       >
         {t('editor.note')}
       </button>
+      <button type="button" className={btn('secondary', 'sm')} onClick={tidyFormulas}>
+        {t('editor.tidy')}
+      </button>
       <button type="button" className={btn('secondary', 'sm')} onClick={() => setReferencing(true)}>
         {t('editor.reference')}
       </button>
@@ -152,6 +164,11 @@ export function EditorToolbar({
             }}
           />
         </>
+      )}
+      {tidied !== null && (
+        <p role="status" className="m-0 basis-full text-xs text-muted">
+          {tidied ? t('editor.tidied', { count: tidied }) : t('editor.tidyNone')}
+        </p>
       )}
       {uploadError ? (
         <div className="basis-full">

@@ -157,6 +157,27 @@ nothing in the history is lost, and a restore that races another save is rejecte
 **Review & polish** asks Claude to check a page and propose a revised version. The proposed version opens in an
 editor next to the current page, so you can adjust it before accepting; **Restore AI version** discards your
 edits to it. Nothing is saved until you choose **Accept changes**, which saves the edited version as a new revision.
+It is also the way to rewrite AI-sounding wording for readability: one call, only when asked.
+
+## Math in pages
+
+Math inside a sentence is typeset like formula blocks. Type `$…$` in the editor (for example `$v_{esc}$`) and it becomes
+inline math; click it to edit the LaTeX. A space inside needs a LaTeX character, so typing "$5 and $" stays money.
+
+AI text that lands on a page goes through one converter (`markdownBlocks` in `packages/shared/src/math-text.ts`):
+daily questions saved to their page, **Save to page** in the AI portal, topic hubs, PDF article drafts and
+**Review & polish**. Inline `$…$` and `\(…\)` become inline math, `$$…$$` a formula block (also mid-paragraph), and
+Markdown bold, italic, code, lists and headings come through as formatting. Every AI-written formula also gets a
+conservative LaTeX tidy-up (`tidyLatex`), with no AI involved:
+
+- word subscripts and superscripts become upright text: `a_{par}` → `a_{\text{par}}` (three letters or more, or a
+  known two-letter word such as `tr`); indices like `a_{ij}` and single letters like `a_p` are kept;
+- `*` between factors becomes `\cdot` (`x^*` is kept), and `\displaystyle` is dropped.
+
+All AI prompts share one math style (`MATH_STYLE` in `apps/server/src/services/math-style.ts`), so most text arrives
+tidy and the converter catches the rest. For pages saved before this, **Tidy formulas** in the editor toolbar
+converts math left as `$…$` text and tidies every formula; it is an ordinary edit to review, undo (Ctrl+Z) or save.
+Text in code is never changed.
 
 ## Calculators, plots and images in pages
 
@@ -656,6 +677,14 @@ The plan follows four rules:
 - [x] Archive and restore; pages that embed an archived calculator keep working.
 - [x] Rework: **Duplicate** (a copy linked to its original) and **Rework with AI** (one call on request, shown as
       changes to review before saving).
+
+### Readable math
+
+- [x] Inline math in pages: typed as `$…$`, typeset in the editor and the reading view.
+- [x] One converter for AI text saved to pages (daily questions, Save to page, topic hubs, article drafts, page
+      review) and a LaTeX tidy-up without AI (word subscripts as `\text{}`, `\cdot`).
+- [x] A shared math style for every AI prompt.
+- [x] **Tidy formulas** in the editor for pages saved before.
 
 ### Connected navigation
 

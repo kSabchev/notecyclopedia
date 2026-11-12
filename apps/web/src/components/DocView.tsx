@@ -2,6 +2,7 @@ import { type DocJSON, parsePageLink } from '@nc/shared'
 import { useNavigate } from '@tanstack/react-router'
 import { type MouseEvent, type ReactNode, createContext, memo, useContext } from 'react'
 import { FormulaPin } from './PinStar'
+import { Tex } from './Tex'
 import {
   CalloutLabel,
   type FormulaAttrs,
@@ -99,6 +100,8 @@ function renderNode(node: DocNode, key: number): ReactNode {
       return <hr key={key} />
     case 'hardBreak':
       return <br key={key} />
+    case 'mathInline':
+      return <Tex key={key} latex={String(node.attrs?.latex ?? '')} />
     case 'formula': {
       const attrs: FormulaAttrs = {
         id: str(a.id) ?? null,

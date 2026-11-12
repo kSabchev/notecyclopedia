@@ -9,6 +9,7 @@ export function docToText(doc: DocJSON | null | undefined): string {
   const walk = (n: Node) => {
     if (n.type === 'text' && n.text) out.push(n.text)
     else if (n.type === 'formula') out.push(` $${String(n.attrs?.latex ?? '')}$ `)
+    else if (n.type === 'mathInline') out.push(`$${String(n.attrs?.latex ?? '')}$`)
     else if (n.type === 'widget') out.push(describeWidget(n.attrs))
     else if (n.type === 'image') out.push(`Image: ${String(n.attrs?.caption || n.attrs?.alt || '')}`.trim())
     for (const c of n.content ?? []) walk(c)
@@ -228,39 +229,4 @@ export function sectionOf(doc: DocJSON, nodeId: string | null): DocJSON {
     end++
   }
   return { ...doc, content: blocks.slice(start, end) }
-}
-
-/**
- * Page blocks from short Markdown written by the AI: paragraphs separated by blank lines, `$$…$$` on their own
- * as formula blocks, `- ` lines as a bullet list, and **bold** kept as bold text. Inline `$…$` stays as text.
- */
-export function markdownBlocks(markdown: string): unknown[] {
-  const inline = (line: string) =>
-    line
-      .split(/(\*\*[^*]+\*\*)/)
-      .filter(Boolean)
-      .map((part) =>
-        /^\*\*[^*]+\*\*$/.test(part)
-          ? { type: 'text', text: part.slice(2, -2), marks: [{ type: 'bold' }] }
-          : { type: 'text', text: part },
-      )
-  return markdown
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => {
-      const display = /^\$\$([\s\S]+)\$\$$/.exec(p)
-      if (display) return { type: 'formula', attrs: { latex: (display[1] as string).trim(), pinned: false } }
-      const lines = p.split('\n').map((l) => l.trim())
-      if (lines.every((l) => /^[-*] /.test(l)))
-        return {
-          type: 'bulletList',
-          content: lines.map((l) => ({
-            type: 'listItem',
-            content: [{ type: 'paragraph', content: inline(l.slice(2)) }],
-          })),
-        }
-      const text = lines.join(' ').replace(/^#+\s*/, '')
-      return { type: 'paragraph', content: inline(text) }
-    })
 }
