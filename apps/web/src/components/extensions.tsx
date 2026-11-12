@@ -1,5 +1,5 @@
-import type { WidgetAttrs } from '@nc/shared'
-import { Extension, Node, mergeAttributes } from '@tiptap/core'
+import { type WidgetAttrs, tidyLatex } from '@nc/shared'
+import { Extension, Node, mergeAttributes, nodeInputRule } from '@tiptap/core'
 import {
   NodeViewContent,
   NodeViewWrapper,
@@ -9,6 +9,7 @@ import {
 import StarterKit from '@tiptap/starter-kit'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Tex } from './Tex'
 import {
   CalloutLabel,
   type FormulaAttrs,
@@ -146,6 +147,82 @@ function CalloutView() {
     </NodeViewWrapper>
   )
 }
+
+/** Math inside a sentence: shown typeset, edited as LaTeX in place (click it, Enter or Esc to finish). */
+function MathInlineView({ node, updateAttributes, editor, selected }: ReactNodeViewProps) {
+  const { t } = useTranslation()
+  const latex = String(node.attrs.latex ?? '')
+  const [editing, setEditing] = useState(false)
+  const finish = (value: string) => {
+    updateAttributes({ latex: value.trim() })
+    setEditing(false)
+  }
+  return (
+    <NodeViewWrapper
+      as="span"
+      data-math-inline=""
+      className={`rounded px-0.5 ${selected ? 'ring-2 ring-accent' : ''} ${editor.isEditable ? 'cursor-pointer' : ''}`}
+    >
+      {editing ? (
+        <input
+          autoFocus
+          aria-label={t('editor.inlineMath')}
+          defaultValue={latex}
+          size={Math.max(6, latex.length + 2)}
+          className="rounded border border-accent bg-surface px-1 font-mono text-sm"
+          onBlur={(e) => finish(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === 'Escape') {
+              e.preventDefault()
+              finish(e.currentTarget.value)
+            }
+          }}
+        />
+      ) : (
+        <span
+          onClick={() => editor.isEditable && setEditing(true)}
+          onKeyDown={(e) => e.key === 'Enter' && editor.isEditable && setEditing(true)}
+          title={editor.isEditable ? t('editor.inlineMathEdit') : undefined}
+        >
+          <Tex latex={latex} />
+        </span>
+      )}
+    </NodeViewWrapper>
+  )
+}
+
+/**
+ * Inline math (`mathInline`), e.g. "of radius $a_\text{par}$". Typing `$…$` creates one, and AI text saved to a
+ * page arrives as these instead of raw dollar signs. A space inside needs a LaTeX character (\ _ ^ = { }), so
+ * typing "$5 and $" stays money.
+ */
+export const MathInline = Node.create({
+  name: 'mathInline',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return { latex: { default: '' } }
+  },
+  parseHTML: () => [{ tag: 'span[data-type="math-inline"]' }],
+  renderHTML: ({ HTMLAttributes }) => [
+    'span',
+    mergeAttributes(HTMLAttributes, { 'data-type': 'math-inline' }),
+  ],
+  addNodeView() {
+    return ReactNodeViewRenderer(MathInlineView)
+  },
+  addInputRules() {
+    return [
+      nodeInputRule({
+        find: /(?<![\$\w])\$([^$\s]+|[^$\s][^$]*[\\_^={}][^$]*[^$\s])\$$/,
+        type: this.type,
+        getAttributes: (match) => ({ latex: tidyLatex(match[1] ?? '') }),
+      }),
+    ]
+  },
+})
 
 export const Callout = Node.create({
   name: 'callout',
@@ -306,6 +383,7 @@ export const HeadingIds = Extension.create({
 export const editorExtensions = [
   StarterKit.configure({ heading: { levels: [2, 3] }, link: { openOnClick: false } }),
   Formula,
+  MathInline,
   Callout,
   Widget,
   ImageBlock,

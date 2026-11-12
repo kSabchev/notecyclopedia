@@ -100,3 +100,25 @@ test('a saved question becomes a section with its answer and expansions', () => 
   assert.equal(blocks[0]?.content?.[0]?.text, 'Question: Hohmann transfer')
   assert.equal(blocks[4]?.attrs?.latex, '\\Delta v = v_2 - v_1')
 })
+
+test('a saved question shows its math typeset, with word subscripts as text', () => {
+  const question = {
+    topic: 'Hohmann transfer',
+    question: 'What is the transfer orbit?',
+    answer:
+      "In a Hohmann transfer from a circular parking orbit of radius $a_{par}$ to a circular target orbit of radius $a_{tar}$, the notes give the transfer ellipse's semi-major axis as $a_{tr}=\\frac{a_{par}+a_{tar}}{2}$.",
+    expansions: {},
+  } as DailyQuestion
+  const blocks = questionBlocks(question, {
+    question: 'Question',
+    answer: 'Answer',
+    story: 'Story',
+    advanced: 'Harder question',
+  }) as { content?: { type: string; text?: string; attrs?: { latex: string } }[] }[]
+  const answer = blocks[3]?.content ?? []
+  assert.deepEqual(
+    answer.filter((n) => n.type === 'mathInline').map((n) => n.attrs?.latex),
+    ['a_{\\text{par}}', 'a_{\\text{tar}}', 'a_{\\text{tr}}=\\frac{a_{\\text{par}}+a_{\\text{tar}}}{2}'],
+  )
+  assert.ok(!answer.some((n) => n.text?.includes('$')), 'No raw dollar signs left in the text')
+})

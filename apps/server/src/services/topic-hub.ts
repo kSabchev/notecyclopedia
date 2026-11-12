@@ -1,10 +1,20 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import { type AiUsage, type DocJSON, type Locale, type PageType, notesLanguage, pageLink } from '@nc/shared'
+import {
+  type AiUsage,
+  type DocJSON,
+  type Locale,
+  type PageType,
+  inlineContent,
+  notesLanguage,
+  pageLink,
+  tidyLatex,
+} from '@nc/shared'
 import { sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '../db'
 import { HttpError } from '../http'
 import { UsageMeter, createMessage, modelFor } from './claude-client'
+import { MATH_STYLE } from './math-style'
 import { retrieve } from './retrieval'
 import { anyTermQuery } from './search-query'
 
@@ -125,13 +135,13 @@ export function hubDocument(draft: Draft, targets: HubTarget[]): DocJSON {
     .split(/\n\s*\n/)
     .map((p) => p.trim())
     .filter(Boolean)
-    .map((p) => ({ type: 'paragraph', content: [text(p)] }))
+    .map((p) => ({ type: 'paragraph', content: inlineContent(p, { markdown: true }) }))
   if (draft.formulas.length)
     content.push(
       { type: 'heading', attrs: { level: 2 }, content: [text(draft.formulasHeading)] },
       ...draft.formulas.map((f) => ({
         type: 'formula',
-        attrs: { latex: f.latex, label: null, description: f.description || null, pinned: false },
+        attrs: { latex: tidyLatex(f.latex), label: null, description: f.description || null, pinned: false },
       })),
     )
   const seen = new Set<string>()
@@ -200,6 +210,8 @@ export async function generateTopicHub(
       {
         role: 'user',
         content: `Draft a topic hub page about ${JSON.stringify(topic)} for a student's course notes. A topic hub is short: it explains the topic in a few paragraphs, lists its key formulas, and links to where the course covers it, so the student can find and revisit it. Base it on the excerpts from the notes; where you add something they do not cover, say so. Write everything in ${notesLanguage(`${topic} ${sources.map((s) => s.text).join(' ')}`, locale)}.
+
+${MATH_STYLE}
 
 Pick the relevant targets for "covered" from this list only (refer to them by ref), and leave out ones that are not about the topic:
 ${list || '(no matching sections or pages)'}

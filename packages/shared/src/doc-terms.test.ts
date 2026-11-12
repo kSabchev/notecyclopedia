@@ -3,13 +3,13 @@ import {
   docToText,
   extractReferences,
   extractTerms,
-  markdownBlocks,
   pageLink,
   parsePageLink,
   remapPageLinks,
   sectionOf,
   withBlockIds,
 } from './doc'
+import { markdownBlocks } from './math-text'
 import type { DocJSON } from './types'
 
 const A = '11111111-1111-4111-8111-111111111111'

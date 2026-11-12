@@ -17,6 +17,7 @@ import { memberCourseIds } from '../access'
 import { db, schema } from '../db'
 import { HttpError } from '../http'
 import { UsageMeter, createMessage, modelFor } from './claude-client'
+import { MATH_STYLE } from './math-style'
 
 /** A topic a daily question can be about: a heading (term) of a recent page, or the page itself. */
 export interface TopicCandidate {
@@ -145,7 +146,7 @@ async function callTool<T>(
       max_tokens: 8000,
       tools: [tool],
       tool_choice: { type: 'auto' },
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: `${prompt}\n\n${MATH_STYLE}` }],
     },
     { operation: opts.feature, userId: opts.userId, meter },
   )

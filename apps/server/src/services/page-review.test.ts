@@ -71,3 +71,32 @@ test('reports output truncation and missing tool output', () => {
     /did not return a page review/,
   )
 })
+
+test('keeps inline math, and turns math the AI left as $…$ text into inline math', () => {
+  const content = {
+    type: 'doc',
+    content: [
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'Speed ' },
+          { type: 'mathInline', attrs: { latex: 'v_{\\text{esc}}' } },
+          { type: 'text', text: ' from radius $a_{par}$.' },
+        ],
+      },
+    ],
+  }
+  const draft = parsePageReviewResponse(response({ findings: [], content: JSON.stringify(content) }))
+  assert.deepEqual(draft.content.content?.[0], {
+    type: 'paragraph',
+    content: [
+      { type: 'text', text: 'Speed ' },
+      { type: 'mathInline', attrs: { latex: 'v_{\\text{esc}}' } },
+      { type: 'text', text: ' from radius ' },
+      { type: 'mathInline', attrs: { latex: 'a_{\\text{par}}' } },
+      { type: 'text', text: '.' },
+    ],
+  })
+  const bad = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'mathInline', attrs: {} }] }] }
+  assert.throws(() => parsePageReviewResponse(response({ findings: [], content: JSON.stringify(bad) })))
+})
