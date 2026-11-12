@@ -420,6 +420,8 @@ export const planEditSchema = z.object({
               pageTitle: z.string().max(200).nullable(),
               focus: z.string().trim().min(1).max(300),
               done: z.boolean(),
+              lectureNumber: z.number().int().positive().max(2_147_483_647).nullable().optional(),
+              calculatorIds: z.array(z.string().uuid()).max(10).optional(),
             }),
           )
           .max(30),
@@ -444,13 +446,32 @@ export async function savePlan(id: string, userId: string, edit: z.infer<typeof 
         ).map((p) => [p.id, p.title]),
       )
     : new Map<string, string>()
+  // Calculators are personal: a task links only to the user's own.
+  const wanted = [...new Set(edit.days.flatMap((d) => d.items.flatMap((i) => i.calculatorIds ?? [])))]
+  const own = new Set(
+    wanted.length
+      ? (
+          await db
+            .select({ id: schema.calculators.id })
+            .from(schema.calculators)
+            .where(and(eq(schema.calculators.ownerId, userId), inArray(schema.calculators.id, wanted)))
+        ).map((c) => c.id)
+      : [],
+  )
   const days = [...edit.days]
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((d) => ({
       date: d.date,
-      items: d.items.map((i) => {
+      items: d.items.map(({ calculatorIds, lectureNumber, ...i }) => {
         const title = i.pageId ? inCourse.get(i.pageId) : undefined
-        return { ...i, pageId: title ? i.pageId : null, pageTitle: title ?? (i.pageId ? null : i.pageTitle) }
+        const calculators = (calculatorIds ?? []).filter((id) => own.has(id))
+        return {
+          ...i,
+          pageId: title ? i.pageId : null,
+          pageTitle: title ?? (i.pageId ? null : i.pageTitle),
+          ...(lectureNumber != null && { lectureNumber }),
+          ...(calculators.length > 0 && { calculatorIds: calculators }),
+        }
       }),
     }))
   const [row] = await db

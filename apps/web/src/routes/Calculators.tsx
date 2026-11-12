@@ -10,12 +10,15 @@ import {
   inputToConstant,
 } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from '@tanstack/react-router'
+import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CalculatorRunner } from '../components/CalculatorRunner'
+import { Connections } from '../components/Connections'
 import { Empty, ErrorNote, Eyebrow, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
+import { useLectureExtras } from '../lib/lectures'
+import { lectureAnchor } from '../lib/links'
 
 const TEMPLATE: CalculatorSpec = {
   version: 1,
@@ -236,6 +239,7 @@ function Detail({
   const [instructions, setInstructions] = useState('')
   const [applied, setApplied] = useState(false)
   const library = useQuery({ queryKey: ['calculators'], queryFn: api.calculators.list })
+  const extras = useLectureExtras()
   const copiedFrom = calc?.copiedFromId ? library.data?.find((c) => c.id === calc.copiedFromId) : undefined
   const courseConstants = useQuery({
     queryKey: ['course-constants', courseId],
@@ -373,9 +377,27 @@ function Detail({
             {spec?.name ?? calc?.name ?? t('calc.new')}
           </h2>
           {spec?.description && <span className="text-sm text-muted">{spec.description}</span>}
-          {calc?.lectureNumber != null && (
-            <span className="text-sm font-semibold text-muted">
-              {t('page.lectureNumber', { n: calc.lectureNumber })}
+          {calc?.courseId && (
+            <span className="flex flex-wrap gap-x-2 text-sm font-semibold text-muted">
+              <Link to="/courses/$courseId" params={{ courseId: calc.courseId }} className="text-muted">
+                {courses.data?.find((c) => c.id === calc.courseId)?.name ?? t('connect.subject')}
+              </Link>
+              {calc.lectureNumber != null && (
+                <>
+                  <span aria-hidden>·</span>
+                  {extras.original(calc.courseId, calc.lectureNumber) ? (
+                    <Link
+                      to="/lectures"
+                      hash={lectureAnchor(calc.courseId, calc.lectureNumber)}
+                      className="text-muted"
+                    >
+                      {t('page.lectureNumber', { n: calc.lectureNumber })}
+                    </Link>
+                  ) : (
+                    t('page.lectureNumber', { n: calc.lectureNumber })
+                  )}
+                </>
+              )}
             </span>
           )}
           {calc?.sourcePageId && (
@@ -882,6 +904,11 @@ function Detail({
       )}
 
       {calc && !editing && (
+        <div className="border-t border-line px-6 py-5">
+          <Connections courseId={calc.courseId} lectureNumber={calc.lectureNumber} calculatorId={calc.id} />
+        </div>
+      )}
+      {calc && !editing && (
         <div className="flex flex-wrap items-center gap-4 border-t border-line bg-surface-2 px-6 py-5">
           <Eyebrow>{t('calc.export')}</Eyebrow>
           {(['json', 'py', 'html', 'xlsx'] as const).map((f) => (
@@ -906,7 +933,9 @@ export function Calculators() {
   const params = useParams({ strict: false }) as { calcId?: string }
   const [filter, setFilter] = useState<'all' | 'ai' | 'archived'>('all')
   const [sort, setSort] = useState<'course' | 'name' | 'edited'>('course')
-  const [shownCourse, setShownCourse] = useState('')
+  const search = useSearch({ strict: false }) as { course?: string }
+  // From a course page: "Calculators" opens the library filtered to that course.
+  const [shownCourse, setShownCourse] = useState(search.course ?? '')
   const [creating, setCreating] = useState(false)
   const list = useQuery({ queryKey: ['calculators'], queryFn: api.calculators.list })
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })

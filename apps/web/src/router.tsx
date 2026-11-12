@@ -61,7 +61,12 @@ const routes = [
   createRoute({ getParentRoute: () => appRoute, path: '/lectures', component: Lectures }),
   createRoute({ getParentRoute: () => appRoute, path: '/links', component: Links }),
   createRoute({ getParentRoute: () => appRoute, path: '/study/$planId', component: StudyPlan }),
-  createRoute({ getParentRoute: () => appRoute, path: '/calculators', component: Calculators }),
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: '/calculators',
+    component: Calculators,
+    validateSearch: (s: Record<string, unknown>): { course?: string } => ({ course: str(s.course) }),
+  }),
   createRoute({
     getParentRoute: () => appRoute,
     path: '/calculators/constants',

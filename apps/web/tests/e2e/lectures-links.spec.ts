@@ -177,7 +177,8 @@ test('lectures in order from the sidebar, descriptions under formulas, and usefu
   await first.getByRole('link', { name: 'Kepler orbits' }).click()
   await expect(page).toHaveURL(`/pages/${kepler}`)
   // The article links back to its lecture's original.
-  await expect(page.getByRole('link', { name: /Original: lecture-1-slides\.txt/ })).toHaveAttribute(
+  // In the header and in the Connected panel.
+  await expect(page.getByRole('link', { name: /Original: lecture-1-slides\.txt/ }).first()).toHaveAttribute(
     'target',
     '_blank',
   )

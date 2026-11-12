@@ -1156,6 +1156,42 @@ test(
         .status,
       404,
     )
+    // A task links to a lecture and to the user's own calculators (a classmate's is dropped).
+    const ownCalc = (await (
+      await request(owner, '/calculators', {
+        method: 'POST',
+        body: json({
+          spec: {
+            version: 1,
+            name: 'Transfer Δv',
+            inputs: [{ key: 'dv', label: 'Δv', unit: 'km/s', default: 3.9 }],
+            outputs: [{ key: 'total', label: 'Total', unit: 'km/s', expr: '2 * dv' }],
+          },
+        }),
+      })
+    ).json()) as { id: string }
+    const linkedTask = {
+      ...(planSaved.days[1]?.items[0] as (typeof planSaved.days)[number]['items'][number]),
+    }
+    const linkedEdit = await request(owner, `/study/plans/${plan.id}`, {
+      method: 'PUT',
+      body: json({
+        ...planSaved,
+        days: [
+          planSaved.days[0],
+          {
+            date: '2026-11-08',
+            items: [{ ...linkedTask, lectureNumber: 2, calculatorIds: [ownCalc.id, calculator.id] }],
+          },
+        ],
+      }),
+    })
+    assert.equal(linkedEdit.status, 200)
+    const linkedSaved = (await linkedEdit.json()) as typeof plan
+    assert.deepEqual(
+      [linkedSaved.days[1]?.items[0]?.lectureNumber, linkedSaved.days[1]?.items[0]?.calculatorIds],
+      [2, [ownCalc.id]],
+    )
     assert.equal((await request(owner, `/study/plans/${plan.id}`, { method: 'DELETE' })).status, 204)
 
     // Original lectures: an upload can be the original of lecture N of its course (one per lecture).

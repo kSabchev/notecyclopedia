@@ -21,6 +21,8 @@ export function useLectureExtras() {
     originalsOf: (courseId: string) => (originals.data ?? []).filter((f) => f.courseId === courseId),
     original: (courseId: string, n: number | null) =>
       n === null ? undefined : originals.data?.find((f) => f.courseId === courseId && f.lectureNumber === n),
+    /** Your calculators tagged with the course, with or without a lecture. */
+    allCalculatorsOf: (courseId: string) => (calculators.data ?? []).filter((c) => c.courseId === courseId),
     calculatorsOf: (courseId: string, n?: number | null) =>
       (calculators.data ?? []).filter(
         (c) =>
