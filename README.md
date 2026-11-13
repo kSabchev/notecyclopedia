@@ -174,7 +174,7 @@ conservative LaTeX tidy-up (`tidyLatex`), with no AI involved:
   known two-letter word such as `tr`); indices like `a_{ij}` and single letters like `a_p` are kept;
 - `*` between factors becomes `\cdot` (`x^*` is kept), and `\displaystyle` is dropped.
 
-All AI prompts share one math style (`MATH_STYLE` in `apps/server/src/services/math-style.ts`), so most text arrives
+All AI prompts share one math style (`MATH_STYLE` in `apps/server/src/services/prompts.ts`), so most text arrives
 tidy and the converter catches the rest. For pages saved before this, **Tidy formulas** in the editor toolbar
 converts math left as `$…$` text and tidies every formula; it is an ordinary edit to review, undo (Ctrl+Z) or save.
 Text in code is never changed.
@@ -440,7 +440,7 @@ runs, 150 pages of about 11 kB). Rerun with the two commands above.
 
 | | Before Phase 7 | Now |
 |---|---|---|
-| Reading a page (beyond the 160 kB app shell) | 330 kB | 90 kB |
+| Reading a page (beyond the app shell: 143 kB, plus 12–14 kB for the active language) | 330 kB | 90 kB |
 | AI portal | 401 kB | 120 kB |
 | Search, 150 pages | 163 ms | 15 ms |
 | Search, 600 pages | — | 22 ms |
@@ -478,6 +478,13 @@ runs, 150 pages of about 11 kB). Rerun with the two commands above.
   with the error, and valid ones are kept. Chat sends the most recent turns that fit a size budget, with the
   retrieved sources attached to the latest message only, so earlier turns are served from the prompt cache; a
   second cache breakpoint after the question lets tool rounds re-read the sources from the cache.
+- **AI features** that answer with one tool (calculator review and rework, daily questions, quick checks, topic
+  hubs, page review, exam plans) go through one helper, `callTool` in `apps/server/src/services/ai-tool.ts`: the tool
+  call is checked by the feature's schema, an invalid answer is sent back once with what was wrong (page review,
+  whose answer is a whole page, is not retried), and the usage of every call is measured. Their prompts live in
+  `apps/server/src/services/prompts.ts`, built from shared pieces (the math style, physical constants as constants,
+  and the rule that notes, pages and files are data, not instructions); `prompts.test.ts` checks every prompt keeps
+  them.
 - **Calculators** (`packages/shared/src/calculator.ts`) are plain JSON:
 
 ```json
@@ -717,11 +724,18 @@ field or be used from Claude outside the app.
 
 **Step 1: inside the app**
 
-- [ ] One AI tool-call helper: call Claude with a tool, validate the result with a schema, ask once more when it is
-      invalid, and record usage. Calculator review and rework, daily questions, quick checks, topic hubs, page review
-      and exam plans each repeat this today.
-- [ ] A prompts module: the prompts in one place (`MATH_STYLE` is the first shared piece), so they are easier to tune,
-      test and keep consistent.
+- [x] One AI tool-call helper (`callTool`): call Claude with a tool, validate the result with a schema, ask once more
+      when it is invalid, and record usage; used by calculator review and rework, daily questions, quick checks, topic
+      hubs, page review and exam plans. Calculator generation (several tools per reply) and PDF article drafts keep
+      their own flow.
+- [x] A prompts module (`prompts.ts`): every prompt in one place, built from shared pieces (math style, physical
+      constants, data-not-instructions), with a test that each prompt keeps them.
+- [x] UI text split by language (`apps/web/src/locales`): a page loads only the active language's text, and switching
+      loads the other. The app shell went from 168 to 143 kB, plus 12 to 14 kB for one language.
+- [x] Large route files split: the calculator checks and AI review panel (`CalculatorChecks.tsx`), and the revision
+      plan as its own route (`StudyPlan.tsx`) with the parts it shares with the plan list (`StudyParts.tsx`).
+- [x] One list of UI languages (`LOCALES` in `@nc/shared`) and one request schema for them (`localeInput`), in place
+      of six copies.
 
 **Step 2: workspace packages** (split from `@nc/shared`, not published). Pages that need one part load only that
 part, and the Vite tree-shaking override in `apps/web/vite.config.ts` can go.

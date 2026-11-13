@@ -4,7 +4,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { assertCourse } from '../access'
 import { db, schema } from '../db'
-import { HttpError, me, param } from '../http'
+import { HttpError, localeInput, me, param } from '../http'
 import { today } from '../services/daily-question'
 import {
   acceptShare,
@@ -62,7 +62,7 @@ study.post('/plans', async (req, res) => {
         .max(200)
         .optional(),
       note: z.string().trim().max(500).optional(),
-      locale: z.enum(['en', 'bg']).optional(),
+      locale: localeInput,
     })
     .parse(req.body)
   const user = me(req)

@@ -1,6 +1,7 @@
+import { LOCALES } from '@nc/shared'
 import { fromNodeHeaders } from 'better-auth/node'
 import type { NextFunction, Request, Response } from 'express'
-import { ZodError } from 'zod'
+import { ZodError, z } from 'zod'
 import { type SessionUser, auth } from './auth'
 
 export class HttpError extends Error {
@@ -60,3 +61,6 @@ export const param = (req: Request, name: string): string => {
   if (typeof v !== 'string') throw new HttpError(400, `Missing ${name}`)
   return v
 }
+
+/** The reader's interface language: the fallback for AI text when the notes are too short to tell their language. */
+export const localeInput = z.enum(LOCALES).optional()

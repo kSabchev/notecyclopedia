@@ -10,7 +10,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { assertCourse, loadPage } from '../access'
 import { db, schema } from '../db'
-import { HttpError, me, notFound, param } from '../http'
+import { HttpError, localeInput, me, notFound, param } from '../http'
 import { calculatorLibrary } from '../services/calculator-library'
 import { reviewCalculator } from '../services/calculator-review'
 import { aiConfigured, generateCalculators, streamAnswer, threadTitle } from '../services/claude'
@@ -40,7 +40,7 @@ ai.post('/pages/:id/review', async (req, res) => {
 ai.post('/calculators/:id/review', async (req, res) => {
   const user = me(req)
   const calc = await loadCalc(param(req, 'id'), user.id)
-  const { locale } = z.object({ locale: z.enum(['en', 'bg']).optional() }).parse(req.body ?? {})
+  const { locale } = z.object({ locale: localeInput }).parse(req.body ?? {})
   res.json(await reviewCalculator(calc.spec, user.id, locale))
 })
 
@@ -49,7 +49,7 @@ ai.post('/calculators/:id/rework', async (req, res) => {
   const user = me(req)
   const calc = await loadCalc(param(req, 'id'), user.id)
   const { locale, instructions } = z
-    .object({ locale: z.enum(['en', 'bg']).optional(), instructions: z.string().trim().min(3).max(2000) })
+    .object({ locale: localeInput, instructions: z.string().trim().min(3).max(2000) })
     .parse(req.body ?? {})
   res.json(await reviewCalculator(calc.spec, user.id, locale, undefined, instructions))
 })
@@ -60,7 +60,7 @@ ai.post('/topic-hub', async (req, res) => {
     .object({
       courseId: z.string().uuid(),
       topic: z.string().trim().min(2).max(200),
-      locale: z.enum(['en', 'bg']).optional(),
+      locale: localeInput,
     })
     .parse(req.body)
   const user = me(req)
@@ -73,7 +73,7 @@ ai.post('/topic-hub', async (req, res) => {
  * so asking again costs nothing.
  */
 ai.post('/messages/:id/quick-check', async (req, res) => {
-  const { locale } = z.object({ locale: z.enum(['en', 'bg']).optional() }).parse(req.body ?? {})
+  const { locale } = z.object({ locale: localeInput }).parse(req.body ?? {})
   const user = me(req)
   const [answer] = await db
     .select({ message: schema.aiMessages, threadUser: schema.aiThreads.userId })

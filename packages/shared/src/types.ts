@@ -2,7 +2,9 @@ import type { CalculatorIssue, CalculatorSpec } from './calculator'
 import type { PageType } from './pages'
 import type { WidgetAttrs } from './widget'
 
-export type Locale = 'en' | 'bg'
+/** UI languages. */
+export const LOCALES = ['en', 'bg'] as const
+export type Locale = (typeof LOCALES)[number]
 export type CourseRole = 'owner' | 'editor' | 'viewer'
 export type FileStatus = 'uploaded' | 'processing' | 'indexed' | 'failed'
 /** AI portal modes, in the order they are offered. */

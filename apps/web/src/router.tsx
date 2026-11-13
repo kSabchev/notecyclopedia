@@ -18,7 +18,7 @@ const DailyQuestions = lazyRouteComponent(() => import('./routes/DailyQuestions'
 const Study = lazyRouteComponent(() => import('./routes/Study'), 'Study')
 const Lectures = lazyRouteComponent(() => import('./routes/Lectures'), 'Lectures')
 const Links = lazyRouteComponent(() => import('./routes/Links'), 'Links')
-const StudyPlan = lazyRouteComponent(() => import('./routes/Study'), 'StudyPlan')
+const StudyPlan = lazyRouteComponent(() => import('./routes/StudyPlan'), 'StudyPlan')
 const Wiki = lazyRouteComponent(() => import('./routes/Wiki'), 'Wiki')
 const CourseView = lazyRouteComponent(() => import('./routes/Wiki'), 'CourseView')
 const PageEdit = lazyRouteComponent(() => import('./routes/PageEdit'), 'PageEdit')
