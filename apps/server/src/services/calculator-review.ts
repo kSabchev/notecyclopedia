@@ -8,7 +8,7 @@ import {
 } from '@nc/shared'
 import { z } from 'zod'
 import { callTool } from './ai-tool'
-import { calculatorFromTool, calculatorInputSchema } from './claude'
+import { calculatorFromTool, calculatorInputSchema } from './calculator-generation'
 import { UsageMeter, createMessage } from './claude-client'
 import { calculatorReviewPrompt } from './prompts'
 

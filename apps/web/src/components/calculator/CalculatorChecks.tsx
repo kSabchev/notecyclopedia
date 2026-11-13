@@ -1,6 +1,7 @@
 import { type CalculatorIssue, type CalculatorReview, type CalculatorSpec, diffSpecs } from '@nc/shared'
 import { useTranslation } from 'react-i18next'
-import { btn } from './ui'
+import { formatCost } from '../../lib/format'
+import { btn } from '../ui'
 
 /** The checks shown on a calculator: the app's own (no AI) and Claude's review with its proposed changes. */
 
@@ -95,7 +96,7 @@ export function ReviewPanel({
         <h3 id="h-review" className="m-0 text-base font-bold">
           {title ?? t('calc.review.title')}
         </h3>
-        {cost != null && <span className="text-xs text-muted">≈ ${cost.toFixed(cost < 0.01 ? 4 : 3)}</span>}
+        {cost != null && <span className="text-xs text-muted">≈ {formatCost(cost)}</span>}
       </div>
       {review.findings.length ? (
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -175,5 +176,55 @@ export function ReviewPanel({
         </button>
       </div>
     </section>
+  )
+}
+
+/** What to change, in the student's words, for Rework with AI. */
+export function ReworkForm({
+  instructions,
+  onChange,
+  onSubmit,
+  pending,
+  onCancel,
+}: {
+  instructions: string
+  onChange: (value: string) => void
+  onSubmit: () => void
+  pending: boolean
+  onCancel: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <form
+      className="flex flex-col gap-2 border-t-2 border-ai bg-ai-soft px-6 py-5"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (instructions.trim().length >= 3) onSubmit()
+      }}
+    >
+      <label htmlFor="calc-rework" className="text-sm font-bold">
+        {t('calc.reworkLabel')}
+      </label>
+      <textarea
+        id="calc-rework"
+        rows={3}
+        className="rounded-[10px] border border-line-strong bg-surface p-3 text-[15px] text-ink"
+        placeholder={t('calc.reworkPlaceholder')}
+        value={instructions}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          className={btn('ai', 'sm')}
+          disabled={instructions.trim().length < 3 || pending}
+        >
+          {pending ? t('calc.reworking') : t('calc.reworkRun')}
+        </button>
+        <button type="button" className={btn('ghost', 'sm')} onClick={onCancel}>
+          {t('calc.cancel')}
+        </button>
+      </div>
+    </form>
   )
 }

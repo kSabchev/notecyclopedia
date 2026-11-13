@@ -2,7 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 import { type DocJSON, tidyDoc } from '@nc/shared'
 import { z } from 'zod'
 import { HttpError } from '../http'
-import { callTool } from './ai-tool'
+import { callTool, invalidAnswer } from './ai-tool'
 import { pageReviewPrompt } from './prompts'
 
 interface ReviewNode {
@@ -176,9 +176,11 @@ export function parsePageReviewResponse(response: {
 export function parsePageReviewInput(input: unknown) {
   const parsed = reviewDraftSchema.safeParse(input)
   if (!parsed.success) {
-    const issues = parsed.error.issues.map(({ code, path }) => ({ code, path }))
-    console.error('[page-review] Invalid response shape:', issues)
-    throw new HttpError(502, 'The AI returned an invalid page review. Try generating it again.')
+    invalidAnswer(
+      '[page-review] Invalid response shape:',
+      parsed.error,
+      'The AI returned an invalid page review. Try generating it again.',
+    )
   }
   let content: unknown
   try {
@@ -190,9 +192,11 @@ export function parsePageReviewInput(input: unknown) {
     .object({ type: z.literal('doc'), content: z.array(reviewNodeSchema).max(500) })
     .safeParse(content)
   if (!document.success) {
-    const issues = document.error.issues.map(({ code, path }) => ({ code, path }))
-    console.error('[page-review] Invalid document shape:', issues)
-    throw new HttpError(502, 'The AI returned an invalid page draft. Try generating it again.')
+    invalidAnswer(
+      '[page-review] Invalid document shape:',
+      document.error,
+      'The AI returned an invalid page draft. Try generating it again.',
+    )
   }
   validateDocument(document.data.content)
   // Math the AI wrote as $…$ text becomes inline math, and formulas get the LaTeX tidy-up.

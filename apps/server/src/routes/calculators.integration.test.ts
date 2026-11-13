@@ -21,7 +21,7 @@ test(
       [classmate, 'viewer'],
     ])
     const { calculatorLibrary } = await import('../services/calculator-library')
-    const { runChatTool } = await import('../services/claude')
+    const { runChatTool } = await import('../services/chat-tools')
 
     const calculator = await ok<{ id: string }>(
       send(student, 'POST', '/calculators', {

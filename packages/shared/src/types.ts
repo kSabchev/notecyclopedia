@@ -1,4 +1,5 @@
-import type { CalculatorIssue, CalculatorSpec } from './calculator'
+import type { CalculatorSpec } from './calculator'
+import type { CalculatorIssue } from './calculator-check'
 import type { PageType } from './pages'
 import type { WidgetAttrs } from './widget'
 

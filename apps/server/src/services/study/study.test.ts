@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type Anthropic from '@anthropic-ai/sdk'
-import type { createMessage } from './claude-client'
-import { type PlanPage, generateQuickCheck, planDays } from './study'
+import type { createMessage } from '../claude-client'
+import { type PlanPage, planDays } from './exam-plan'
+import { generateQuickCheck } from './quick-check'
 
 const page = (id: string, title: string): PlanPage => ({
   id,

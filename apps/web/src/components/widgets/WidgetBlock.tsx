@@ -1,4 +1,4 @@
-import { type WidgetAttrs, orbitWidgetSchema } from '@nc/shared'
+import { type WidgetAttrs, issuesText, orbitWidgetSchema } from '@nc/shared'
 import { Suspense, lazy, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ErrorNote } from '../ui'
@@ -32,7 +32,7 @@ function OrbitWidgetBlock({ attrs, editable, onChange, onDelete }: Props) {
         <div className="p-5">
           <ErrorNote
             error={t('widget.invalid', {
-              error: parsed.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; '),
+              error: issuesText(parsed.error),
             })}
           />
         </div>

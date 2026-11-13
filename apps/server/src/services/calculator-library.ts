@@ -1,7 +1,7 @@
 import type { CalculatorSpec } from '@nc/shared'
 import { sql } from 'drizzle-orm'
 import { db } from '../db'
-import type { CalculatorLibrary, LibraryCalculator } from './claude'
+import type { CalculatorLibrary, LibraryCalculator } from './chat-tools'
 import { anyTermQuery } from './search-query'
 
 /**

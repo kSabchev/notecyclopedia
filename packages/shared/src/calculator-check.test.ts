@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { type CalculatorSpec, checkCalculator, diffSpecs, inputToConstant, parseUnit } from './calculator'
+import type { CalculatorSpec } from './calculator'
+import { checkCalculator, inputToConstant, parseUnit } from './calculator-check'
+import { diffSpecs } from './calculator-diff'
 
 const orbit: CalculatorSpec = {
   version: 1,

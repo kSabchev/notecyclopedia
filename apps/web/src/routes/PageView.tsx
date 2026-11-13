@@ -7,13 +7,13 @@ import { DocView, docHeadings } from '../components/DocView'
 import { FileDrop } from '../components/FileDrop'
 import { FilePreview, isTextPreviewable } from '../components/FilePreview'
 import { PenIcon, SparkIcon } from '../components/Icons'
+import { LectureLabel, OriginalLink } from '../components/LectureLinks'
 import { type HelpKind, type HelpTarget, SelectionHelp } from '../components/ReadingHelp'
 import { RevisionChanges } from '../components/RevisionChanges'
 import { ErrorNote, Eyebrow, FileBadge, btn, inputCls } from '../components/ui'
 import { ApiError, api } from '../lib/api'
 import { timeAgo } from '../lib/format'
 import { useLectureExtras } from '../lib/lectures'
-import { lectureAnchor } from '../lib/links'
 
 type Tab = 'read' | 'source' | 'history'
 
@@ -138,18 +138,8 @@ export function PageView() {
         <div className="flex flex-col gap-3">
           {p.lectureNumber !== null && (
             <span className="flex flex-wrap items-baseline gap-x-3 text-sm font-semibold text-muted">
-              {original ? (
-                <Link to="/lectures" hash={lectureAnchor(p.courseId, p.lectureNumber)} className="text-muted">
-                  {t('page.lectureNumber', { n: p.lectureNumber })}
-                </Link>
-              ) : (
-                t('page.lectureNumber', { n: p.lectureNumber })
-              )}
-              {original && (
-                <a href={api.files.url(original.id, true)} target="_blank" rel="noreferrer">
-                  {t('page.original', { name: original.name })} ↗
-                </a>
-              )}
+              <LectureLabel courseId={p.courseId} n={p.lectureNumber} className="text-muted" />
+              {original && <OriginalLink file={original} />}
             </span>
           )}
           <h1 className="m-0 font-serif text-[46px] font-semibold leading-[1.08] tracking-[-0.015em]">

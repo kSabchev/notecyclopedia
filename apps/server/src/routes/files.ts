@@ -9,8 +9,9 @@ import { z } from 'zod'
 import { assertCourse, loadPage, memberCourseIds } from '../access'
 import { db, isUniqueViolation, schema } from '../db'
 import { env } from '../env'
-import { HttpError, me, notFound, param } from '../http'
-import { aiConfigured, generateArticleDraft } from '../services/claude'
+import { HttpError, me, notFound, param, sendAs } from '../http'
+import { generateArticleDraft } from '../services/article-draft'
+import { aiConfigured } from '../services/claude-client'
 import { fileType } from '../services/file-types'
 import { removeSource } from '../services/indexing'
 import { queueIngest } from '../services/jobs'
@@ -171,11 +172,7 @@ files.get('/:id/download', async (req, res) => {
   // Older rows store the type the browser claimed; serve by extension, and only safe types inline.
   const type = fileType(f.storageKey)
   const inline = req.query.inline === '1' && type?.inline === true
-  res.setHeader('content-type', type?.mime ?? 'application/octet-stream')
-  res.setHeader(
-    'content-disposition',
-    `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(f.name)}`,
-  )
+  sendAs(res, f.name, { type: type?.mime ?? 'application/octet-stream', inline })
   res.setHeader('x-content-type-options', 'nosniff')
   // The path is built from our own storage key; allow an upload directory with a dot in its path.
   res.sendFile(path.join(env.uploadDir, f.storageKey), { dotfiles: 'allow' })

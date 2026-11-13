@@ -10,6 +10,7 @@ import { BackIcon } from '../components/Icons'
 import { editorExtensions } from '../components/extensions'
 import { ErrorNote, Field, btn, inputCls } from '../components/ui'
 import { ApiError, api } from '../lib/api'
+import { formatCost } from '../lib/format'
 import { takeAppend } from '../lib/page-draft'
 
 function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCourseId?: string }) {
@@ -169,7 +170,7 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
                   <p className="m-0 text-sm">
                     {t('editor.hub.drafted', { count: draftHub.data.targets })}
                     {draftHub.data.usage?.costUsd != null &&
-                      ` · ≈ $${draftHub.data.usage.costUsd.toFixed(4)}`}
+                      ` · ≈ ${formatCost(draftHub.data.usage.costUsd)}`}
                   </p>
                 )}
                 <ErrorNote error={draftHub.error} />

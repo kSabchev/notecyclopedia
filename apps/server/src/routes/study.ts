@@ -1,28 +1,30 @@
-import { isCalendarDate, planFileSchema } from '@nc/shared'
+import { fileSlug, isCalendarDate, planFileSchema } from '@nc/shared'
 import { eq } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
 import { assertCourse } from '../access'
 import { db, schema } from '../db'
-import { HttpError, localeInput, me, param } from '../http'
+import { HttpError, localeInput, me, param, sendAs } from '../http'
 import { today } from '../services/daily-question'
+import { generateExamPlan } from '../services/study/exam-plan'
 import {
   acceptShare,
   declineShare,
   exportPlan,
-  generateExamPlan,
   importPlan,
-  listPlans,
   listShares,
+  sharePlan,
+} from '../services/study/plan-sharing'
+import {
+  listPlans,
   loadPlan,
   planEditSchema,
   savePlan,
   setPlanActive,
   setTaskDone,
-  sharePlan,
   todaysTasks,
-  whereWasI,
-} from '../services/study'
+} from '../services/study/plans'
+import { whereWasI } from '../services/study/where-was-i'
 
 /** The study companion: where you left off, and revision plans for exams. */
 export const study = Router()
@@ -109,12 +111,7 @@ study.patch('/plans/:id', async (req, res) => {
 /** The plan as a JSON file, to keep or to import elsewhere. */
 study.get('/plans/:id/export', async (req, res) => {
   const file = await exportPlan(param(req, 'id'), me(req).id)
-  const name =
-    file.title
-      .replace(/[^\p{L}\p{N}]+/gu, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 60) || 'plan'
-  res.setHeader('content-disposition', `attachment; filename="${encodeURIComponent(name)}.plan.json"`)
+  sendAs(res, `${fileSlug(file.title, 'plan')}.plan.json`)
   res.json(file)
 })
 

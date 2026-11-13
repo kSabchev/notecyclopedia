@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import type { AiUsage } from '@nc/shared'
+import { type AiUsage, issuesText } from '@nc/shared'
 import type { z } from 'zod'
 import { HttpError } from '../http'
 import { UsageMeter, createMessage, modelFor } from './claude-client'
@@ -12,13 +12,24 @@ export function fromSchema<T>(schema: z.ZodType<T>): (input: unknown) => ToolOut
   return (input) => {
     const parsed = schema.safeParse(input)
     if (parsed.success) return { value: parsed.data }
-    return {
-      error: parsed.error.issues
-        .slice(0, 5)
-        .map((i) => `${i.path.join('.') || 'input'}: ${i.message}`)
-        .join('; '),
-    }
+    return { error: issuesText(parsed.error) }
   }
+}
+
+/**
+ * An AI answer that failed its schema: logs where it was wrong (issue codes and paths, never the content, which may
+ * hold the user's notes) and throws a 502 with `message`.
+ */
+export function invalidAnswer(
+  log: string,
+  error: { issues: { code: string; path: (string | number)[] }[] },
+  message: string,
+): never {
+  console.error(
+    log,
+    error.issues.map(({ code, path }) => ({ code, path })),
+  )
+  throw new HttpError(502, message)
 }
 
 export interface ToolCallOptions<T> {

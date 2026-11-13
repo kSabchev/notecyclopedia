@@ -3,9 +3,9 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import { Link, useLocation } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useShortDay } from '../components/Connections'
 import { Empty, ErrorNote, FileBadge, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
+import { useDayLabel } from '../lib/format'
 import { type CourseOption, useLectureExtras, useTaken } from '../lib/lectures'
 import { type PlanTask, courseAnchor, lectureAnchor, usePlanTasks } from '../lib/links'
 
@@ -229,7 +229,7 @@ function LectureCard({
   moveTo?: CourseOption[]
 }) {
   const { t } = useTranslation()
-  const shortDay = useShortDay()
+  const shortDay = useDayLabel('short')
   const [moving, setMoving] = useState(false)
   const parts = pages.filter((p) => p.type !== 'seminar')
   const problems = pages.filter((p) => p.type === 'seminar')

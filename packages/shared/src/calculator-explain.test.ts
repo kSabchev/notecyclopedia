@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import {
-  type CalculatorSpec,
-  calculationSteps,
-  calculatorSpecSchema,
-  compileExcel,
-  exportHTML,
-  exportPython,
-  substitutionParts,
-} from './calculator'
+import { type CalculatorSpec, calculatorSpecSchema } from './calculator'
+import { compileExcel } from './calculator-code'
+import { exportHTML, exportPython } from './calculator-export'
+import { calculationSteps, substitutionParts } from './calculator-steps'
 import { calculatorWorkbook } from './calculator-xlsx'
 
 const projectile: CalculatorSpec = {

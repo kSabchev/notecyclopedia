@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 
 /** An estimated cost in US dollars, e.g. "$0.0031". */
@@ -32,4 +33,22 @@ export function bytes(n: number): string {
   if (n < 1024) return `${n} B`
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
   return `${(n / 1024 / 1024).toFixed(1)} MB`
+}
+
+/** Today in the browser's time zone, as YYYY-MM-DD. */
+export const todayLocal = () => new Date().toLocaleDateString('en-CA')
+
+/**
+ * A day (YYYY-MM-DD) for display in the interface language: "Tuesday, 12 November", or with `short` "Tue 12 Nov".
+ * Read at noon UTC, so the day is the same in every time zone.
+ */
+export function useDayLabel(style: 'long' | 'short' = 'long') {
+  const { i18n } = useTranslation()
+  return (date: string) =>
+    new Date(`${date}T12:00:00Z`).toLocaleDateString(i18n.language, {
+      weekday: style,
+      day: 'numeric',
+      month: style,
+      timeZone: 'UTC',
+    })
 }

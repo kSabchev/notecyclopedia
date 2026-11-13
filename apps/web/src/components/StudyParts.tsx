@@ -4,8 +4,9 @@ import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
-import { useLectureExtras } from '../lib/lectures'
-import { lectureAnchor, taskLecture } from '../lib/links'
+import { todayLocal } from '../lib/format'
+import { taskLecture } from '../lib/links'
+import { LectureLabel } from './LectureLinks'
 import { btn, inputCls } from './ui'
 
 /** Pieces both the exam prep list (Study.tsx) and a revision plan (StudyPlan.tsx) show. */
@@ -30,7 +31,6 @@ export function TaskLinks({
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const extras = useLectureExtras()
   const calculators = useQuery({
     queryKey: ['calculators'],
     queryFn: api.calculators.list,
@@ -48,14 +48,7 @@ export function TaskLinks({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-center gap-1.5">
-        {lecture !== null &&
-          (extras.original(courseId, lecture) ? (
-            <Link to="/lectures" hash={lectureAnchor(courseId, lecture)} className={chip}>
-              {t('page.lectureNumber', { n: lecture })}
-            </Link>
-          ) : (
-            <span className={chip}>{t('page.lectureNumber', { n: lecture })}</span>
-          ))}
+        {lecture !== null && <LectureLabel courseId={courseId} n={lecture} className={chip} />}
         {linked.map((c) => (
           <Link key={c.id} to="/calculators/$calcId" params={{ calcId: c.id }} className={chip}>
             {c.name}
@@ -126,20 +119,6 @@ export function TaskLinks({
       )}
     </div>
   )
-}
-
-/** Today in the browser's time zone, as YYYY-MM-DD. */
-export const todayLocal = () => new Date().toLocaleDateString('en-CA')
-
-export function useDayLabel() {
-  const { i18n } = useTranslation()
-  return (date: string) =>
-    new Date(`${date}T12:00:00Z`).toLocaleDateString(i18n.language, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      timeZone: 'UTC',
-    })
 }
 
 export function Countdown({ examDate }: { examDate: string }) {

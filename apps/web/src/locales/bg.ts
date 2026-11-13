@@ -259,7 +259,7 @@ export const bg: Dict = {
     ownPrefill: 'За днешния въпрос („{{question}}“): ',
     saveToPage: 'Запази в страницата',
     savedToPage: 'Запазено в страницата',
-    cost: 'AI разход досега: ≈ ${{cost}}',
+    cost: 'AI разход досега: ≈ {{cost}}',
   },
   reference: {
     title: 'Вмъкни препратка',

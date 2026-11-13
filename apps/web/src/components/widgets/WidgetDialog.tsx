@@ -4,6 +4,7 @@ import {
   ORBIT_PRESETS,
   type WidgetAttrs,
   defaultPlotRange,
+  issuesText,
   widgetAttrsSchema,
 } from '@nc/shared'
 import { useQuery } from '@tanstack/react-query'
@@ -95,7 +96,7 @@ export function WidgetDialog({
           : { kind, spec, sourceCalculatorId }
     const parsed = widgetAttrsSchema.safeParse(candidate)
     if (!parsed.success) {
-      setError(parsed.error.issues.map((i) => i.message).join('; '))
+      setError(issuesText(parsed.error))
       return
     }
     onSubmit(parsed.data)

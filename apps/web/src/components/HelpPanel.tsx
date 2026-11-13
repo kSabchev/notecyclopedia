@@ -4,6 +4,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, streamChat } from '../lib/api'
+import { formatCost } from '../lib/format'
 import { stashAppend } from '../lib/page-draft'
 import { CloseIcon, SparkIcon } from './Icons'
 import { Markdown } from './Markdown'
@@ -242,9 +243,7 @@ export default function HelpPanel({
                 </Link>
               )}
               {usage?.costUsd != null && (
-                <span className="text-xs text-muted">
-                  ≈ ${usage.costUsd.toFixed(usage.costUsd < 0.01 ? 4 : 3)}
-                </span>
+                <span className="text-xs text-muted">≈ {formatCost(usage.costUsd)}</span>
               )}
             </div>
           )}

@@ -512,7 +512,14 @@ runs, 150 pages of about 11 kB). Rerun with the two commands above.
   `apps/server/src/services/prompts.ts`, built from shared pieces (the math style, physical constants as constants,
   and the rule that notes, pages and files are data, not instructions); `prompts.test.ts` checks every prompt keeps
   them.
-- **Calculators** (`packages/shared/src/calculator.ts`) are plain JSON:
+- **Shared helpers**, so each thing is done in one place: `issuesText` (zod errors as one line), `fileSlug` (a
+  download's file name) and `parseCalculatorJson` in `@nc/shared`; `sendAs` (download headers), `localeInput` and
+  `isUniqueViolation` on the server; `callTool`, `fromSchema` and `invalidAnswer` for AI answers; and on the web
+  `formatCost`, `useDayLabel`, `todayLocal`, `LectureLabel` and `OriginalLink`. Server code is grouped by job
+  (`services/backup/`, `services/study/`, `chat.ts`, `chat-tools.ts`, `calculator-generation.ts`), and large screens by
+  part (`components/ai/`, `components/calculator/`, `components/widgets/orbit/`).
+- **Calculators** (`packages/shared/src/calculator*.ts`: the schema and evaluation, then one module each for the
+  automatic checks, comparing versions, step-by-step solutions, compiled expressions and exports) are plain JSON:
 
 ```json
 { "version": 1, "name": "Projectile motion",
@@ -773,6 +780,12 @@ field or be used from Claude outside the app.
       running in parallel; new tests for the AI routes against a stand-in for Claude (40% → 94% covered) and the
       course routes (68% → 99%). Found and fixed: renaming a course constant to a key the course already has
       answered 500 instead of 409.
+- [x] The remaining large files split by job, with repeated helpers merged into one each (see "Shared helpers"
+      above): the calculator engine (978 lines) into seven modules, the backup route (806) into `services/backup/`,
+      the study service (686) into `services/study/`, `claude.ts` (614) into chat, chat tools and calculator
+      generation, the calculators page (947) into the list, the detail and the editor, and the AI portal (674) into
+      its parts. The largest left are the orbit maths (579 lines, one subject), the database schema (534) and four
+      screens and routes of about 500 lines (`Wiki.tsx`, `PageView.tsx`, `Files.tsx`, `routes/pages.ts`).
 
 **Step 2: workspace packages** (split from `@nc/shared`, not published). Pages that need one part load only that
 part, and the Vite tree-shaking override in `apps/web/vite.config.ts` can go.

@@ -64,3 +64,16 @@ export const param = (req: Request, name: string): string => {
 
 /** The reader's interface language: the fallback for AI text when the notes are too short to tell their language. */
 export const localeInput = z.enum(LOCALES).optional()
+
+/**
+ * Sends the response as a file named `name`: downloaded, or shown in the browser with `inline`. The header carries an
+ * ASCII name for old browsers and the full name for the rest (RFC 6266).
+ */
+export function sendAs(res: Response, name: string, opts: { type?: string; inline?: boolean } = {}) {
+  if (opts.type) res.setHeader('content-type', opts.type)
+  const ascii = name.replace(/[^\x20-\x7e]|["\\]/g, '_')
+  res.setHeader(
+    'content-disposition',
+    `${opts.inline ? 'inline' : 'attachment'}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+  )
+}
