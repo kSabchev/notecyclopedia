@@ -3,7 +3,7 @@ import { and, asc, eq, sql } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
 import { assertCourse } from '../access'
-import { db, schema } from '../db'
+import { db, isUniqueViolation, schema } from '../db'
 import { HttpError, me, param } from '../http'
 
 export const courses = Router()
@@ -177,7 +177,7 @@ courses.put('/:id/constants/:constantId', async (req, res) => {
       .returning()
     res.json(updated)
   } catch (error) {
-    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505')
+    if (isUniqueViolation(error))
       throw new HttpError(409, 'A constant with that variable key already exists in this course')
     throw error
   }

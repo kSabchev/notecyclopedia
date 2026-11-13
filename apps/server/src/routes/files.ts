@@ -7,7 +7,7 @@ import { Router } from 'express'
 import multer from 'multer'
 import { z } from 'zod'
 import { assertCourse, loadPage, memberCourseIds } from '../access'
-import { db, schema } from '../db'
+import { db, isUniqueViolation, schema } from '../db'
 import { env } from '../env'
 import { HttpError, me, notFound, param } from '../http'
 import { aiConfigured, generateArticleDraft } from '../services/claude'
@@ -47,9 +47,7 @@ const publicCols = {
 const lectureNumber = z.number().int().positive().max(2_147_483_647)
 
 /** Another upload of the course is already the original of that lecture (unique index). */
-export const isLectureTaken = (e: unknown) =>
-  (e as { code?: string; cause?: { code?: string } }).code === '23505' ||
-  (e as { cause?: { code?: string } }).cause?.code === '23505'
+export const isLectureTaken = isUniqueViolation
 
 /** Which course and which file already hold the lecture, so the message says where to look. */
 export async function lectureTaken(courseId: string, n: number) {
