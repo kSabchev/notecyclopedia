@@ -66,7 +66,10 @@ test('an invalid correction is sent back once to be fixed', async () => {
   ])
   const review = await reviewCalculator(wrong, 'user', 'en', claude.create)
   assert.equal(review.revised?.outputs[0]?.expr, 'sqrt(mu / r)')
-  assert.match(JSON.stringify(claude.requests[1]?.messages.at(-1)), /Invalid review: revised/)
+  assert.match(
+    JSON.stringify(claude.requests[1]?.messages.at(-1)),
+    /Invalid review_calculator answer: revised/,
+  )
 
   const never = fakeClaude([
     { findings: [], revised: broken },
@@ -104,5 +107,5 @@ test('a rework sends what the student asked for and returns the reworked calcula
   const prompt = JSON.stringify(claude.requests[0]?.messages)
   assert.match(prompt, /Rework this calculator/)
   assert.match(prompt, /Add the escape speed/)
-  assert.match(prompt, /μ in constants/)
+  assert.match(prompt, /Physical constants are constants/)
 })
