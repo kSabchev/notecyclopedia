@@ -7,3 +7,4 @@ uploads
 test-results
 .playwright-uploads
 playwright-report
+coverage
