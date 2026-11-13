@@ -440,14 +440,22 @@ CI provisions the test database and browser automatically.
 |---|---|---|---|
 | Unit | `packages/shared/src/*.test.ts` | Vitest | Calculator engine and unit checks, orbit maths, documents, math text, study plans, file formats |
 | Unit | `apps/server/src/**/*.test.ts` | `node --test` (tsx) | AI helper and prompts, each AI feature against a stand-in for Claude, search queries, costs |
-| Integration | `apps/server/src/**/*.integration.test.ts` | `node --test` (tsx) | The API on the test database: pages, roles, files, backup, AI usage and the daily budget |
+| Integration | `apps/server/src/**/*.integration.test.ts` | `node --test` (tsx) | The API on the test database, one file per area: courses and roles, pages, files and lectures, calculators, study, backup, links, the AI routes, AI usage and the daily budget |
 | End to end | `apps/web/tests/e2e` | Playwright | Journeys in a real browser against the real API, with Claude mocked |
 
-Server test files are found by name (`*.test.ts`), so a new one runs without being listed. Integration tests use
-`apps/server/src/test-database.ts`, which points the server at the test database, never at Claude, and migrates
-under a lock so test files can run in parallel. `pnpm coverage` writes an HTML report for `@nc/shared` to
+Server test files are found by name (`*.test.ts`), so a new one runs without being listed. Each test file runs in
+its own process, in parallel with the others. Integration tests use the helpers in `apps/server/src/testing/`:
+
+- `database.ts` points the server at the test database, never at Claude, and migrates under a lock.
+- `api.ts` starts the API for one test file: sign users up, call the API as them (`send`, `ok`), make courses,
+  pages, uploads and calculators, and remove everything those users made when the file ends. Background jobs are
+  off (pages are indexed inline) unless a test asks for them; only the files test does.
+- `claude.ts` is a local stand-in for the Anthropic Messages API, plain and streamed. With `claudeEnv(fake)` the API
+  calls it through the real SDK, so a test covers the chat route, tool rounds, the usage log and the budget
+  without calling Claude.
+ `pnpm coverage` writes an HTML report for `@nc/shared` to
 `packages/shared/coverage` and fails below the floors set in `packages/shared/vitest.config.ts` and the server's
-`test:coverage` script, which sit a little under today's numbers (shared about 96% of lines, server about 89%).
+`test:coverage` script, which sit a little under today's numbers (shared about 96% of lines, server about 93%).
 Node counts comment lines in TypeScript as uncovered, so the server's per-file line numbers read low for
 well-commented files; its branch and function numbers are exact. The web app has no unit tests of its own: its
 logic lives in `@nc/shared`, and the browser tests cover the screens.
@@ -761,6 +769,10 @@ field or be used from Claude outside the app.
 - [x] Tests: the shared unit tests run in CI (they did not before), server test files are found by name, coverage
       with minimum floors in CI, a test-database helper for integration tests, and a test of AI usage logging and
       the daily budget.
+- [x] The 1,600-line API workflow test split into one file per area, on a shared harness (`src/testing/api.ts`),
+      running in parallel; new tests for the AI routes against a stand-in for Claude (40% → 94% covered) and the
+      course routes (68% → 99%). Found and fixed: renaming a course constant to a key the course already has
+      answered 500 instead of 409.
 
 **Step 2: workspace packages** (split from `@nc/shared`, not published). Pages that need one part load only that
 part, and the Vite tree-shaking override in `apps/web/vite.config.ts` can go.

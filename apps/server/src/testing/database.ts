@@ -6,7 +6,7 @@ import { parseEnv } from 'node:util'
  * For integration tests: the dedicated test database. Only NC_TEST_DATABASE_URL is read from .env; the dev database
  * and API keys stay out of the tests. Undefined when it is not set, so the tests that need it skip.
  */
-const rootEnv = path.resolve(import.meta.dirname, '../../../.env')
+const rootEnv = path.resolve(import.meta.dirname, '../../../../.env')
 export const testDatabaseUrl =
   process.env.NC_TEST_DATABASE_URL ||
   (existsSync(rootEnv) ? parseEnv(readFileSync(rootEnv, 'utf8')).NC_TEST_DATABASE_URL : undefined)
@@ -33,13 +33,13 @@ export function useTestDatabase(url: string, extra: Record<string, string> = {})
 export async function migrateTestDatabase() {
   const [{ migrate }, { pool, db }] = await Promise.all([
     import('drizzle-orm/node-postgres/migrator'),
-    import('./db'),
+    import('../db'),
   ])
   const lock = await pool.connect()
   try {
     await lock.query('SELECT pg_advisory_lock(74310001)')
     await lock.query('CREATE EXTENSION IF NOT EXISTS vector')
-    await migrate(db, { migrationsFolder: path.resolve(import.meta.dirname, '../drizzle') })
+    await migrate(db, { migrationsFolder: path.resolve(import.meta.dirname, '../../drizzle') })
   } finally {
     await lock.query('SELECT pg_advisory_unlock(74310001)')
     lock.release()

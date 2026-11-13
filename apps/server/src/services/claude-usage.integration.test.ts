@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { test } from 'node:test'
-import { migrateTestDatabase, testDatabaseUrl, useTestDatabase } from '../test-database'
+import { migrateTestDatabase, testDatabaseUrl, useTestDatabase } from '../testing/database'
 
 test(
   'API calls are logged with their cost, and the daily AI budget stops a user at the limit',
