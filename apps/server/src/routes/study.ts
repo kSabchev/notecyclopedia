@@ -6,23 +6,25 @@ import { assertCourse } from '../access'
 import { db, schema } from '../db'
 import { HttpError, localeInput, me, param, sendAs } from '../http'
 import { today } from '../services/daily-question'
+import { generateExamPlan } from '../services/study/exam-plan'
 import {
   acceptShare,
   declineShare,
   exportPlan,
-  generateExamPlan,
   importPlan,
-  listPlans,
   listShares,
+  sharePlan,
+} from '../services/study/plan-sharing'
+import {
+  listPlans,
   loadPlan,
   planEditSchema,
   savePlan,
   setPlanActive,
   setTaskDone,
-  sharePlan,
   todaysTasks,
-  whereWasI,
-} from '../services/study'
+} from '../services/study/plans'
+import { whereWasI } from '../services/study/where-was-i'
 
 /** The study companion: where you left off, and revision plans for exams. */
 export const study = Router()

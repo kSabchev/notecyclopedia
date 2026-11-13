@@ -18,7 +18,7 @@ import { UsageMeter } from '../services/claude-client'
 import { assertAiBudget } from '../services/claude-usage'
 import { generatePageReview } from '../services/page-review'
 import { type RetrievedChunk, retrieve } from '../services/retrieval'
-import { generateQuickCheck } from '../services/study'
+import { generateQuickCheck } from '../services/study/quick-check'
 import { generateTopicHub } from '../services/topic-hub'
 import { loadCalc } from './calculators'
 

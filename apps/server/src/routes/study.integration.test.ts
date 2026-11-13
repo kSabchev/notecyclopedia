@@ -198,7 +198,10 @@ test(
     })
 
     await t.test('exam plans: proposed in one call, dated and linked in code, edited, shared', async () => {
-      const study = await import('../services/study')
+      const study = {
+        ...(await import('../services/study/exam-plan')),
+        ...(await import('../services/study/plans')),
+      }
       let planPrompt = ''
       const fakePlan = (async (req: { messages: { content: unknown }[] }) => {
         planPrompt = JSON.stringify(req.messages)

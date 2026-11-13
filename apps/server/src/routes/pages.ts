@@ -8,7 +8,7 @@ import { HttpError, me, param } from '../http'
 import { removeSource } from '../services/indexing'
 import { queueReindexPage } from '../services/jobs'
 import { preparePageContent, syncPageContent } from '../services/page-content'
-import { recordVisit } from '../services/study'
+import { recordVisit } from '../services/study/where-was-i'
 
 export const pages = Router()
 export const formulas = Router()
