@@ -5,6 +5,7 @@
       "**/dist",
       "**/node_modules",
       "**/test-results",
+      "**/coverage",
       "**/.playwright-uploads",
       "design/**",
       "apps/server/drizzle/**"

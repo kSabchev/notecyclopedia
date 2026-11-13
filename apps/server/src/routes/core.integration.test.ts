@@ -1,45 +1,25 @@
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
-import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
-import { parseEnv } from 'node:util'
-
-const rootEnv = path.resolve(import.meta.dirname, '../../../../.env')
-// Only the test database is read from .env; the dev database and API keys stay out of the test.
-const databaseUrl =
-  process.env.NC_TEST_DATABASE_URL ||
-  (existsSync(rootEnv) ? parseEnv(readFileSync(rootEnv, 'utf8')).NC_TEST_DATABASE_URL : undefined)
+import { testDatabaseUrl as databaseUrl, migrateTestDatabase, useTestDatabase } from '../test-database'
 
 test(
   'page, role, file indexing, move, and backup API workflows',
   { skip: !databaseUrl, timeout: 180_000 },
   async (t) => {
     if (!databaseUrl) return
-    const testDatabase = new URL(databaseUrl)
-    if (!testDatabase.pathname.endsWith('_test'))
-      throw new Error('NC_TEST_DATABASE_URL must point to a dedicated database ending in _test')
-
     const uploadDir = await mkdtemp(path.join(os.tmpdir(), 'notecyclopedia-api-test-'))
-    process.env.DATABASE_URL = databaseUrl
-    process.env.BETTER_AUTH_SECRET = 'dedicated-integration-test-secret-at-least-32'
-    process.env.BETTER_AUTH_URL = 'http://localhost:5173'
-    process.env.WEB_ORIGIN = 'http://localhost:5173'
-    process.env.UPLOAD_DIR = uploadDir
-    // Never call Claude from tests, even when a key is set in the shell.
-    process.env.ANTHROPIC_API_KEY = ''
+    useTestDatabase(databaseUrl, { UPLOAD_DIR: uploadDir })
 
-    const [{ migrate }, { pool, db, schema }, { createApp }, jobs] = await Promise.all([
-      import('drizzle-orm/node-postgres/migrator'),
+    const [{ pool, db, schema }, { createApp }, jobs] = await Promise.all([
       import('../db'),
       import('../app'),
       import('../services/jobs'),
     ])
     const { and, eq, inArray } = await import('drizzle-orm')
-    const { fileURLToPath } = await import('node:url')
-    const here = path.dirname(fileURLToPath(import.meta.url))
     const state: {
       server: ReturnType<ReturnType<typeof createApp>['listen']> | undefined
       ownerId: string | undefined
@@ -65,8 +45,7 @@ test(
       await rm(uploadDir, { recursive: true, force: true })
     })
 
-    await pool.query('CREATE EXTENSION IF NOT EXISTS vector')
-    await migrate(db, { migrationsFolder: path.resolve(here, '../../drizzle') })
+    await migrateTestDatabase()
     await jobs.startJobs()
     state.jobsStarted = true
 

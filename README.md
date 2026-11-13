@@ -418,6 +418,7 @@ means no limit. The budget is computed from the same `claude_api_calls` log, so 
 | `pnpm dev` | Run web and server in watch mode |
 | `pnpm typecheck` | Type-check all packages |
 | `pnpm test` | Unit tests, database-backed API workflows, and Playwright browser journeys |
+| `pnpm coverage` | Unit and API tests with coverage and the minimum coverage CI enforces |
 | `pnpm lint` | Biome lint + format check |
 | `pnpm db:generate` | Create a migration after changing `apps/server/src/db/schema.ts` |
 | `pnpm db:migrate` | Apply migrations |
@@ -432,6 +433,24 @@ workflow test applies migrations to it. The browser tests start their own server
 they can run while `pnpm dev` is running. Install Playwright's Chromium browser with
 `pnpm --filter @nc/web exec playwright install chromium`.
 CI provisions the test database and browser automatically.
+
+### Tests
+
+| Layer | Where | Runner | What it covers |
+|---|---|---|---|
+| Unit | `packages/shared/src/*.test.ts` | Vitest | Calculator engine and unit checks, orbit maths, documents, math text, study plans, file formats |
+| Unit | `apps/server/src/**/*.test.ts` | `node --test` (tsx) | AI helper and prompts, each AI feature against a stand-in for Claude, search queries, costs |
+| Integration | `apps/server/src/**/*.integration.test.ts` | `node --test` (tsx) | The API on the test database: pages, roles, files, backup, AI usage and the daily budget |
+| End to end | `apps/web/tests/e2e` | Playwright | Journeys in a real browser against the real API, with Claude mocked |
+
+Server test files are found by name (`*.test.ts`), so a new one runs without being listed. Integration tests use
+`apps/server/src/test-database.ts`, which points the server at the test database, never at Claude, and migrates
+under a lock so test files can run in parallel. `pnpm coverage` writes an HTML report for `@nc/shared` to
+`packages/shared/coverage` and fails below the floors set in `packages/shared/vitest.config.ts` and the server's
+`test:coverage` script, which sit a little under today's numbers (shared about 96% of lines, server about 89%).
+Node counts comment lines in TypeScript as uncovered, so the server's per-file line numbers read low for
+well-commented files; its branch and function numbers are exact. The web app has no unit tests of its own: its
+logic lives in `@nc/shared`, and the browser tests cover the screens.
 
 ## Performance
 
@@ -736,6 +755,12 @@ field or be used from Claude outside the app.
       plan as its own route (`StudyPlan.tsx`) with the parts it shares with the plan list (`StudyParts.tsx`).
 - [x] One list of UI languages (`LOCALES` in `@nc/shared`) and one request schema for them (`localeInput`), in place
       of six copies.
+- [x] The orbit diagram split by part (`components/widgets/orbit/`): the plane, 3D and ground-track views, the
+      element fields and derived values, and the shared drawing helpers. `OrbitView.tsx` keeps the state and
+      playback (1,295 → 362 lines).
+- [x] Tests: the shared unit tests run in CI (they did not before), server test files are found by name, coverage
+      with minimum floors in CI, a test-database helper for integration tests, and a test of AI usage logging and
+      the daily budget.
 
 **Step 2: workspace packages** (split from `@nc/shared`, not published). Pages that need one part load only that
 part, and the Vite tree-shaking override in `apps/web/vite.config.ts` can go.

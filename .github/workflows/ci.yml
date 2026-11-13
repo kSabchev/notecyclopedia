@@ -59,8 +59,11 @@ jobs:
       - name: Install Playwright browser
         run: pnpm --filter @nc/web exec playwright install --with-deps chromium
 
-      - name: Test
-        run: pnpm test
+      - name: Unit and integration tests, with coverage floors
+        run: pnpm coverage
+
+      - name: Browser tests
+        run: pnpm --filter @nc/web test
 
       - name: Build
         run: pnpm build
