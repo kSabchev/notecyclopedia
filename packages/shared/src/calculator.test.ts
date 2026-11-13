@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculatorSpecSchema, evaluateCalculator } from './calculator'
+import { calculatorSpecSchema, evaluateCalculator, parseCalculatorJson } from './calculator'
 import { exportHTML, exportPython } from './calculator-export'
 import { BUILT_IN_CONSTANTS } from './constants'
 import { chunkText, docToText, extractFormulas, withBlockIds } from './doc'
@@ -187,5 +187,19 @@ describe('doc helpers', () => {
     const chunks = chunkText(text, 1000, 100)
     expect(chunks.length).toBeGreaterThan(5)
     expect(chunks.every((c) => c.length <= 1100)).toBe(true)
+  })
+})
+
+describe('parseCalculatorJson', () => {
+  it('reads a calculator from JSON text, or says what is wrong', () => {
+    const spec = {
+      version: 1,
+      name: 'Speed',
+      inputs: [{ key: 'd', label: 'Distance' }],
+      outputs: [{ key: 'v', label: 'Speed', expr: 'd / 2' }],
+    }
+    expect(parseCalculatorJson(JSON.stringify(spec)).spec?.name).toBe('Speed')
+    expect(parseCalculatorJson('{"version":1').error).toMatch(/JSON/)
+    expect(parseCalculatorJson(JSON.stringify({ ...spec, name: '' })).error).toMatch(/^name: /)
   })
 })

@@ -6,7 +6,8 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
 import { useDayLabel } from '../lib/format'
 import { useLectureExtras } from '../lib/lectures'
-import { lectureAnchor, usePlanTasks } from '../lib/links'
+import { usePlanTasks } from '../lib/links'
+import { LectureLabel, OriginalLink } from './LectureLinks'
 import { Eyebrow } from './ui'
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
@@ -71,21 +72,20 @@ export function Connections({
       {lecture !== null && courseId && (
         <Group title={t('connect.lecture')}>
           <li>
-            {original ? (
-              <Link to="/lectures" hash={lectureAnchor(courseId, lecture)} className="font-semibold">
-                {t('page.lectureNumber', { n: lecture })}
-              </Link>
-            ) : (
-              <Link to="/courses/$courseId" params={{ courseId }} className="font-semibold">
-                {t('page.lectureNumber', { n: lecture })}
-              </Link>
-            )}
+            <LectureLabel
+              courseId={courseId}
+              n={lecture}
+              className="font-semibold"
+              fallback={
+                <Link to="/courses/$courseId" params={{ courseId }} className="font-semibold">
+                  {t('page.lectureNumber', { n: lecture })}
+                </Link>
+              }
+            />
           </li>
           {original && (
             <li>
-              <a href={api.files.url(original.id, true)} target="_blank" rel="noreferrer">
-                {t('page.original', { name: original.name })} ↗
-              </a>
+              <OriginalLink file={original} />
             </li>
           )}
         </Group>

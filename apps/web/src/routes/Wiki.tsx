@@ -10,6 +10,7 @@ import { Link, useParams } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon, UsersIcon } from '../components/Icons'
+import { OriginalLink } from '../components/LectureLinks'
 import { Card, Empty, ErrorNote, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 import { timeAgo } from '../lib/format'
@@ -98,16 +99,7 @@ function ByLecture({ courseId, pages }: { courseId: string; pages: PageSummary[]
           <section key={g.lectureNumber ?? 'none'} aria-label={label} className="flex flex-col gap-2">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-1">
               <h3 className="m-0 text-sm font-bold uppercase tracking-[0.06em] text-ink-2">{label}</h3>
-              {original && (
-                <a
-                  href={api.files.url(original.id, true)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm font-semibold"
-                >
-                  {t('page.original', { name: original.name })} ↗
-                </a>
-              )}
+              {original && <OriginalLink file={original} className="text-sm font-semibold" />}
             </div>
             {(g.pages.length > 0 || calcs.length > 0) && (
               <ul className="m-0 flex list-none flex-col rounded-[12px] border border-line bg-surface p-0">

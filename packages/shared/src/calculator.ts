@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { compileExpr } from './calculator-code'
 import { limitedEvaluate, math } from './calculator-math'
+import { issuesText } from './format'
 
 /**
  * A calculator is a small, portable definition: named inputs (with units for display),
@@ -120,6 +121,18 @@ export function evaluateCalculator(spec: CalculatorSpec, inputs: Record<string, 
     }
   }
   return { ok: true, values }
+}
+
+/** A calculator from JSON text (a file or the advanced editor): the spec, or every problem with it. */
+export function parseCalculatorJson(text: string): { spec?: CalculatorSpec; error?: string } {
+  try {
+    const parsed = calculatorSpecSchema.safeParse(JSON.parse(text))
+    return parsed.success
+      ? { spec: parsed.data }
+      : { error: issuesText(parsed.error, Number.POSITIVE_INFINITY) }
+  } catch (e) {
+    return { error: (e as Error).message }
+  }
 }
 
 /** Default values for every input (falls back to 1). */
