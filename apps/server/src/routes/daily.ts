@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { loadPage } from '../access'
-import { me, param } from '../http'
+import { localeInput as locale, me, param } from '../http'
 import {
   expandDailyQuestion,
   generateDailyQuestion,
@@ -23,9 +23,6 @@ daily.get('/today', async (req, res) => {
   const day = today(timeZoneOf(user))
   res.json({ day, question: await questionForDay(user.id, day) })
 })
-
-/** The reader's interface language: the fallback when the notes are too short to tell. */
-const locale = z.enum(['en', 'bg']).optional()
 
 daily.post('/today', async (req, res) => {
   const body = z.object({ courseId: z.string().uuid().optional(), locale }).parse(req.body ?? {})

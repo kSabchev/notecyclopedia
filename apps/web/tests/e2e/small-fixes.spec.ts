@@ -52,3 +52,24 @@ test('uploads can be searched, filtered and paged; the backup page says when the
   await (await download).path()
   await expect(page.getByText(/^Last backup: /)).toBeVisible()
 })
+
+test('switching the language loads its text, and the choice is kept on reload', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await page.getByLabel('Name').fill('Polyglot')
+  await page.getByLabel('Email').fill(`lang-${crypto.randomUUID()}@example.test`)
+  await page.getByLabel('Password').fill('browser-test-password')
+  await page.getByRole('button', { name: 'Create account', exact: true }).last().click()
+  await expect(page).toHaveURL('/')
+  const nav = page.getByRole('navigation', { name: 'Main' })
+  await expect(nav.getByRole('link', { name: 'Home', exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Език: Български' }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'bg')
+  await page.reload()
+  await expect(page.getByRole('link', { name: 'Начало', exact: true }).first()).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'bg')
+
+  await page.getByRole('button', { name: 'Language: English' }).click()
+  await expect(page.getByRole('link', { name: 'Home', exact: true }).first()).toBeVisible()
+})
