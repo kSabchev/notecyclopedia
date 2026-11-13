@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { calculatorSpecSchema, evaluateCalculator, exportHTML, exportPython } from './calculator'
+import { calculatorSpecSchema, evaluateCalculator } from './calculator'
+import { exportHTML, exportPython } from './calculator-export'
 import { BUILT_IN_CONSTANTS } from './constants'
 import { chunkText, docToText, extractFormulas, withBlockIds } from './doc'
 

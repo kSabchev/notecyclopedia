@@ -1,4 +1,5 @@
-import { type CalculatorSpec, compileExcel, defaultInputs, evaluateCalculator } from './calculator'
+import { type CalculatorSpec, defaultInputs, evaluateCalculator } from './calculator'
+import { compileExcel } from './calculator-code'
 
 /**
  * An Excel workbook (.xlsx) for a calculator, as the files of its zip archive. Inputs are editable cells;

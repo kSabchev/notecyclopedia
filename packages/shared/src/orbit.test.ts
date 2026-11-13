@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import {
-  calculatorSpecSchema,
-  checkCalculator,
-  evaluateCalculator,
-  exportJSON,
-  exportPython,
-} from './calculator'
+import { calculatorSpecSchema, evaluateCalculator } from './calculator'
+import { checkCalculator } from './calculator-check'
+import { exportJSON, exportPython } from './calculator-export'
 import {
   CENTRAL_BODIES,
   HOHMANN_CALCULATOR,
