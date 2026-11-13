@@ -25,7 +25,7 @@ import { z } from 'zod'
 import { memberCourseIds } from '../access'
 import { db, schema } from '../db'
 import { env } from '../env'
-import { HttpError, me } from '../http'
+import { HttpError, me, sendAs } from '../http'
 import { fileType } from '../services/file-types'
 import { queueIngest, queueReindexPage } from '../services/jobs'
 import { syncReferences, syncTerms } from '../services/term-index'
@@ -538,11 +538,9 @@ backup.get('/export', async (req, res) => {
   const archive = new ZipArchive({ zlib: { level: 6 } })
   archive.on('error', (error) => res.destroy(error))
   archive.on('warning', (error) => res.destroy(error))
-  res.setHeader('content-type', 'application/zip')
-  res.setHeader(
-    'content-disposition',
-    `attachment; filename="notecyclopedia-backup-${new Date().toISOString().slice(0, 10)}.zip"`,
-  )
+  sendAs(res, `notecyclopedia-backup-${new Date().toISOString().slice(0, 10)}.zip`, {
+    type: 'application/zip',
+  })
   res.setHeader('x-content-type-options', 'nosniff')
   // Counted as a backup once the whole archive has been sent.
   res.on('finish', () => {

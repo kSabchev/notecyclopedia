@@ -4,21 +4,10 @@ import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
+import { useDayLabel } from '../lib/format'
 import { useLectureExtras } from '../lib/lectures'
 import { lectureAnchor, usePlanTasks } from '../lib/links'
 import { Eyebrow } from './ui'
-
-/** A task's day, short: "Tue 12 Nov". */
-export function useShortDay() {
-  const { i18n } = useTranslation()
-  return (date: string) =>
-    new Date(`${date}T12:00:00Z`).toLocaleDateString(i18n.language, {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      timeZone: 'UTC',
-    })
-}
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -47,7 +36,7 @@ export function Connections({
   calculatorId?: string
 }) {
   const { t } = useTranslation()
-  const shortDay = useShortDay()
+  const shortDay = useDayLabel('short')
   const extras = useLectureExtras()
   const tasksFor = usePlanTasks()
   const pages = useQuery({

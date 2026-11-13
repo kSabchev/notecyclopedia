@@ -1,5 +1,6 @@
 import { type CalculatorIssue, type CalculatorReview, type CalculatorSpec, diffSpecs } from '@nc/shared'
 import { useTranslation } from 'react-i18next'
+import { formatCost } from '../lib/format'
 import { btn } from './ui'
 
 /** The checks shown on a calculator: the app's own (no AI) and Claude's review with its proposed changes. */
@@ -95,7 +96,7 @@ export function ReviewPanel({
         <h3 id="h-review" className="m-0 text-base font-bold">
           {title ?? t('calc.review.title')}
         </h3>
-        {cost != null && <span className="text-xs text-muted">≈ ${cost.toFixed(cost < 0.01 ? 4 : 3)}</span>}
+        {cost != null && <span className="text-xs text-muted">≈ {formatCost(cost)}</span>}
       </div>
       {review.findings.length ? (
         <ul className="m-0 flex list-none flex-col gap-2 p-0">

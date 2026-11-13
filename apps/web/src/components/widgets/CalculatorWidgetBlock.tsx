@@ -4,6 +4,7 @@ import {
   type WidgetAttrs,
   defaultInputs,
   formatValue,
+  issuesText,
   samplePlot,
   widgetAttrsSchema,
 } from '@nc/shared'
@@ -150,7 +151,7 @@ export default function CalculatorWidgetBlock({
     try {
       const latest = await api.calculators.get(sourceCalculatorId)
       const next = widgetAttrsSchema.safeParse({ ...widget, spec: latest.spec })
-      if (!next.success) throw new Error(next.error.issues.map((i) => i.message).join('; '))
+      if (!next.success) throw new Error(issuesText(next.error))
       onChange(next.data)
       setStatus({ ok: true, text: t('widget.updated') })
     } catch (e) {
@@ -181,7 +182,7 @@ export default function CalculatorWidgetBlock({
         <div className="p-5">
           <ErrorNote
             error={t('widget.invalid', {
-              error: parsed.error?.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; '),
+              error: parsed.error && issuesText(parsed.error),
             })}
           />
         </div>

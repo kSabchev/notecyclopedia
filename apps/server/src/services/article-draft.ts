@@ -1,6 +1,7 @@
 import { inlineContent, tidyLatex } from '@nc/shared'
 import { z } from 'zod'
 import { HttpError } from '../http'
+import { invalidAnswer } from './ai-tool'
 
 const articleDraftSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -33,13 +34,15 @@ export function parseArticleDraftResponse(response: {
 
   const parsed = articleDraftSchema.safeParse(block.input)
   if (!parsed.success) {
-    const issues = parsed.error.issues.map(({ code, path }) => ({ code, path }))
-    console.error('[article-draft] Invalid response shape:', issues)
-    const details = issues
+    const details = parsed.error.issues
       .slice(0, 3)
       .map(({ code, path }) => `${path.join('.') || 'draft'} (${code})`)
       .join(', ')
-    throw new HttpError(502, `The AI returned an invalid article draft: ${details}`)
+    invalidAnswer(
+      '[article-draft] Invalid response shape:',
+      parsed.error,
+      `The AI returned an invalid article draft: ${details}`,
+    )
   }
 
   return {

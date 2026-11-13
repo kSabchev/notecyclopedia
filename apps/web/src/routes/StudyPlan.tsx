@@ -13,10 +13,10 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CloseIcon, PenIcon } from '../components/Icons'
 import { PlanActions } from '../components/PlanSharing'
-import { Countdown, TaskLinks, progressOf, todayLocal, useDayLabel } from '../components/StudyParts'
+import { Countdown, TaskLinks, progressOf } from '../components/StudyParts'
 import { ErrorNote, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
-import { formatCost } from '../lib/format'
+import { formatCost, todayLocal, useDayLabel } from '../lib/format'
 import { useLectureExtras } from '../lib/lectures'
 
 /** A revision plan, edited in place: every change is saved straight away. */

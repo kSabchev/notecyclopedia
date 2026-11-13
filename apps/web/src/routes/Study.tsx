@@ -4,9 +4,10 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ImportPlan, SharedWithYou } from '../components/PlanSharing'
-import { Countdown, progressOf, todayLocal } from '../components/StudyParts'
+import { Countdown, progressOf } from '../components/StudyParts'
 import { Empty, ErrorNote, SectionHeader, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
+import { todayLocal } from '../lib/format'
 
 function useWeekdayName() {
   const { i18n } = useTranslation()

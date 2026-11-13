@@ -6,6 +6,7 @@ import {
   calculatorSpecSchema,
   checkCalculator,
   inputToConstant,
+  issuesText,
 } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
@@ -34,7 +35,7 @@ function parseSpec(text: string): { spec?: CalculatorSpec; error?: string } {
   try {
     const r = calculatorSpecSchema.safeParse(JSON.parse(text))
     if (r.success) return { spec: r.data }
-    return { error: r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') }
+    return { error: issuesText(r.error, Number.POSITIVE_INFINITY) }
   } catch (e) {
     return { error: (e as Error).message }
   }

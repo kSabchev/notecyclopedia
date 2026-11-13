@@ -4,6 +4,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
+import { formatCost } from '../lib/format'
 import { Markdown } from './Markdown'
 import { ErrorNote, btn, inputCls } from './ui'
 
@@ -187,7 +188,9 @@ export function DailyQuestionView({ question: q }: { question: DailyQuestion }) 
             </button>
           ))}
       </div>
-      {cost != null && <p className="m-0 text-xs text-muted">{t('daily.cost', { cost: cost.toFixed(4) })}</p>}
+      {cost != null && (
+        <p className="m-0 text-xs text-muted">{t('daily.cost', { cost: formatCost(cost) })}</p>
+      )}
       <ErrorNote error={expand.error ?? save.error} />
     </div>
   )

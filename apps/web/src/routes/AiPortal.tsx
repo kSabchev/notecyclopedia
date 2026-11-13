@@ -7,7 +7,7 @@ import type {
   QuickCheck as QuickCheckData,
   WidgetAttrs,
 } from '@nc/shared'
-import { AI_MODES } from '@nc/shared'
+import { AI_MODES, fileSlug } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
@@ -17,6 +17,7 @@ import { Markdown } from '../components/Markdown'
 import { QuickCheck } from '../components/QuickCheck'
 import { ErrorNote, btn } from '../components/ui'
 import { api, streamChat } from '../lib/api'
+import { formatCost } from '../lib/format'
 import { attachmentUrl, photoAttachment } from '../lib/image'
 import { stashAppend } from '../lib/page-draft'
 
@@ -145,7 +146,7 @@ function UsageLine({ usage }: { usage: AiUsage }) {
   const { t, i18n } = useTranslation()
   const n = (x: number) => x.toLocaleString(i18n.language)
   const input = usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens
-  const cost = usage.costUsd === null ? null : `$${usage.costUsd.toFixed(usage.costUsd < 0.01 ? 4 : 3)}`
+  const cost = usage.costUsd === null ? null : formatCost(usage.costUsd)
   return (
     <p className="m-0 text-xs text-muted">
       {t('ai.usage', { input: n(input), cached: n(usage.cacheReadTokens), output: n(usage.outputTokens) })}
@@ -165,7 +166,7 @@ function GeneratedCalculator({ spec }: { spec: CalculatorSpec }) {
     const url = URL.createObjectURL(new Blob([JSON.stringify(spec, null, 2)], { type: 'application/json' }))
     const a = document.createElement('a')
     a.href = url
-    a.download = `${spec.name.replace(/[^\p{L}\p{N}]+/gu, '-').toLowerCase()}.json`
+    a.download = `${fileSlug(spec.name.toLowerCase(), 'calculator')}.json`
     a.click()
     URL.revokeObjectURL(url)
   }

@@ -1,11 +1,18 @@
-import { calculatorSpecSchema, calculatorWorkbook, exportHTML, exportJSON, exportPython } from '@nc/shared'
+import {
+  calculatorSpecSchema,
+  calculatorWorkbook,
+  exportHTML,
+  exportJSON,
+  exportPython,
+  fileSlug,
+} from '@nc/shared'
 import { ZipArchive } from 'archiver'
 import { and, desc, eq } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
 import { assertCourse } from '../access'
 import { db, schema } from '../db'
-import { HttpError, me, notFound, param } from '../http'
+import { HttpError, me, notFound, param, sendAs } from '../http'
 
 export const calculators = Router()
 
@@ -148,11 +155,7 @@ const EXPORT_TYPES = {
 calculators.get('/:id/export', async (req, res) => {
   const c = await loadCalc(param(req, 'id'), me(req).id)
   const { format } = z.object({ format: z.enum(['json', 'py', 'html', 'xlsx']) }).parse(req.query)
-  const base =
-    c.name
-      .replace(/[^\p{L}\p{N}]+/gu, '-')
-      .replace(/^-|-$/g, '')
-      .toLowerCase() || 'calculator'
+  const base = fileSlug(c.name.toLowerCase(), 'calculator')
   let body: string | Buffer
   try {
     body =
@@ -166,10 +169,6 @@ calculators.get('/:id/export', async (req, res) => {
   } catch (e) {
     throw new HttpError(422, `Cannot export: ${(e as Error).message}`)
   }
-  res.setHeader('content-type', EXPORT_TYPES[format])
-  res.setHeader(
-    'content-disposition',
-    `attachment; filename*=UTF-8''${encodeURIComponent(`${base}.${format}`)}`,
-  )
+  sendAs(res, `${base}.${format}`, { type: EXPORT_TYPES[format] })
   res.send(body)
 })

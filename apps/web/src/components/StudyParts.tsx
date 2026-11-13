@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
+import { todayLocal } from '../lib/format'
 import { useLectureExtras } from '../lib/lectures'
 import { lectureAnchor, taskLecture } from '../lib/links'
 import { btn, inputCls } from './ui'
@@ -126,20 +127,6 @@ export function TaskLinks({
       )}
     </div>
   )
-}
-
-/** Today in the browser's time zone, as YYYY-MM-DD. */
-export const todayLocal = () => new Date().toLocaleDateString('en-CA')
-
-export function useDayLabel() {
-  const { i18n } = useTranslation()
-  return (date: string) =>
-    new Date(`${date}T12:00:00Z`).toLocaleDateString(i18n.language, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      timeZone: 'UTC',
-    })
 }
 
 export function Countdown({ examDate }: { examDate: string }) {

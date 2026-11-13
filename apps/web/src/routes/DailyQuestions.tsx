@@ -6,6 +6,7 @@ import { DailyCourseSelect, DailyQuestionCard, useDailyCourse } from '../compone
 import { DailyQuestionView } from '../components/DailyQuestionView'
 import { Empty, ErrorNote, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
+import { useDayLabel } from '../lib/format'
 
 const PAGE = 30
 
@@ -14,7 +15,7 @@ const PAGE = 30
  * and every earlier question, newest first, by day, with a subject filter and text search.
  */
 export function DailyQuestions() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [courseId, setCourseId] = useDailyCourse()
   const [filterCourse, setFilterCourse] = useState('')
@@ -42,12 +43,7 @@ export function DailyQuestions() {
   const questions = (list.data?.pages.flat() ?? []).filter((x) => x.id !== todayId)
   const byDay = new Map<string, DailyQuestion[]>()
   for (const x of questions) byDay.set(x.day, [...(byDay.get(x.day) ?? []), x])
-  const date = (day: string) =>
-    new Date(`${day}T12:00:00`).toLocaleDateString(i18n.language, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    })
+  const date = useDayLabel()
 
   return (
     <div className="flex max-w-[860px] flex-col gap-8 px-6 pb-18 pt-10 md:px-12">

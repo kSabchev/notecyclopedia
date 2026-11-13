@@ -258,7 +258,7 @@ export const en = {
     ownPrefill: 'About today\'s question ("{{question}}"): ',
     saveToPage: 'Save to page',
     savedToPage: 'Saved to its page',
-    cost: 'AI cost so far: ≈ ${{cost}}',
+    cost: 'AI cost so far: ≈ {{cost}}',
   },
   reference: {
     title: 'Insert a reference',

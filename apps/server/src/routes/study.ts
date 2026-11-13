@@ -1,10 +1,10 @@
-import { isCalendarDate, planFileSchema } from '@nc/shared'
+import { fileSlug, isCalendarDate, planFileSchema } from '@nc/shared'
 import { eq } from 'drizzle-orm'
 import { Router } from 'express'
 import { z } from 'zod'
 import { assertCourse } from '../access'
 import { db, schema } from '../db'
-import { HttpError, localeInput, me, param } from '../http'
+import { HttpError, localeInput, me, param, sendAs } from '../http'
 import { today } from '../services/daily-question'
 import {
   acceptShare,
@@ -109,12 +109,7 @@ study.patch('/plans/:id', async (req, res) => {
 /** The plan as a JSON file, to keep or to import elsewhere. */
 study.get('/plans/:id/export', async (req, res) => {
   const file = await exportPlan(param(req, 'id'), me(req).id)
-  const name =
-    file.title
-      .replace(/[^\p{L}\p{N}]+/gu, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 60) || 'plan'
-  res.setHeader('content-disposition', `attachment; filename="${encodeURIComponent(name)}.plan.json"`)
+  sendAs(res, `${fileSlug(file.title, 'plan')}.plan.json`)
   res.json(file)
 })
 

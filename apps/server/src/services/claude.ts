@@ -11,6 +11,7 @@ import {
   defaultInputs,
   evaluateCalculator,
   formatValue,
+  issuesText,
   widgetAttrsSchema,
 } from '@nc/shared'
 import { HttpError } from '../http'
@@ -398,7 +399,7 @@ export function orbitFromTool(input: unknown): { widget: WidgetAttrs } | { error
   const parsed = widgetAttrsSchema.safeParse({ kind: 'orbit', body, elements })
   if (parsed.success) return { widget: parsed.data }
   return {
-    error: `Invalid orbit: ${parsed.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; ')}. Only closed orbits (e < 1) can be shown.`,
+    error: `Invalid orbit: ${issuesText(parsed.error)}. Only closed orbits (e < 1) can be shown.`,
   }
 }
 
@@ -480,8 +481,7 @@ export const MAX_CALCULATORS = 6
 /** Validate and test-run a save_calculator call: the spec, or what is wrong with it. */
 export function calculatorFromTool(input: unknown): { spec: CalculatorSpec } | { error: string } {
   const parsed = calculatorSpecSchema.safeParse({ ...(input as object), version: 1 })
-  if (!parsed.success)
-    return { error: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') }
+  if (!parsed.success) return { error: issuesText(parsed.error, Number.POSITIVE_INFINITY) }
   const run = evaluateCalculator(parsed.data, defaultInputs(parsed.data))
   return run.ok ? { spec: parsed.data } : { error: run.error }
 }
