@@ -706,24 +706,62 @@ The plan follows four rules:
 - [ ] Course packs: a course exported without personal data, for students to import as their own copy (built on
       backup).
 
+### Reuse and modularity
+
+Most of Notecyclopedia is a general study system (pages, lectures, calculators, the tutor, daily questions, exam
+plans, navigation, inline math); the astrodynamics part is a smaller layer on top (orbit maths and diagram, mission
+files, presets, `show_orbit`, the μ check, the built-in useful links). The steps below make the general parts reusable
+and the field-specific parts pluggable, in order of payoff. As a personal tool it does not need packages for their own
+sake: steps 1 and 2 pay off now (less duplication, easier tests), steps 3 to 5 only if the app should serve another
+field or be used from Claude outside the app.
+
+**Step 1: inside the app**
+
+- [ ] One AI tool-call helper: call Claude with a tool, validate the result with a schema, ask once more when it is
+      invalid, and record usage. Calculator review and rework, daily questions, quick checks, topic hubs, page review
+      and exam plans each repeat this today.
+- [ ] A prompts module: the prompts in one place (`MATH_STYLE` is the first shared piece), so they are easier to tune,
+      test and keep consistent.
+
+**Step 2: workspace packages** (split from `@nc/shared`, not published). Pages that need one part load only that
+part, and the Vite tree-shaking override in `apps/web/vite.config.ts` can go.
+
+- [ ] `@nc/calc`: calculator specs, the limited math.js evaluator, unit checks, step explanations and Excel, Python and
+      HTML export. The most reusable piece, useful to any engineering course or tool.
+- [ ] `@nc/doc`: the page document (block ids, terms, references, links, `docToText`), the math converter and
+      `tidyLatex`, and the read-only renderer.
+- [ ] `@nc/orbit`: orbit maths (Kepler propagation, J2 rates, ground track, sidereal time, transfers, mission files),
+      with no dependencies; the `CalculatorSpec` type it borrows moves behind a small interface.
+- [ ] `@nc/orbit-view`: the React orbit diagram and the coastline map, depending on `@nc/orbit`.
+- [ ] `@nc/study`: study scheduling (study days, catching up, fitting before the exam) and the plan file format.
+
+**Step 3: subject packs.** Everything field-specific behind one interface, so another field is added without touching
+the core.
+
+- [ ] A pack declares its built-in constants and presets, extra page widgets, AI tools, calculator rules, useful
+      links and a short domain note for the prompts.
+- [ ] Astrodynamics becomes the first pack: the orbit diagram and `show_orbit`, the μ-as-constant rule, the orbit
+      presets, mission-file previews and the built-in useful links.
+
+**Step 4: Claude outside the app.** Help on request still: nothing runs in the background, and numbers still come
+from your calculators.
+
+- [ ] An MCP server for your own data: note search, `find_calculators`, `run_calculator`, `show_orbit` and save to
+      page, so Claude Desktop or Claude Code can use your notes and calculators.
+- [ ] Claude skills for authoring: the calculator JSON format (μ and other physical constants as constants), the math
+      style, and the exam-plan file format, so calculators and plans written with Claude outside the app import
+      cleanly (**Import .json**, plan import).
+
+**Step 5: publishing, only if someone else needs it**
+
+- [ ] Publish `@nc/calc`, `@nc/orbit` and `@nc/orbit-view`, or build a standalone orbit viewer page.
+
 ### Next up
 
-In order: one session against real Claude (open from Phase 8), practice problems from calculators, Phase 8b
-(lecture-aware plans and the formula sheet first), the lecture card actions (*Quiz me on this lecture*, *Article from
-the original*), then the transfer diagram with TLE import. Package split and sharing come later.
-
-### Package split
-
-Split `@nc/shared` into workspace packages with clear boundaries (not published yet). Pages that need only one
-part then load only that part, and the Vite tree-shaking override in `apps/web/vite.config.ts` can go. Lower
-priority: it has no visible benefit until something is published, so it comes after Phase 8b and the transfer diagram.
-
-- [ ] `@nc/orbit`: orbit maths (Kepler propagation, J2 rates, ground track, sidereal time, transfers, mission
-      files), with no dependencies; the `CalculatorSpec` type it borrows moves behind a small interface.
-- [ ] `@nc/orbit-view`: the React orbit diagram and the coastline map, depending on `@nc/orbit`.
-- [ ] `@nc/calc`: calculator specs, the limited math.js evaluator, checks, explanations and Excel/Python export.
-- [ ] `@nc/doc`: page document helpers (block ids, terms, references, links, text) and the read-only renderer.
-- [ ] Later, if wanted: publish `@nc/orbit` / `@nc/orbit-view`, or build a standalone orbit viewer page.
+In order: one session against real Claude (open from Phase 8), the AI tool-call helper and prompts module (reuse
+step 1), practice problems from calculators, Phase 8b (lecture-aware plans and the formula sheet first), the lecture
+card actions (*Quiz me on this lecture*, *Article from the original*), then the transfer diagram with TLE import.
+Workspace packages and subject packs follow; the MCP server, skills, publishing and sharing come later.
 
 ### Later: sharing
 
