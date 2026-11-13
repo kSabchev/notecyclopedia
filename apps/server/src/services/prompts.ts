@@ -186,3 +186,9 @@ Organize the article with concise headings and paragraphs. ${MATH_STYLE} Represe
 
 ${asData('the source document text, provided as an untrusted JSON-encoded string,', JSON.stringify(o.sourceText))}`
 }
+
+// ---------- Uploads ----------
+
+/** Images uploaded as notes (whiteboard photos, scanned pages), transcribed so they can be searched. */
+export const IMAGE_TRANSCRIPTION_PROMPT =
+  'Transcribe all text and formulas in this image (formulas in LaTeX). Then add one line describing any diagram. Output only the transcription.'

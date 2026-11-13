@@ -153,3 +153,22 @@ export async function* streamText(
     }
   }
 }
+
+/** The request as stored in the usage log: photos are replaced by a note, so the log stays small. */
+export function withoutImages(request: Anthropic.MessageCreateParamsNonStreaming): Record<string, unknown> {
+  return {
+    ...request,
+    messages: request.messages.map((m) =>
+      typeof m.content === 'string'
+        ? m
+        : {
+            ...m,
+            content: m.content.map((b) =>
+              b.type === 'image' && b.source.type === 'base64'
+                ? { ...b, source: { ...b.source, data: '[image content omitted]' } }
+                : b,
+            ),
+          },
+    ),
+  }
+}

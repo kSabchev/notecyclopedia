@@ -1,7 +1,10 @@
+import type Anthropic from '@anthropic-ai/sdk'
 import { inlineContent, tidyLatex } from '@nc/shared'
 import { z } from 'zod'
 import { HttpError } from '../http'
 import { invalidAnswer } from './ai-tool'
+import { createMessage, modelFor } from './claude-client'
+import { articleDraftPrompt } from './prompts'
 
 const articleDraftSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -72,4 +75,48 @@ export function parseArticleDraftResponse(response: {
       }),
     },
   }
+}
+
+const articleDraftTool: Anthropic.Tool = {
+  name: 'create_article_draft',
+  description: 'Create an editable wiki article draft based only on the supplied source document.',
+  input_schema: {
+    type: 'object',
+    required: ['title', 'tags', 'blocks'],
+    properties: {
+      title: { type: 'string', description: 'A concise article title' },
+      tags: { type: 'array', items: { type: 'string' } },
+      blocks: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['type'],
+          properties: {
+            type: { type: 'string', enum: ['heading', 'paragraph', 'formula'] },
+            text: { type: 'string', description: 'Text for a heading or paragraph block' },
+            latex: { type: 'string', description: 'LaTeX for a formula block' },
+            label: { type: 'string' },
+            description: { type: 'string' },
+          },
+        },
+      },
+    },
+  },
+}
+
+export async function generateArticleDraft(sourceName: string, sourceText: string, userId: string) {
+  const request: Anthropic.MessageCreateParamsNonStreaming = {
+    model: modelFor('article-draft'),
+    max_tokens: 8192,
+    tools: [articleDraftTool],
+    tool_choice: { type: 'auto' },
+    messages: [
+      {
+        role: 'user',
+        content: articleDraftPrompt({ sourceName, sourceText }),
+      },
+    ],
+  }
+  const response = await createMessage(request, { operation: 'article-draft', userId })
+  return parseArticleDraftResponse(response)
 }
