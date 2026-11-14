@@ -30,7 +30,7 @@ function claudePricing(): Record<string, ClaudePricing> {
 /**
  * Model overrides per AI feature, e.g. {"tutor":"claude-haiku-5-5"}. Features are the AI portal modes
  * (ask, tutor, check, summarize, solve, calculator) and calculator-spec, calculator-review, topic-hub, daily-question,
- * article-draft, page-review, image.
+ * exam-plan, quick-check, article-draft, page-review, image (see docs/configuration.md).
  */
 function claudeModels(): Record<string, string> {
   return z
