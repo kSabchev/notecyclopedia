@@ -43,7 +43,7 @@ You need Node 22 or later, pnpm 10 or later, and Docker (for PostgreSQL).
    pnpm install
    ```
 
-2. Create your settings, then set `BETTER_AUTH_SECRET` (and `ANTHROPIC_API_KEY` for the AI features):
+2. Create your settings, and add `ANTHROPIC_API_KEY` if you want the AI features (the rest works without it):
 
    ```bash
    cp .env.example .env

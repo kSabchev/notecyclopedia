@@ -23,7 +23,7 @@ The design reference is in [`design/`](../design/README.md).
 packages/shared/src   Logic used by both apps, with unit tests: calculator engine (calculator*.ts), orbit maths,
                       the page document, math text, study plans, plan and mission files, formatting, types
 apps/server/src
-  routes/             HTTP routes, one file per area, each with its integration test
+  routes/             HTTP routes, one file per area; integration tests (*.integration.test.ts) cover them by area
   services/           What the routes do: backup/, study/, chat and chat tools, calculator generation and review,
                       daily questions, topic hubs, page review, article drafts, retrieval and indexing, jobs
   services/prompts.ts Every prompt sent to Claude
@@ -100,6 +100,24 @@ Do each of these in one place, and reuse it:
 | `pnpm db:migrate` | Apply migrations |
 | `pnpm --filter @nc/web bundle-report` | After a build: the JavaScript each route downloads (gzip) |
 | `pnpm --filter @nc/server bench` | Time page view, save, search and more on a seeded course in the test database |
+| `pnpm docs:check` | Check the documentation's links and anchors (CI runs it) |
+| `pnpm docs:screenshots` | Retake the screenshots in `docs/images` from sample data (needs the test database); check them before committing |
+
+## Running in production
+
+One server process serves both the API and the built web app.
+
+1. Set the environment (see [configuration](configuration.md)):
+   - `NODE_ENV=production`;
+   - `BETTER_AUTH_SECRET` to a long random string (`openssl rand -base64 32`);
+   - `BETTER_AUTH_URL` and `WEB_ORIGIN` to the address people open, for example `https://notes.example.com`;
+   - `DATABASE_URL`, `UPLOAD_DIR` and, for AI, `ANTHROPIC_API_KEY` with a sensible `AI_DAILY_TOKEN_LIMIT`.
+2. Build and migrate: `pnpm install`, `pnpm build`, `pnpm db:migrate`.
+3. Start it: `pnpm --filter @nc/server start` (port `PORT`, 3001 by default), behind HTTPS.
+4. Back up both the database and `UPLOAD_DIR`; a database backup alone has no file contents. Users can also download
+   their own [backup](guide.md#backup).
+
+Run `pnpm db:migrate` again after every update, before starting the new version.
 
 ## Tests
 

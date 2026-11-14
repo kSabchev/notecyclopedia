@@ -86,6 +86,8 @@ accepted, and removing one asks first.
 
 ## Pages, math and references
 
+![A lecture page with inline math, a formula block and its lecture link](images/page-view.png)
+
 ### Writing and history
 
 Pages are edited in a rich-text editor with headings, lists, links, formula blocks, inline math, calculators, plots,
@@ -143,8 +145,6 @@ The **Formulas** page groups formulas by course and lecture, with course filter 
   pin from the home page with its × (it asks first).
 
 ## Calculators
-
-![A lecture page with inline math, a formula block and an orbit diagram](images/page-view.png)
 
 ### Your library
 
@@ -361,8 +361,13 @@ calculators, which are personal.
 ## Uploads and PDF articles
 
 **Uploads** lists your files 50 at a time (**Show more** loads the next ones), with a search by file name and a course
-filter. PDFs, Office documents (DOCX, PPTX, XLSX, ODF), text and images can be uploaded to a course; their text is
-extracted and indexed for search and the AI.
+filter. These can be uploaded to a course, and their text is extracted and indexed for search and the AI:
+
+- PDF;
+- Office and OpenDocument files: DOC, DOCX, PPT, PPTX, XLS, XLSX, ODT, ODP, ODS and RTF;
+- plain text, Markdown and CSV;
+- images: PNG, JPEG, GIF and WebP;
+- GMAT scripts and FreeFlyer mission plans (see [Orbit diagrams](#orbit-diagrams)).
 
 - Images (also those added with the editor's **Image** button) are transcribed by Claude for search when an API key is
   set: one paid call per image.
