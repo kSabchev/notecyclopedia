@@ -1,12 +1,8 @@
 # Roadmap
 
-Notecyclopedia is first a personal study assistant and tutor; sharing it with classmates comes later. The plan follows
-four rules:
-
-- **Help on request.** Nothing calls Claude in the background or on a schedule, so API credits go only where you ask.
-- **Tutor before solver.** Explanations and hints come first; the full solution is one click away, never hidden.
-- **Compute, don't guess.** Numbers come from your calculators and the orbit code, not from the model.
-- **Keep what you paid for.** Any answer can be saved into a page, so the same explanation is never generated twice.
+Notecyclopedia is first a personal study assistant and tutor; hosting it for others comes later. Every item follows
+the four rules in the [README](../README.md): help on request, tutor before solver, compute, don't guess, and keep what
+you paid for.
 
 How each finished feature works is in the [user guide](guide.md).
 
@@ -19,7 +15,7 @@ How each finished feature works is in the [user guide](guide.md).
 4. Lecture card actions: *Quiz me on this lecture* and *Article from the original*.
 5. The transfer diagram with TLE import.
 
-Then the workspace packages and subject packs; the MCP server, skills, publishing and sharing come later.
+Then the workspace packages and subject packs; the MCP server, skills, publishing and hosting come later.
 
 ## Open
 
@@ -100,7 +96,9 @@ the tree-shaking override in `apps/web/vite.config.ts` can go:
 
 - [ ] Publish `@nc/calc`, `@nc/orbit` and `@nc/orbit-view`, or build a standalone orbit viewer page.
 
-## Later: sharing
+## Later: hosting for others
+
+Courses can already be shared between accounts on one server. Running it for classmates needs:
 
 - [ ] Deployment (for example Railway or Fly with managed Postgres) and a storage interface for uploads (local disk or
       R2).

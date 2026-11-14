@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "test": "playwright test",
-    "bundle-report": "node scripts/bundle-report.mjs"
+    "bundle-report": "node scripts/bundle-report.mjs",
+    "docs:screenshots": "playwright test --config playwright.docs.config.ts"
   },
   "dependencies": {
     "@nc/shared": "workspace:*",

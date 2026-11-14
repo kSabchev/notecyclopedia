@@ -12,6 +12,8 @@
     "coverage": "pnpm --filter @nc/shared test:coverage && pnpm --filter @nc/server test:coverage",
     "lint": "biome check .",
     "format": "biome format --write .",
+    "docs:check": "node scripts/check-docs.mjs",
+    "docs:screenshots": "pnpm --filter @nc/web docs:screenshots",
     "db:up": "docker compose up -d db",
     "db:generate": "pnpm --filter @nc/server db:generate",
     "db:migrate": "pnpm --filter @nc/server db:migrate"

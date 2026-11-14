@@ -7,9 +7,10 @@ The server reads its settings from environment variables, or from `.env` in the 
 
 | Variable | Default | What it does |
 |---|---|---|
+| `NODE_ENV` | unset | `production` when the app runs for real: `BETTER_AUTH_SECRET` must then be set. |
 | `PORT` | `3001` | Port of the API (and of the built web app in production). |
 | `DATABASE_URL` | `postgres://nc:nc@localhost:5432/notecyclopedia` | PostgreSQL 16 with pgvector. `pnpm db:up` starts one in Docker. |
-| `BETTER_AUTH_SECRET` | a development value | Signs sign-in sessions. **Required in production**: a long random string, for example from `openssl rand -base64 32`. |
+| `BETTER_AUTH_SECRET` | a development value (not in production) | Signs sign-in sessions. **Required in production**: a long random string, for example from `openssl rand -base64 32`. |
 | `BETTER_AUTH_URL` | `http://localhost:5173` | The address people open the app at. |
 | `WEB_ORIGIN` | `http://localhost:5173` | The web app's origin, trusted for sign-in requests. |
 | `UPLOAD_DIR` | `./uploads` | Where uploaded files are stored. Back it up with the database. |

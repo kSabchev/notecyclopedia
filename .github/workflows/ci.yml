@@ -50,6 +50,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Documentation links
+        run: pnpm docs:check
+
       - name: Typecheck
         run: pnpm typecheck
 
