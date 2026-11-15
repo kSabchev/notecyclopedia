@@ -8,14 +8,17 @@ How each finished feature works is in the [user guide](guide.md).
 
 ## Next up
 
-1. One session against real Claude: run the exam plan and the quick check (the tests mock every AI call), and measure
-   the time to the first token.
-2. Practice problems from calculators.
-3. Exam prep follow-ups, lecture-aware plans and the formula sheet first.
-4. Lecture card actions: *Quiz me on this lecture* and *Article from the original*.
-5. The transfer diagram with TLE import.
+1. **One session against real Claude:** the tutor, an exam plan and a quick check, with the time to the first token. The
+   tests mock every AI call, so this is the only check of real answers; it costs a few cents. Fix what it shows.
+2. **Practice problems from calculators** (no AI).
+3. **Phone-width check**, before more screens are added.
+4. **Exam formula sheet**, then **lecture-aware plans**.
+5. **MCP server**, so Claude Desktop or Claude Code can use your notes and calculators on your Claude plan instead of
+   the app's API credits.
+6. **Transfer diagram with TLE import.**
 
-Then the workspace packages and subject packs; the MCP server, skills, publishing and hosting come later.
+Then the lecture card actions (*Quiz me on this lecture*, *Article from the original*) and the rest of exam prep.
+Workspace packages and subject packs wait until something outside the app needs them; hosting comes later.
 
 ## Open
 
@@ -47,7 +50,9 @@ Then the workspace packages and subject packs; the MCP server, skills, publishin
 
 - [ ] **Practice problems from calculators** (no AI): random inputs within a calculator's min and max make "a problem
       like this one", with the exact answer and steps. Unlimited, for students and for professors making seminar or exam
-      variants.
+      variants. Inputs without a min or max get a range around their default (half to double), so existing and
+      AI-made calculators work without changes. The page's AI panel already has a **Practice problems** button that asks
+      Claude: name the two apart, or let it use the calculator version when the page has calculators.
 - [ ] **Notation sheet per lecture:** the symbols a lecture uses (μ, a, e, ν, h…) with their meaning and unit, collected
       from its formulas and calculator constants.
 - [ ] **Presentation mode:** a page in full screen with large type and live orbit diagrams, so notes double as slides.
@@ -55,17 +60,30 @@ Then the workspace packages and subject packs; the MCP server, skills, publishin
 - [ ] **Course packs:** a course exported without personal data, for students to import as their own copy (built on
       backup).
 
+### Claude outside the app
+
+Still on request, with numbers still from your calculators. Work done in Claude Desktop or Claude Code uses your Claude
+plan, not the app's API credits, so everyday questions about your notes cost the app nothing.
+
+- [ ] **An MCP server for your own data:** note search, `find_calculators`, `run_calculator`, `show_orbit` and save to
+      page. The chat tools already exist on the server; the MCP server exposes them, signed in as you.
+- [ ] **Claude skills** for authoring the calculator JSON, the math style and the exam-plan file, so calculators and
+      plans written outside the app import cleanly.
+
 ### Small fixes
 
 - [ ] Phone-width check: the reading view, Lectures, the calculator runner and exam plans at 360–400 px.
 - [ ] Split the remaining large files when they next change: `Wiki.tsx`, `PageView.tsx`, `Files.tsx` and
       `routes/pages.ts` (about 500 lines each).
 
-### Reuse and modularity
+### Reuse and modularity (deferred)
 
 Most of Notecyclopedia is a general study system; the astrodynamics part (orbit maths and diagram, mission files,
 presets, `show_orbit`, the μ check, the built-in useful links) is a smaller layer on top. These steps make the general
-parts reusable and the field-specific parts pluggable. As a personal tool it needs packages only when they pay off.
+parts reusable and the field-specific parts pluggable.
+
+Deferred until something outside the app needs them, such as the MCP server or a second subject: the calculator engine
+is already split into modules inside `@nc/shared`, which gives most of the benefit now.
 
 **Workspace packages** (split from `@nc/shared`, not published), so a page that needs one part loads only that part and
 the tree-shaking override in `apps/web/vite.config.ts` can go:
@@ -84,13 +102,6 @@ the tree-shaking override in `apps/web/vite.config.ts` can go:
 - [ ] A pack declares its built-in constants and presets, extra page widgets, AI tools, calculator rules, useful links
       and a short domain note for the prompts.
 - [ ] Astrodynamics becomes the first pack.
-
-**Claude outside the app**, still on request, with numbers still from your calculators:
-
-- [ ] An MCP server for your own data: note search, `find_calculators`, `run_calculator`, `show_orbit` and save to
-      page, so Claude Desktop or Claude Code can use your notes and calculators.
-- [ ] Claude skills for authoring the calculator JSON, the math style and the exam-plan file, so calculators and plans
-      written outside the app import cleanly.
 
 **Publishing, only if someone else needs it:**
 
