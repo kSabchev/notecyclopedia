@@ -90,6 +90,7 @@ Do each of these in one place, and reuse it:
 | `Thinking` | web `components/feedback.tsx` | An AI answer before its first words, or its current step |
 | `useToast`, `useConfirm` | web `components/FeedbackProvider.tsx` | "Saved" messages (with Undo), and a question before an action that cannot be undone |
 | `usePageTitle` | web `components/feedback.tsx` | The browser tab's title |
+| `useConnection`, `reportReachable` | web `lib/connection.ts` | Offline, or the server not answering (`ConnectionBanner` shows it) |
 
 ## Commands
 

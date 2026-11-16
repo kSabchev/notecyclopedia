@@ -99,3 +99,39 @@ test('an unknown address or course says so, and tabs carry the page title', asyn
     .click()
   await expect(page).toHaveTitle('Calculators · Notecyclopedia')
 })
+
+test('the app says when it cannot reach the server, and when it is back', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await page.getByLabel('Name').fill('Commuter')
+  await page.getByLabel('Email').fill(`offline-${crypto.randomUUID()}@example.test`)
+  await page.getByLabel('Password').fill('browser-test-password')
+  await page.getByRole('button', { name: 'Create account', exact: true }).last().click()
+  await expect(page).toHaveURL('/')
+
+  // The browser goes offline. (Simulated in the page: cutting the network would also cut the dev server's live
+  // reload, which reloads the page; production has no such client.)
+  const setOnline = (online: boolean) =>
+    page.evaluate((value) => {
+      Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => value })
+      window.dispatchEvent(new Event(value ? 'online' : 'offline'))
+    }, online)
+  await setOnline(false)
+  await expect(page.getByText('You are offline. Reconnect to save changes and load new data.')).toBeVisible()
+  await setOnline(true)
+  await expect(page.getByText('You are offline.')).toHaveCount(0)
+  await expect(page.getByRole('status').filter({ hasText: 'Back online' })).toBeVisible()
+
+  // Online, but the server does not answer: requests fail until it is back.
+  await page.route('**/api/**', (route) => route.abort('connectionrefused'))
+  await page
+    .getByRole('navigation', { name: 'Main' })
+    .getByRole('link', { name: 'Formulas', exact: true })
+    .click()
+  await expect(page.getByText('Cannot reach the Notecyclopedia server. Retrying…')).toBeVisible()
+  // A failed session check is not a sign-out: the page stays.
+  await expect(page).toHaveURL('/formulas')
+  await page.unroute('**/api/**')
+  await expect(page.getByText('Cannot reach the Notecyclopedia server.')).toHaveCount(0, { timeout: 10_000 })
+  await expect(page.getByRole('status').filter({ hasText: 'Back online' })).toBeVisible()
+})

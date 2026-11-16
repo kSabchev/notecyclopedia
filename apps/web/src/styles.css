@@ -291,3 +291,54 @@
     opacity: 1;
   }
 }
+
+/* Gentle entrances for dialogs, side panels, the mobile menu and messages; none for reduced motion. */
+@keyframes nc-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes nc-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+@keyframes nc-slide-right {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+@keyframes nc-slide-left {
+  from {
+    transform: translateX(-24px);
+    opacity: 0;
+  }
+}
+@keyframes nc-rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  dialog[open] {
+    animation: nc-pop 160ms ease-out;
+  }
+  dialog[open]::backdrop {
+    animation: nc-fade 160ms ease-out;
+  }
+  .nc-fade {
+    animation: nc-fade 160ms ease-out;
+  }
+  .nc-slide-right {
+    animation: nc-slide-right 200ms ease-out;
+  }
+  .nc-slide-left {
+    animation: nc-slide-left 200ms ease-out;
+  }
+  .nc-rise {
+    animation: nc-rise 180ms ease-out;
+  }
+}

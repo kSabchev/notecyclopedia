@@ -202,7 +202,7 @@ export function SymbolPalette() {
         <aside
           id="math-symbol-palette"
           aria-label={t('symbols.title')}
-          className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-line bg-surface shadow-2xl"
+          className="nc-slide-right fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-line bg-surface shadow-2xl"
         >
           <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
             <div>

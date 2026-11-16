@@ -184,7 +184,7 @@ export default function HelpPanel({
   return (
     <aside
       aria-label={t('help.panel')}
-      className="fixed inset-y-0 right-0 z-50 flex w-[min(440px,100%)] flex-col gap-4 overflow-y-auto border-l border-line bg-surface p-5 shadow-2xl"
+      className="nc-slide-right fixed inset-y-0 right-0 z-50 flex w-[min(440px,100%)] flex-col gap-4 overflow-y-auto border-l border-line bg-surface p-5 shadow-2xl"
     >
       <div className="flex items-center gap-2">
         <SparkIcon className="text-ai" />

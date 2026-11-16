@@ -844,6 +844,11 @@ export const en = {
     notFoundTitle: 'Page not found',
     notFoundBody: 'Nothing lives at this address. It may have moved, or the link may be mistyped.',
   },
+  connection: {
+    offline: 'You are offline. Reconnect to save changes and load new data.',
+    unreachable: 'Cannot reach the Notecyclopedia server. Retrying…',
+    back: 'Back online',
+  },
   toast: {
     saved: 'Saved',
     deleted: 'Deleted',

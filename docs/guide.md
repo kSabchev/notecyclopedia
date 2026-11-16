@@ -9,6 +9,8 @@ without an API key.
 Actions that can be undone (unpinning a formula, removing a link, archiving a calculator) take effect at once and offer
 **Undo** for a few seconds; actions that cannot (deleting, restoring an old version, moving, importing) ask first.
 While Claude answers you see what it is doing, such as "Running Circular speed…".
+If the connection drops, a notice at the top says so (offline, or the server not answering) and the page reloads its data
+when the connection is back; you stay signed in.
 
 - [Courses and lectures](#courses-and-lectures)
 - [Pages, math and references](#pages-math-and-references)

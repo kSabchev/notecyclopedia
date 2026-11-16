@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { setLanguage } from '../i18n'
 import { api } from '../lib/api'
 import { signOut, useSession } from '../lib/auth'
+import { ConnectionBanner } from './ConnectionBanner'
 import { FeedbackProvider } from './FeedbackProvider'
 import {
   BookIcon,
@@ -104,9 +105,16 @@ function NewCourse({ onDone }: { onDone: () => void }) {
   )
 }
 
+/** The last session the server confirmed, kept across remounts while a session check fails. */
+let lastSession: ReturnType<typeof useSession>['data'] = null
+
 export function Layout() {
   const { t, i18n } = useTranslation()
-  const { data: session, isPending } = useSession()
+  const { data, isPending, error, refetch } = useSession()
+  // A failed session check (offline, server down) is not a sign-out: keep the session we had, and send to sign-in
+  // only when the server says there is none.
+  if (data) lastSession = data
+  const session = data ?? (error ? lastSession : null)
   const navigate = useNavigate()
   const [searchOpen, setSearchOpen] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -119,8 +127,8 @@ export function Layout() {
   })
 
   useEffect(() => {
-    if (!isPending && !session) navigate({ to: '/login' })
-  }, [isPending, session, navigate])
+    if (!isPending && !data && !error) navigate({ to: '/login' })
+  }, [isPending, data, error, navigate])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -134,6 +142,18 @@ export function Layout() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  if (!session && error)
+    return (
+      <div
+        role="alert"
+        className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center"
+      >
+        <p className="m-0 text-ink-2">{t('connection.unreachable')}</p>
+        <button type="button" className={btn('primary')} onClick={() => refetch()}>
+          {t('common.retry')}
+        </button>
+      </div>
+    )
   if (isPending || !session)
     return (
       <div role="status" className="flex min-h-screen items-center justify-center gap-3 text-muted">
@@ -145,6 +165,7 @@ export function Layout() {
   return (
     <FeedbackProvider>
       <RouteProgress />
+      <ConnectionBanner />
       <div className="flex min-h-screen flex-col md:flex-row">
         <div className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2.5 md:hidden">
           <button
@@ -165,13 +186,13 @@ export function Layout() {
             type="button"
             aria-label={t('nav.closeMenu')}
             onClick={() => setMobileNavOpen(false)}
-            className="fixed inset-0 z-40 cursor-pointer border-0 bg-black/40 md:hidden"
+            className="nc-fade fixed inset-0 z-40 cursor-pointer border-0 bg-black/40 md:hidden"
           />
         )}
         <nav
           id="main-navigation"
           aria-label="Main"
-          className={`${mobileNavOpen ? 'flex' : 'hidden'} fixed inset-y-0 left-0 z-50 box-border w-[280px] max-w-[85vw] flex-col gap-6 overflow-y-auto border-r border-line bg-surface px-4 py-6 md:sticky md:top-0 md:flex md:h-screen md:max-w-none md:flex-none`}
+          className={`${mobileNavOpen ? 'nc-slide-left flex' : 'hidden'} fixed inset-y-0 left-0 z-50 box-border w-[280px] max-w-[85vw] flex-col gap-6 overflow-y-auto border-r border-line bg-surface px-4 py-6 md:sticky md:top-0 md:flex md:h-screen md:max-w-none md:flex-none`}
         >
           <button
             type="button"

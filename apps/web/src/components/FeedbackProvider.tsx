@@ -62,7 +62,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
           {toasts.map((x) => (
             <div
               key={x.id}
-              className="pointer-events-auto flex items-center gap-3 rounded-[12px] bg-inverse px-4 py-3 text-sm text-inverse-ink shadow-lg"
+              className="nc-rise pointer-events-auto flex items-center gap-3 rounded-[12px] bg-inverse px-4 py-3 text-sm text-inverse-ink shadow-lg"
             >
               <span className="flex-1">{x.message}</span>
               {x.undo && (
