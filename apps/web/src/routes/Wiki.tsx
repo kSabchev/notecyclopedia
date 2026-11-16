@@ -11,6 +11,8 @@ import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon, UsersIcon } from '../components/Icons'
 import { OriginalLink } from '../components/LectureLinks'
+import { NotFoundScreen } from '../components/RouteStatus'
+import { SkeletonList, SkeletonPage, Spinner, usePageTitle } from '../components/feedback'
 import { Card, Empty, ErrorNote, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 import { timeAgo } from '../lib/format'
@@ -147,8 +149,10 @@ function PageList({
     const ids = pageId && pages.data ? moveWithinSection(pages.data, pageId, to) : null
     if (ids) reorder.mutate(ids)
   }
-  if (grouping === 'lecture') return pages.data ? <ByLecture courseId={courseId} pages={pages.data} /> : null
-  if (pages.data?.length === 0) return <Empty>{t('home.empty')}</Empty>
+  if (pages.isPending) return <SkeletonList rows={3} />
+  if (pages.error) return <ErrorNote error={pages.error} />
+  if (grouping === 'lecture') return <ByLecture courseId={courseId} pages={pages.data} />
+  if (pages.data.length === 0) return <Empty>{t('home.empty')}</Empty>
   const sections = pageSections(pages.data ?? [])
   const problems = problemsPerLecture(pages.data ?? [])
   return (
@@ -241,7 +245,7 @@ function PageList({
                           onClick={() => movePage(p.id, i - 1)}
                           className="h-9 w-9 cursor-pointer rounded-lg text-ink hover:bg-line-soft disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          ↑
+                          {reorder.isPending && <Spinner />}↑
                         </button>
                         <button
                           type="button"
@@ -250,7 +254,7 @@ function PageList({
                           onClick={() => movePage(p.id, i + 1)}
                           className="h-9 w-9 cursor-pointer rounded-lg text-ink hover:bg-line-soft disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          ↓
+                          {reorder.isPending && <Spinner />}↓
                         </button>
                       </div>
                     )}
@@ -268,6 +272,7 @@ function PageList({
 
 export function Wiki() {
   const { t } = useTranslation()
+  usePageTitle(t('nav.wiki'))
   const qc = useQueryClient()
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const [editing, setEditing] = useState(false)
@@ -305,7 +310,8 @@ export function Wiki() {
           </Link>
         </div>
       </header>
-      <ErrorNote error={reorder.error} />
+      <ErrorNote error={reorder.error ?? courses.error} />
+      {courses.isPending && <SkeletonList rows={3} />}
       {courses.data?.length === 0 && <Empty>{t('course.none')}</Empty>}
       {courses.data?.map((c, i) => (
         <section
@@ -341,7 +347,7 @@ export function Wiki() {
                   onClick={() => moveCourse(i, i - 1)}
                   className="h-9 w-9 cursor-pointer rounded-lg text-ink hover:bg-line-soft disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  ↑
+                  {reorder.isPending && <Spinner />}↑
                 </button>
                 <button
                   type="button"
@@ -350,7 +356,7 @@ export function Wiki() {
                   onClick={() => moveCourse(i, i + 1)}
                   className="h-9 w-9 cursor-pointer rounded-lg text-ink hover:bg-line-soft disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  ↓
+                  {reorder.isPending && <Spinner />}↓
                 </button>
               </div>
             )}
@@ -462,6 +468,7 @@ function Members({ courseId, isOwner }: { courseId: string; isOwner: boolean }) 
               <option value="viewer">{t('course.role.viewer')}</option>
             </select>
             <button type="submit" className={btn('dark')} disabled={invite.isPending}>
+              {invite.isPending && <Spinner />}
               {t('course.invite')}
             </button>
           </div>
@@ -480,7 +487,16 @@ export function CourseView() {
   const [editing, setEditing] = useState(false)
   const [grouping, setGrouping] = useGrouping()
   const course = courses.data?.find((c) => c.id === courseId)
-  if (!course) return <div className="p-10 text-muted">{t('common.loading')}</div>
+  usePageTitle(course?.name)
+  if (courses.isPending) return <SkeletonPage />
+  if (courses.error)
+    return (
+      <div className="p-10">
+        <ErrorNote error={courses.error} />
+      </div>
+    )
+  // Not one of your courses (or deleted): say so rather than wait forever.
+  if (!course) return <NotFoundScreen />
   return (
     <div className="flex flex-col gap-8 px-6 pb-18 pt-10 md:px-12">
       <header className="flex flex-wrap items-end justify-between gap-4">

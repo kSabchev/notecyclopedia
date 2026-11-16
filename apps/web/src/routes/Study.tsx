@@ -5,6 +5,7 @@ import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ImportPlan, SharedWithYou } from '../components/PlanSharing'
 import { Countdown, progressOf } from '../components/StudyParts'
+import { SkeletonList, Spinner, usePageTitle } from '../components/feedback'
 import { Empty, ErrorNote, SectionHeader, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 import { todayLocal } from '../lib/format'
@@ -22,6 +23,7 @@ function useWeekdayName() {
 /** Exam prep: your revision plans, and a form to have one proposed for a course. */
 export function Study() {
   const { t } = useTranslation()
+  usePageTitle(t('study.title'))
   const navigate = useNavigate()
   const qc = useQueryClient()
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
@@ -250,6 +252,7 @@ export function Study() {
           className={`${btn(existing ? 'secondary' : 'ai')} self-start`}
           disabled={!chosen || !inScope.length || !weekdays.length || create.isPending}
         >
+          {create.isPending && <Spinner />}
           {create.isPending ? t('study.creating') : existing ? t('study.another') : t('study.create')}
         </button>
       </form>
@@ -258,6 +261,7 @@ export function Study() {
 
       <section aria-labelledby="h-plans" className="flex flex-col gap-3">
         <SectionHeader id="h-plans" title={t('study.plans')} />
+        {plans.isPending && <SkeletonList rows={2} />}
         {plans.data?.length === 0 && <Empty>{t('study.none')}</Empty>}
         {upcoming.length > 0 && planList(upcoming)}
         {paused.length > 0 && (

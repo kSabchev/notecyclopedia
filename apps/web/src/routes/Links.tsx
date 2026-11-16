@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useToast } from '../components/FeedbackProvider'
 import { CloseIcon } from '../components/Icons'
+import { SkeletonList, Spinner, usePageTitle } from '../components/feedback'
 import { ErrorNote, SectionHeader, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 
@@ -47,6 +49,8 @@ function LinkCard({
 export function Links() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const toast = useToast()
+  usePageTitle(t('links.title'))
   const mine = useQuery({ queryKey: ['links'], queryFn: api.links.list })
   const [title, setTitle] = useState('')
   const [url, setUrl] = useState('')
@@ -58,11 +62,30 @@ export function Links() {
       setUrl('')
       setNote('')
       qc.invalidateQueries({ queryKey: ['links'] })
+      toast(t('toast.linkAdded'))
     },
   })
+  type Saved = NonNullable<typeof mine.data>[number]
+  // Removing is instant and can be undone (the link is added again).
   const remove = useMutation({
-    mutationFn: api.links.remove,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['links'] }),
+    mutationFn: (l: Saved) => api.links.remove(l.id),
+    onMutate: (l) => {
+      const before = qc.getQueryData<Saved[]>(['links'])
+      qc.setQueryData(
+        ['links'],
+        before?.filter((x) => x.id !== l.id),
+      )
+      return { before }
+    },
+    onError: (_e, _l, context) => qc.setQueryData(['links'], context?.before),
+    onSuccess: (_r, l) =>
+      toast(t('toast.linkRemoved'), {
+        undo: () =>
+          api.links
+            .add({ title: l.title, url: l.url, note: l.note ?? undefined })
+            .then(() => qc.invalidateQueries({ queryKey: ['links'] })),
+      }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['links'] }),
   })
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -88,6 +111,8 @@ export function Links() {
 
       <section aria-labelledby="h-mine" className="flex flex-col gap-3">
         <SectionHeader id="h-mine" title={t('links.mine')} />
+        {mine.isPending && <SkeletonList rows={2} />}
+        <ErrorNote error={mine.error} />
         {mine.data?.length === 0 && <p className="m-0 text-sm text-muted">{t('links.none')}</p>}
         {!!mine.data?.length && (
           <ul className={grid}>
@@ -101,10 +126,7 @@ export function Links() {
                   <button
                     type="button"
                     aria-label={t('links.remove', { title: l.title })}
-                    disabled={remove.isPending}
-                    onClick={() =>
-                      window.confirm(t('links.confirmRemove', { title: l.title })) && remove.mutate(l.id)
-                    }
+                    onClick={() => remove.mutate(l)}
                     className="absolute right-2 top-2 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border-0 bg-transparent text-muted hover:bg-line-soft hover:text-ink"
                   >
                     <CloseIcon size={16} />
@@ -152,6 +174,7 @@ export function Links() {
             className={btn('primary')}
             disabled={!title.trim() || !url.trim() || add.isPending}
           >
+            {add.isPending && <Spinner />}
             {t('links.add')}
           </button>
         </form>

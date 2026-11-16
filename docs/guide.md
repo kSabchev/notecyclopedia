@@ -6,6 +6,10 @@ How to use Notecyclopedia. For installing and running it, see the [README](../RE
 AI features call Claude only when you press their button, and show what each answer cost. Everything else works
 without an API key.
 
+Actions that can be undone (unpinning a formula, removing a link, archiving a calculator) take effect at once and offer
+**Undo** for a few seconds; actions that cannot (deleting, restoring an old version, moving, importing) ask first.
+While Claude answers you see what it is doing, such as "Running Circular speed…".
+
 - [Courses and lectures](#courses-and-lectures)
 - [Pages, math and references](#pages-math-and-references)
 - [Calculators](#calculators)
@@ -82,7 +86,7 @@ Pages, lectures, exam-prep tasks, calculators and courses link to one another:
 
 **Useful links** in the sidebar lists NASA's Eyes, the Copernicus Browser, JPL Horizons and CelesTrak, each with a note
 on what it is for. Add your own (name, address, note): they are saved to your profile, only `http(s)` addresses are
-accepted, and removing one asks first.
+accepted. Removing one takes effect at once, with **Undo** for a few seconds.
 
 ## Pages, math and references
 
@@ -142,7 +146,7 @@ The **Formulas** page groups formulas by course and lecture, with course filter 
   the calculators made from or embedded in its page.
 - **Pinned formulas:** the ☆ in front of a formula (while reading, on its card or in the Formulas list) pins it to your
   home page. Pins are your own and do not change the page, so everyone, viewers included, pins for themselves. Remove a
-  pin from the home page with its × (it asks first).
+  pin from the home page with its ×, and **Undo** brings it back.
 
 ## Calculators
 
@@ -361,7 +365,7 @@ calculators, which are personal.
 ## Uploads and PDF articles
 
 **Uploads** lists your files 50 at a time (**Show more** loads the next ones), with a search by file name and a course
-filter. These can be uploaded to a course, and their text is extracted and indexed for search and the AI:
+filter. Deleting a file asks first. These can be uploaded to a course, and their text is extracted and indexed for search and the AI:
 
 - PDF;
 - Office and OpenDocument files: DOC, DOCX, PPT, PPTX, XLS, XLSX, ODT, ODP, ODS and RTF;

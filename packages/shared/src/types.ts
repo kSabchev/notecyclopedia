@@ -188,6 +188,11 @@ export type AiStreamEvent =
   | { type: 'text'; text: string }
   | { type: 'calculator'; spec: CalculatorSpec }
   | { type: 'widget'; widget: WidgetAttrs }
+  /**
+   * What Claude is doing before more text arrives: a tool it called (`find_calculators`, `run_calculator` with the
+   * calculator's `name`, `show_orbit`), or `calculators` while Build calculator makes them.
+   */
+  | { type: 'activity'; tool: string; name?: string }
   | { type: 'usage'; usage: AiUsage }
   | { type: 'error'; message: string }
   | { type: 'done'; messageId: string }

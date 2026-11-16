@@ -3,6 +3,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import { Link, useLocation } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { SkeletonList, Spinner, usePageTitle } from '../components/feedback'
 import { Empty, ErrorNote, FileBadge, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 import { useDayLabel } from '../lib/format'
@@ -18,6 +19,7 @@ type Original = FileAsset & { lectureNumber: number }
  */
 export function Lectures() {
   const { t } = useTranslation()
+  usePageTitle(t('lectures.title'))
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const editable = courses.data?.filter((c) => c.role !== 'viewer') ?? []
   const [editing, setEditing] = useState(false)
@@ -69,6 +71,8 @@ export function Lectures() {
           </button>
         )}
       </header>
+      {!loaded && !courses.error && <SkeletonList rows={3} />}
+      <ErrorNote error={courses.error} />
       {none && (
         <Empty>
           {t('lectures.none')} <Link to="/files">{t('lectures.toUploads')}</Link>
@@ -199,6 +203,7 @@ function MoveLecture({
       </p>
       <div className="flex gap-2">
         <button type="submit" className={btn('primary', 'sm')} disabled={!valid || move.isPending}>
+          {move.isPending && <Spinner />}
           {t('lectures.moveSave')}
         </button>
         <button type="button" className={btn('ghost', 'sm')} onClick={onDone}>

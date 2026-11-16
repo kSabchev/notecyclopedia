@@ -1,9 +1,16 @@
 import type { DailyQuestion } from '@nc/shared'
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DailyCourseSelect, DailyQuestionCard, useDailyCourse } from '../components/DailyQuestionCard'
 import { DailyQuestionView } from '../components/DailyQuestionView'
+import { SkeletonList, Spinner, usePageTitle } from '../components/feedback'
 import { Empty, ErrorNote, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 import { useDayLabel } from '../lib/format'
@@ -16,6 +23,7 @@ const PAGE = 30
  */
 export function DailyQuestions() {
   const { t } = useTranslation()
+  usePageTitle(t('nav.daily'))
   const qc = useQueryClient()
   const [courseId, setCourseId] = useDailyCourse()
   const [filterCourse, setFilterCourse] = useState('')
@@ -32,6 +40,8 @@ export function DailyQuestions() {
     queryFn: ({ pageParam }) => api.daily.list({ courseId: filterCourse || undefined, q, offset: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (last, all) => (last.length === PAGE ? all.length * PAGE : undefined),
+    // Keep the current questions while a search or filter loads, instead of blanking them.
+    placeholderData: keepPreviousData,
   })
   const newQuestion = useMutation({
     mutationFn: () => api.daily.ask(courseId || undefined),
@@ -66,6 +76,7 @@ export function DailyQuestions() {
             disabled={newQuestion.isPending}
             onClick={() => newQuestion.mutate()}
           >
+            {newQuestion.isPending && <Spinner />}
             {newQuestion.isPending ? t('daily.generating') : t('daily.ask')}
           </button>
         </div>
@@ -103,17 +114,28 @@ export function DailyQuestions() {
             </div>
           )}
         </div>
-        {questions.length === 0 && !list.isPending && <Empty>{t('daily.none')}</Empty>}
-        {[...byDay].map(([day, items]) => (
-          <section key={day} aria-label={date(day)} className="flex flex-col gap-3">
-            <h3 className="m-0 text-xs font-semibold uppercase tracking-[0.06em] text-muted">{date(day)}</h3>
-            {items.map((x) => (
-              <article key={x.id} className="rounded-[16px] border border-line bg-surface px-6 py-5">
-                <DailyQuestionView question={x} />
-              </article>
-            ))}
-          </section>
-        ))}
+        {list.isPending && <SkeletonList rows={3} />}
+        <ErrorNote error={list.error} />
+        {questions.length === 0 && list.isSuccess && !list.isPlaceholderData && (
+          <Empty>{t('daily.none')}</Empty>
+        )}
+        <div
+          aria-busy={list.isPlaceholderData || undefined}
+          className={`flex flex-col gap-4 transition-opacity ${list.isPlaceholderData ? 'opacity-60' : ''}`}
+        >
+          {[...byDay].map(([day, items]) => (
+            <section key={day} aria-label={date(day)} className="flex flex-col gap-3">
+              <h3 className="m-0 text-xs font-semibold uppercase tracking-[0.06em] text-muted">
+                {date(day)}
+              </h3>
+              {items.map((x) => (
+                <article key={x.id} className="rounded-[16px] border border-line bg-surface px-6 py-5">
+                  <DailyQuestionView question={x} />
+                </article>
+              ))}
+            </section>
+          ))}
+        </div>
         {list.hasNextPage && (
           <button
             type="button"
@@ -121,6 +143,7 @@ export function DailyQuestions() {
             disabled={list.isFetchingNextPage}
             onClick={() => list.fetchNextPage()}
           >
+            {list.isFetchingNextPage && <Spinner />}
             {list.isFetchingNextPage ? t('common.loading') : t('daily.loadMore')}
           </button>
         )}

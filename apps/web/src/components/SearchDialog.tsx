@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
 import { CloseIcon, SearchIcon } from './Icons'
+import { Spinner } from './feedback'
 
 export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useTranslation()
@@ -62,7 +63,12 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
         </button>
       </div>
       <ul className="m-0 max-h-[60vh] list-none overflow-y-auto p-2">
-        {isFetching && <li className="p-3 text-sm text-muted">{t('common.loading')}</li>}
+        {isFetching && (
+          <li role="status" className="flex items-center gap-2 p-3 text-sm text-muted">
+            <Spinner />
+            {t('common.loading')}
+          </li>
+        )}
         {data?.map((h) => (
           <li key={`${h.kind}-${h.id}-${h.anchor ?? ''}`}>
             <Link

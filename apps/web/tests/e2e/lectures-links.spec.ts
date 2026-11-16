@@ -219,9 +219,9 @@ test('lectures in order from the sidebar, descriptions under formulas, and usefu
     'https://www.space-track.org/',
   )
   await expect(mine.getByText('TLE catalogue')).toBeVisible()
-  page.once('dialog', (dialog) => dialog.accept())
   await mine.getByRole('button', { name: 'Remove Space-Track' }).click()
   await expect(mine.getByRole('link', { name: /Space-Track/ })).toHaveCount(0)
+  await expect(page.getByRole('status').filter({ hasText: 'Link removed' })).toBeVisible()
 
   // Edit in Lectures: move lecture 2 with its pages to another course.
   await page.getByRole('link', { name: 'Lectures' }).click()

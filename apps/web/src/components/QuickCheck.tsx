@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
 import { formatCost } from '../lib/format'
 import { Markdown } from './Markdown'
+import { Spinner } from './feedback'
 import { ErrorNote, btn } from './ui'
 
 /**
@@ -25,6 +26,7 @@ export function QuickCheck({ messageId, initial }: { messageId: string; initial?
           disabled={make.isPending}
           onClick={() => make.mutate()}
         >
+          {make.isPending && <Spinner />}
           {make.isPending ? t('quickCheck.asking') : t('quickCheck.ask')}
         </button>
         <ErrorNote error={make.error} />

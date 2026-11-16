@@ -2,6 +2,7 @@ import { CENTRAL_BODIES, ORBIT_PRESETS, type OrbitalElements, orbitalElementsSch
 import { useSearch } from '@tanstack/react-router'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { usePageTitle } from '../components/feedback'
 import { OrbitView } from '../components/widgets/OrbitView'
 
 /** Elements and central body from the URL, e.g. `/orbit?a=26600&e=0.74&i=63.4&argp=270`. */
@@ -21,6 +22,7 @@ const START = (ORBIT_PRESETS.find((p) => p.key === 'molniya') ?? ORBIT_PRESETS[0
 /** A standalone orbit diagram, also opened from GMAT and FreeFlyer files with their spacecraft's elements. */
 export function OrbitViewer() {
   const { t } = useTranslation()
+  usePageTitle(t('orbit.viewerTitle'))
   const search = useSearch({ from: '/app/orbit' })
   const body = CENTRAL_BODIES.some((b) => b.key === search.body) ? (search.body as string) : 'earth'
   const elements = useMemo(() => {

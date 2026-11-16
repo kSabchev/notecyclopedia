@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Skeleton, SkeletonList, usePageTitle } from '../components/feedback'
 import { Empty, ErrorNote, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 
@@ -54,6 +55,7 @@ export function Calculators() {
           : 0,
     )
   const selected = list.data?.find((c) => c.id === params.calcId) ?? (creating ? null : (shown[0] ?? null))
+  usePageTitle(creating && !params.calcId ? t('calc.new') : (selected?.name ?? t('nav.calculators')))
 
   return (
     <div className="flex flex-col gap-7 px-6 pb-18 pt-10 md:px-12">
@@ -151,7 +153,12 @@ export function Calculators() {
               </select>
             </label>
           </div>
-          {shown.length === 0 && !list.isPending && <Empty>{t('calc.empty')}</Empty>}
+          {list.isPending && <SkeletonList rows={4} />}
+          <ErrorNote error={list.error} />
+          {shown.length === 0 && list.isSuccess && (
+            // Say why the list is empty: nothing made yet, or only filtered out.
+            <Empty>{list.data.length ? t('calc.noneShown') : t('calc.empty')}</Empty>
+          )}
           {shown.map((c, i) => (
             <Fragment key={c.id}>
               {sort === 'course' && c.courseId !== shown[i - 1]?.courseId && (
@@ -191,6 +198,13 @@ export function Calculators() {
             </Fragment>
           ))}
         </section>
+        {list.isPending && params.calcId && (
+          <div className="flex min-w-0 flex-[2_1_540px] flex-col gap-3 rounded-[16px] border border-line bg-surface p-6">
+            <Skeleton className="h-7 w-2/5" />
+            <Skeleton className="h-4 w-3/5" />
+            <Skeleton className="mt-4 h-40 w-full" />
+          </div>
+        )}
         {(selected || creating) && (
           <CalculatorDetail
             calc={creating && !params.calcId ? null : selected}

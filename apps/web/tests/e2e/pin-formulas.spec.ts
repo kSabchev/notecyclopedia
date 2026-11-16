@@ -56,16 +56,14 @@ test('formulas are pinned per person from the list or the lecture, and removed f
   await formula.getByRole('button', { name: 'Pin to home' }).click()
   await expect(formula.getByRole('button', { name: 'Unpin from home' })).toBeVisible()
 
-  // Removing it from the home page asks first; cancelling keeps it.
+  // Removing it from the home page is instant, and Undo brings it back.
   await page.getByRole('link', { name: 'Home' }).click()
   const remove = pinned.getByRole('button', { name: 'Remove Orbital speed from pinned formulas' })
-  page.once('dialog', (dialog) => dialog.dismiss())
   await remove.click()
+  await expect(pinned.getByText('Orbital speed')).toHaveCount(0)
+  const message = page.getByRole('status').filter({ hasText: 'Formula unpinned' })
+  await message.getByRole('button', { name: 'Undo' }).click()
   await expect(pinned.getByText('Orbital speed')).toBeVisible()
-  page.once('dialog', (dialog) => {
-    expect(dialog.message()).toContain('Remove “Orbital speed” from your pinned formulas?')
-    return dialog.accept()
-  })
   await remove.click()
   await expect(pinned.getByText('Orbital speed')).toHaveCount(0)
 })

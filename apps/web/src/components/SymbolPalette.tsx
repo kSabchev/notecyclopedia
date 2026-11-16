@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useConfirm } from './FeedbackProvider'
 import { CloseIcon, PenIcon, SigmaIcon, TrashIcon } from './Icons'
 import { btn, inputCls } from './ui'
 
@@ -105,6 +106,7 @@ function loadSymbols(): { symbols: MathSymbol[]; error: string | null } {
 
 export function SymbolPalette() {
   const { t } = useTranslation()
+  const confirm = useConfirm()
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [state, setState] = useState(loadSymbols)
@@ -172,8 +174,8 @@ export function SymbolPalette() {
     }))
   }
 
-  const resetSymbols = () => {
-    if (!window.confirm(t('symbols.confirmReset'))) return
+  const resetSymbols = async () => {
+    if (!(await confirm({ title: t('symbols.confirmReset'), danger: true }))) return
     setState({ symbols: DEFAULT_SYMBOLS, error: null })
     setStorageError(null)
     setLabel('')

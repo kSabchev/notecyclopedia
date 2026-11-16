@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
 import { DailyQuestionView } from './DailyQuestionView'
+import { Spinner } from './feedback'
 import { ErrorNote, btn, inputCls } from './ui'
 
 const COURSE_KEY = 'nc.daily.course'
@@ -105,6 +106,7 @@ export function DailyQuestionCard({ showArchiveLink = true }: { showArchiveLink?
                 disabled={generate.isPending}
                 onClick={() => generate.mutate()}
               >
+                {generate.isPending && <Spinner />}
                 {generate.isPending ? t('daily.generating') : t('daily.generate')}
               </button>
             </div>

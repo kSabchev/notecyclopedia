@@ -4,12 +4,14 @@ import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Connections } from '../components/Connections'
 import { DocView, docHeadings } from '../components/DocView'
+import { useConfirm, useToast } from '../components/FeedbackProvider'
 import { FileDrop } from '../components/FileDrop'
 import { FilePreview, isTextPreviewable } from '../components/FilePreview'
 import { PenIcon, SparkIcon } from '../components/Icons'
 import { LectureLabel, OriginalLink } from '../components/LectureLinks'
 import { type HelpKind, type HelpTarget, SelectionHelp } from '../components/ReadingHelp'
 import { RevisionChanges } from '../components/RevisionChanges'
+import { SkeletonPage, Spinner, usePageTitle } from '../components/feedback'
 import { ErrorNote, Eyebrow, FileBadge, btn, inputCls } from '../components/ui'
 import { ApiError, api } from '../lib/api'
 import { timeAgo } from '../lib/format'
@@ -22,6 +24,8 @@ const HelpPanel = lazy(() => import('../components/HelpPanel'))
 
 export function PageView() {
   const { t } = useTranslation()
+  const toast = useToast()
+  const confirm = useConfirm()
   const { pageId } = useParams({ from: '/app/pages/$pageId' })
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -76,10 +80,12 @@ export function PageView() {
     queryFn: () => api.pages.revisions(pageId),
     enabled: tab === 'history',
   })
+  usePageTitle(page.data?.title)
   const remove = useMutation({
     mutationFn: () => api.pages.remove(pageId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pages'] })
+      toast(t('toast.deleted'))
       navigate({ to: '/wiki' })
     },
   })
@@ -89,6 +95,7 @@ export function PageView() {
     onSuccess: async (restored) => {
       qc.setQueryData(['page', pageId], restored)
       setOpenRevision(null)
+      toast(t('toast.restored'))
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['revisions', pageId] }),
         qc.invalidateQueries({ queryKey: ['pages'] }),
@@ -107,11 +114,17 @@ export function PageView() {
         qc.invalidateQueries({ queryKey: ['calculators'] }),
       ])
       setMoveTarget('')
+      toast(t('toast.moved', { course: courses.data?.find((c) => c.id === moved.courseId)?.name ?? '' }))
     },
   })
 
-  if (page.isPending) return <div className="p-10 text-muted">{t('common.loading')}</div>
-  if (page.error) return <div className="p-10 text-danger">{page.error.message}</div>
+  if (page.isPending) return <SkeletonPage />
+  if (page.error)
+    return (
+      <div className="p-10">
+        <ErrorNote error={page.error} />
+      </div>
+    )
   const p = page.data
   const course = courses.data?.find((c) => c.id === p.courseId)
   const original = extras.original(p.courseId, p.lectureNumber)
@@ -306,11 +319,15 @@ export function PageView() {
                               type="button"
                               className={btn('secondary', 'sm')}
                               disabled={restore.isPending}
-                              onClick={() =>
-                                window.confirm(t('page.confirmRestore', { n: r.revision })) &&
-                                restore.mutate({ rev: r.revision, baseRevision: p.revision })
-                              }
+                              onClick={async () => {
+                                const ok = await confirm({
+                                  title: t('page.confirmRestore', { n: r.revision }),
+                                  confirmLabel: t('page.restore'),
+                                })
+                                if (ok) restore.mutate({ rev: r.revision, baseRevision: p.revision })
+                              }}
                             >
+                              {restore.isPending && <Spinner />}
                               {t('page.restore')}
                             </button>
                           </div>
@@ -328,9 +345,18 @@ export function PageView() {
           <div className="border-t border-line-soft pt-6">
             <button
               type="button"
-              className="min-h-11 cursor-pointer text-sm text-danger underline"
-              onClick={() => window.confirm(t('page.confirmDelete')) && remove.mutate()}
+              className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-danger underline"
+              disabled={remove.isPending}
+              onClick={async () => {
+                const ok = await confirm({
+                  title: t('page.confirmDelete'),
+                  confirmLabel: t('page.delete'),
+                  danger: true,
+                })
+                if (ok) remove.mutate()
+              }}
             >
+              {remove.isPending && <Spinner />}
               {t('page.delete')}
             </button>
           </div>
@@ -359,12 +385,17 @@ export function PageView() {
                 type="button"
                 className={btn('secondary', 'sm')}
                 disabled={!moveTarget || move.isPending}
-                onClick={() => {
+                onClick={async () => {
                   const targetName = moveCourses.find((item) => item.id === moveTarget)?.name
-                  if (targetName && window.confirm(t('page.confirmMove', { course: targetName })))
-                    move.mutate()
+                  if (!targetName) return
+                  const ok = await confirm({
+                    title: t('page.confirmMove', { course: targetName }),
+                    confirmLabel: t('page.move'),
+                  })
+                  if (ok) move.mutate()
                 }}
               >
+                {move.isPending && <Spinner />}
                 {move.isPending ? t('page.moving') : t('page.move')}
               </button>
             </div>

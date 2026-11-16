@@ -152,6 +152,9 @@ test(
       assert.equal(first?.messages.length, 3, 'The earlier question and answer go along')
       assert.match(lastContent(second as Anthropic.MessageCreateParams), new RegExp(myCalc.id))
       assert.equal(fake.requests.length - before, 2, 'One tool round, then the answer')
+      // The reader sees what Claude is doing while the tool runs, before the answer's text.
+      const kinds = evs.map((e) => (e.type === 'activity' ? `activity:${e.tool}` : e.type))
+      assert.ok(kinds.indexOf('activity:find_calculators') < kinds.indexOf('text'), kinds.join(' '))
       assert.equal((await chat({ mode: 'ask', message: 'Hi', threadId }, outsider)).status, 404)
     })
 
@@ -159,6 +162,10 @@ test(
       const evs = await events(await chat({ mode: 'calculator', message: 'Circular orbit speed' }))
       const made = evs.flatMap((e) => (e.type === 'calculator' ? [e.spec.name] : []))
       assert.deepEqual(made, ['Circular speed'])
+      assert.ok(
+        evs.some((e) => e.type === 'activity' && e.tool === 'calculators'),
+        'Making them is shown',
+      )
 
       const built = await ok<{ calculators: { name: string }[] }>(
         send(student, 'POST', '/ai/calculator', { context: 'Circular orbit speed', messageId: answerId }),

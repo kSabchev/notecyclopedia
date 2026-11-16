@@ -25,8 +25,10 @@ import {
 import { Composer } from '../components/ai/Composer'
 import { Citations, UserMessage } from '../components/ai/Messages'
 import { PortalSidebar } from '../components/ai/PortalSidebar'
+import { Spinner, Thinking, usePageTitle } from '../components/feedback'
 import { ErrorNote, btn } from '../components/ui'
 import { api, streamChat } from '../lib/api'
+import { activityLabel } from '../lib/format'
 
 interface Msg {
   id: string
@@ -39,6 +41,8 @@ interface Msg {
   usage: AiUsage | null
   /** Set once the answer is stored (loaded, or its stream finished), so a quick check can be kept with it. */
   stored?: boolean
+  /** What Claude is doing before more text arrives (a tool it called), while the answer streams. */
+  activity?: string | null
   quickCheck?: QuickCheckData | null
 }
 
@@ -56,6 +60,7 @@ export interface AiSearch {
 
 export function AiPortal() {
   const { t } = useTranslation()
+  usePageTitle(t('ai.title'))
   const navigate = useNavigate()
   const qc = useQueryClient()
   const search = useSearch({ from: '/app/ai' }) as AiSearch
@@ -120,12 +125,14 @@ export function AiPortal() {
       )) {
         if (ev.type === 'thread') setThreadId(ev.threadId)
         else if (ev.type === 'citations') patch((m) => ({ ...m, citations: ev.citations }))
-        else if (ev.type === 'text') patch((m) => ({ ...m, content: m.content + ev.text }))
+        else if (ev.type === 'text') patch((m) => ({ ...m, content: m.content + ev.text, activity: null }))
+        else if (ev.type === 'activity') patch((m) => ({ ...m, activity: activityLabel(t, ev) }))
         else if (ev.type === 'calculator') patch((m) => ({ ...m, calculators: [...m.calculators, ev.spec] }))
         else if (ev.type === 'widget') patch((m) => ({ ...m, widgets: [...m.widgets, ev.widget] }))
         else if (ev.type === 'usage') patch((m) => ({ ...m, usage: ev.usage }))
         // The stored answer's id, so calculators made from it later are stored with it.
-        else if (ev.type === 'done' && ev.messageId) patch((m) => ({ ...m, id: ev.messageId, stored: true }))
+        else if (ev.type === 'done' && ev.messageId)
+          patch((m) => ({ ...m, id: ev.messageId, stored: true, activity: null }))
         else if (ev.type === 'error') setError(ev.message)
       }
     } catch (e) {
@@ -223,11 +230,8 @@ export function AiPortal() {
                   <SparkIcon className="text-ai" />
                   {t(`modes.${mode}`)}
                 </div>
-                {m.content ? (
-                  <Markdown text={m.content} />
-                ) : (
-                  <span className="text-muted">{t('common.loading')}</span>
-                )}
+                {m.content && <Markdown text={m.content} />}
+                {streaming && m === last && (!m.content || m.activity) && <Thinking activity={m.activity} />}
                 <Citations citations={m.citations} />
                 {(m.usage || canBuild(m, index) || (m.stored && m.content)) && (
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft pt-3">
@@ -249,7 +253,8 @@ export function AiPortal() {
                         disabled={building !== null}
                         onClick={() => buildCalculator(index)}
                       >
-                        {building === m.id ? t('common.loading') : t('ai.makeCalculator')}
+                        {building === m.id && <Spinner />}
+                        {t('ai.makeCalculator')}
                       </button>
                     )}
                   </div>

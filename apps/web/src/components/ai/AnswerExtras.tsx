@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../../lib/api'
 import { formatCost } from '../../lib/format'
 import { stashAppend } from '../../lib/page-draft'
+import { Spinner } from '../feedback'
 import { ErrorNote, btn } from '../ui'
 
 /** What an answer can show besides its text: the widgets Claude used, calculators it made, saving it, its cost. */
@@ -167,6 +168,7 @@ export function GeneratedCalculator({ spec }: { spec: CalculatorSpec }) {
               disabled={save.isPending}
               onClick={() => save.mutate()}
             >
+              {save.isPending && <Spinner />}
               {t('calc.saveToLibrary')}
             </button>
           )}

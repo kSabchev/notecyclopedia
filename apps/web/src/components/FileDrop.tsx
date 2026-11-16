@@ -3,6 +3,7 @@ import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
 import { UploadIcon } from './Icons'
+import { Spinner } from './feedback'
 import { ErrorNote } from './ui'
 
 export function FileDrop({
@@ -52,7 +53,10 @@ export function FileDrop({
         className={`flex cursor-pointer flex-col items-center gap-2 rounded-[12px] border-[1.5px] border-dashed text-center ${compact ? 'p-5' : 'px-5 py-7'} ${over ? 'border-accent bg-accent-soft' : 'border-line-strong bg-surface-2'}`}
       >
         <UploadIcon size={26} className="text-muted" />
-        <span className="font-semibold">{upload.isPending ? t('common.loading') : t('files.drop')}</span>
+        <span className="inline-flex items-center gap-2 font-semibold">
+          {upload.isPending && <Spinner />}
+          {upload.isPending ? t('common.loading') : t('files.drop')}
+        </span>
         <span className="text-[13px] text-muted">{t('files.formats')}</span>
       </label>
       <input

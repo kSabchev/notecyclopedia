@@ -85,6 +85,11 @@ Do each of these in one place, and reuse it:
 | `withoutImages` | server `services/claude-client.ts` | A request as logged |
 | `formatCost`, `useDayLabel`, `todayLocal` | web `lib/format.ts` | Costs and days |
 | `LectureLabel`, `OriginalLink` | web `components/LectureLinks.tsx` | Links to a lecture and its original |
+| `Button` (`busy`), `Spinner` | web `components/ui.tsx`, `components/feedback.tsx` | A button that is working |
+| `Skeleton`, `SkeletonList`, `SkeletonCards`, `SkeletonPage` | web `components/feedback.tsx` | Placeholders while data loads |
+| `Thinking` | web `components/feedback.tsx` | An AI answer before its first words, or its current step |
+| `useToast`, `useConfirm` | web `components/FeedbackProvider.tsx` | "Saved" messages (with Undo), and a question before an action that cannot be undone |
+| `usePageTitle` | web `components/feedback.tsx` | The browser tab's title |
 
 ## Commands
 

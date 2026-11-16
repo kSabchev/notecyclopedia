@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
 import { formatCost } from '../lib/format'
 import { Markdown } from './Markdown'
+import { Spinner } from './feedback'
 import { ErrorNote, btn, inputCls } from './ui'
 
 /**
@@ -151,7 +152,8 @@ export function DailyQuestionView({ question: q }: { question: DailyQuestion }) 
             disabled={expand.isPending}
             onClick={() => expand.mutate('story')}
           >
-            {expand.isPending && expand.variables === 'story' ? t('common.loading') : t('daily.tellStory')}
+            {expand.isPending && expand.variables === 'story' && <Spinner />}
+            {t('daily.tellStory')}
           </button>
         )}
         {!q.expansions.advanced && (
@@ -161,7 +163,8 @@ export function DailyQuestionView({ question: q }: { question: DailyQuestion }) 
             disabled={expand.isPending}
             onClick={() => expand.mutate('advanced')}
           >
-            {expand.isPending && expand.variables === 'advanced' ? t('common.loading') : t('daily.harder')}
+            {expand.isPending && expand.variables === 'advanced' && <Spinner />}
+            {t('daily.harder')}
           </button>
         )}
         <Link
@@ -184,6 +187,7 @@ export function DailyQuestionView({ question: q }: { question: DailyQuestion }) 
               disabled={save.isPending}
               onClick={() => save.mutate()}
             >
+              {save.isPending && <Spinner />}
               {t('daily.saveToPage')}
             </button>
           ))}

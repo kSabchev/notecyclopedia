@@ -1,12 +1,14 @@
 import { Link } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Spinner, usePageTitle } from '../components/feedback'
 import { Card, ErrorNote, Field, SectionHeader, btn, inputCls } from '../components/ui'
 import { changePassword, updateUser, useSession } from '../lib/auth'
 
 export function Profile() {
   const { t } = useTranslation()
   const { data: session } = useSession()
+  usePageTitle(t('nav.profile'))
   const [name, setName] = useState(session?.user.name ?? '')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -112,6 +114,7 @@ export function Profile() {
           )}
           <div>
             <button type="submit" className={btn('primary')} disabled={savingProfile || !name.trim()}>
+              {savingProfile && <Spinner />}
               {savingProfile ? t('profile.saving') : t('profile.saveProfile')}
             </button>
           </div>
@@ -168,6 +171,7 @@ export function Profile() {
               className={btn('primary')}
               disabled={changingPassword || newPassword.length < 8 || confirmPassword.length < 8}
             >
+              {changingPassword && <Spinner />}
               {changingPassword ? t('profile.changingPassword') : t('profile.updatePassword')}
             </button>
           </div>
