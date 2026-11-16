@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useConfirm, useToast } from '../components/FeedbackProvider'
+import { SkeletonList, Spinner, usePageTitle } from '../components/feedback'
 import { Empty, ErrorNote, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 
@@ -23,6 +25,9 @@ function NumberValue({ value }: { value: number }) {
 
 export function Constants() {
   const { t } = useTranslation()
+  usePageTitle(t('constants.title'))
+  const confirm = useConfirm()
+  const toast = useToast()
   const qc = useQueryClient()
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
   const availableCourses = courses.data ?? []
@@ -59,11 +64,15 @@ export function Constants() {
       setEditing(null)
       setForm(EMPTY_FORM)
       setFormOpen(false)
+      toast(t('toast.saved'))
     },
   })
   const remove = useMutation({
     mutationFn: (constantId: string) => api.courses.removeConstant(courseId, constantId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['course-constants', courseId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['course-constants', courseId] })
+      toast(t('toast.deleted'))
+    },
   })
 
   const beginEdit = (constant: CourseConstant) => {
@@ -201,6 +210,7 @@ export function Constants() {
             <ErrorNote error={save.error} />
             <div className="flex gap-2">
               <button type="submit" className={btn('primary', 'sm')} disabled={save.isPending || !courseId}>
+                {save.isPending && <Spinner />}
                 {save.isPending ? t('constants.saving') : t('calc.save')}
               </button>
               <button
@@ -288,10 +298,14 @@ export function Constants() {
                       <button
                         type="button"
                         className="text-danger underline"
-                        onClick={() =>
-                          window.confirm(t('constants.confirmDelete', { name: constant.name })) &&
-                          remove.mutate(constant.id)
-                        }
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: t('constants.confirmDelete', { name: constant.name }),
+                            confirmLabel: t('calc.delete'),
+                            danger: true,
+                          })
+                          if (ok) remove.mutate(constant.id)
+                        }}
                       >
                         {t('calc.delete')}
                       </button>
@@ -301,6 +315,7 @@ export function Constants() {
                 {constant.description && <p className="m-0 text-sm text-muted">{constant.description}</p>}
               </article>
             ))}
+            {custom.isPending && !!courseId && <SkeletonList rows={2} />}
             {!custom.isPending && visibleCustom.length === 0 && (
               <Empty>{query ? t('constants.noMatches') : t('constants.empty')}</Empty>
             )}

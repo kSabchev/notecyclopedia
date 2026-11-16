@@ -6,7 +6,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DocView } from '../components/DocView'
 import { EditorToolbar } from '../components/EditorToolbar'
+import { useConfirm } from '../components/FeedbackProvider'
 import { editorExtensions } from '../components/extensions'
+import { Spinner, usePageTitle } from '../components/feedback'
 import { ErrorNote, btn } from '../components/ui'
 import { api } from '../lib/api'
 
@@ -14,6 +16,7 @@ type ReviewResult = Awaited<ReturnType<typeof api.ai.reviewPage>>
 
 export function PageReview() {
   const { t } = useTranslation()
+  usePageTitle(t('page.reviewTitle'))
   const { pageId } = useParams({ from: '/app/pages/$pageId/review' })
   const review = useMutation({ mutationFn: () => api.ai.reviewPage(pageId) })
   const generate = review.mutate
@@ -28,7 +31,10 @@ export function PageReview() {
   if (review.isIdle || review.isPending)
     return (
       <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-4 px-6 py-10">
-        <p className="m-0 text-muted">{t('page.reviewPreparing')}</p>
+        <p role="status" className="m-0 flex items-center gap-2.5 text-muted">
+          <Spinner />
+          {t('page.reviewPreparing')}
+        </p>
       </div>
     )
   if (review.isError)
@@ -47,6 +53,7 @@ export function PageReview() {
 /** The proposed version opens in an editor, so the user can adjust the AI draft before accepting it. */
 function ReviewDraft({ result }: { result: ReviewResult }) {
   const { t } = useTranslation()
+  const confirm = useConfirm()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { page, review: draft } = result
@@ -101,8 +108,11 @@ function ReviewDraft({ result }: { result: ReviewResult }) {
           to="/pages/$pageId"
           params={{ pageId: page.id }}
           className={btn('secondary', 'sm')}
-          onClick={(e) => {
-            if (edited && !window.confirm(t('page.reviewLeave'))) e.preventDefault()
+          onClick={async (e) => {
+            if (!edited) return
+            e.preventDefault()
+            if (await confirm({ title: t('page.reviewLeave'), danger: true }))
+              navigate({ to: '/pages/$pageId', params: { pageId: page.id } })
           }}
         >
           {t('page.reviewDiscard')}
@@ -113,6 +123,7 @@ function ReviewDraft({ result }: { result: ReviewResult }) {
           disabled={accept.isPending}
           onClick={() => accept.mutate()}
         >
+          {accept.isPending && <Spinner />}
           {accept.isPending ? t('page.reviewSaving') : t('page.reviewAccept')}
         </button>
       </header>

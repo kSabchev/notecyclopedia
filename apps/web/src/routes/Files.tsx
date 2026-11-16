@@ -1,14 +1,22 @@
 import type { DocJSON, FileAsset } from '@nc/shared'
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { EditorContent, type JSONContent, useEditor } from '@tiptap/react'
 import { Fragment, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { EditorToolbar } from '../components/EditorToolbar'
+import { useConfirm, useToast } from '../components/FeedbackProvider'
 import { FileDrop } from '../components/FileDrop'
 import { FilePreview, isTextPreviewable } from '../components/FilePreview'
 import { TrashIcon } from '../components/Icons'
 import { editorExtensions } from '../components/extensions'
+import { SkeletonList, Spinner, usePageTitle } from '../components/feedback'
 import { Empty, ErrorNote, Field, FileBadge, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 import type { ArticleDraft } from '../lib/api'
@@ -51,6 +59,7 @@ function LectureMark({ file, courses }: { file: FileAsset; courses: CourseOption
             disabled={set.isPending}
             onClick={() => set.mutate(null)}
           >
+            {set.isPending && <Spinner />}
             {t('files.unmark')}
           </button>
         ) : editing ? (
@@ -84,6 +93,7 @@ function LectureMark({ file, courses }: { file: FileAsset; courses: CourseOption
               onChange={(e) => setValue(e.target.value)}
             />
             <button type="submit" className={btn('primary', 'sm')} disabled={!valid || set.isPending}>
+              {set.isPending && <Spinner />}
               {t('files.markSave')}
             </button>
             <button type="button" className={btn('ghost', 'sm')} onClick={() => setEditing(false)}>
@@ -178,7 +188,8 @@ function ArticleDraftEditor({
           disabled={save.isPending || !editor || !title.trim() || !lectureNumberValid}
           onClick={() => save.mutate()}
         >
-          {save.isPending ? t('common.loading') : t('files.acceptArticle')}
+          {save.isPending && <Spinner />}
+          {t('files.acceptArticle')}
         </button>
       </header>
       <div className="mx-auto flex w-full max-w-[900px] flex-col gap-4 px-6 py-8">
@@ -224,6 +235,9 @@ function ArticleDraftEditor({
 
 export function Files() {
   const { t } = useTranslation()
+  const toast = useToast()
+  const confirm = useConfirm()
+  usePageTitle(t('nav.files'))
   const qc = useQueryClient()
   const [articleDraft, setArticleDraft] = useState<{ file: FileAsset; draft: ArticleDraft }>()
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
@@ -258,6 +272,8 @@ export function Files() {
       }),
     initialPageParam: 0,
     getNextPageParam: (last, all) => (last.length === PAGE_SIZE ? all.length * PAGE_SIZE : undefined),
+    // Keep the current list while a search or filter loads, instead of blanking it.
+    placeholderData: keepPreviousData,
     refetchInterval: (q) =>
       q.state.data?.pages.flat().some((f) => f.status === 'uploaded' || f.status === 'processing')
         ? 2000
@@ -266,7 +282,10 @@ export function Files() {
   const list = files.data?.pages.flat()
   const remove = useMutation({
     mutationFn: api.files.remove,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['files'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['files'] })
+      toast(t('toast.deleted'))
+    },
   })
   const createArticle = useMutation({
     mutationFn: (file: FileAsset) => api.files.articleDraft(file.id),
@@ -369,9 +388,14 @@ export function Files() {
           </select>
         </div>
       </div>
+      {files.isPending && <SkeletonList rows={4} />}
+      <ErrorNote error={files.error} />
       {list?.length === 0 && <Empty>{query || shownCourse ? t('files.noMatch') : t('files.none')}</Empty>}
       {!!list?.length && (
-        <div className="overflow-x-auto rounded-[12px] border border-line bg-surface">
+        <div
+          aria-busy={files.isPlaceholderData || undefined}
+          className={`overflow-x-auto rounded-[12px] border border-line bg-surface transition-opacity ${files.isPlaceholderData ? 'opacity-60' : ''}`}
+        >
           <table className="w-full min-w-[640px] border-collapse text-sm">
             <tbody>
               {list.map((f) => (
@@ -410,6 +434,7 @@ export function Files() {
                             onClick={() => createArticle.mutate(f)}
                             className={`${btn('secondary', 'sm')} mr-2`}
                           >
+                            {createArticle.isPending && <Spinner />}
                             {createArticle.isPending && createArticle.variables?.id === f.id ? (
                               <span role="status" className="inline-flex items-center gap-2">
                                 <svg
@@ -452,7 +477,15 @@ export function Files() {
                       <button
                         type="button"
                         aria-label={`${t('files.remove')} ${f.name}`}
-                        onClick={() => remove.mutate(f.id)}
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: t('files.confirmRemove', { name: f.name }),
+                            body: t('files.confirmRemoveBody'),
+                            confirmLabel: t('files.remove'),
+                            danger: true,
+                          })
+                          if (ok) remove.mutate(f.id)
+                        }}
                         className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-muted hover:bg-line-soft"
                       >
                         <TrashIcon size={16} />

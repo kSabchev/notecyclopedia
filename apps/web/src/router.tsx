@@ -7,6 +7,7 @@ import {
   lazyRouteComponent,
 } from '@tanstack/react-router'
 import { Layout } from './components/Layout'
+import { ErrorScreen, NotFoundScreen } from './components/RouteStatus'
 import type { AiSearch } from './routes/AiPortal'
 import type { OrbitSearch } from './routes/OrbitViewer'
 
@@ -110,7 +111,12 @@ const routes = [
 
 const routeTree = rootRoute.addChildren([loginRoute, appRoute.addChildren([...routes])])
 
-export const router = createRouter({ routeTree, defaultPreload: 'intent' })
+export const router = createRouter({
+  routeTree,
+  defaultPreload: 'intent',
+  defaultErrorComponent: ErrorScreen,
+  defaultNotFoundComponent: NotFoundScreen,
+})
 
 declare module '@tanstack/react-router' {
   interface Register {

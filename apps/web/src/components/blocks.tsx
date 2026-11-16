@@ -3,6 +3,7 @@ import { type KeyboardEvent, type ReactNode, Suspense, lazy, useState } from 're
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
 import { Tex } from './Tex'
+import { Skeleton } from './feedback'
 
 // The parts of the page blocks that the reader and the editor share. Nothing here imports the editor (TipTap),
 // so reading a page does not load it.
@@ -136,15 +137,8 @@ export function WidgetSlot(props: {
   onChange: (attrs: WidgetAttrs) => void
   onDelete: () => void
 }) {
-  const { t } = useTranslation()
   return (
-    <Suspense
-      fallback={
-        <div className="rounded-[12px] border border-line bg-surface p-5 font-sans text-sm text-muted">
-          {t('common.loading')}
-        </div>
-      }
-    >
+    <Suspense fallback={<Skeleton className="h-24 w-full rounded-[12px]" />}>
       <WidgetBlock {...props} />
     </Suspense>
   )

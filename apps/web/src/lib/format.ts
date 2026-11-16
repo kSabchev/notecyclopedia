@@ -1,3 +1,5 @@
+import type { AiStreamEvent } from '@nc/shared'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 
@@ -51,4 +53,9 @@ export function useDayLabel(style: 'long' | 'short' = 'long') {
       month: style,
       timeZone: 'UTC',
     })
+}
+
+/** What an AI answer is doing, from its stream's activity event: "Running Circular speed…". */
+export function activityLabel(t: TFunction, ev: Extract<AiStreamEvent, { type: 'activity' }>) {
+  return t(`activity.${ev.tool}`, { name: ev.name ?? t('widget.calculator'), defaultValue: '' }) || null
 }

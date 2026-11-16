@@ -15,8 +15,7 @@ import { generateCalculators } from '../services/calculator-generation'
 import { calculatorLibrary } from '../services/calculator-library'
 import { reviewCalculator } from '../services/calculator-review'
 import { streamAnswer, threadTitle } from '../services/chat'
-import { aiConfigured } from '../services/claude-client'
-import { UsageMeter } from '../services/claude-client'
+import { UsageMeter, aiConfigured } from '../services/claude-client'
 import { assertAiBudget } from '../services/claude-usage'
 import { generatePageReview } from '../services/page-review'
 import { type RetrievedChunk, retrieve } from '../services/retrieval'
@@ -259,6 +258,8 @@ ai.post('/chat', async (req, res) => {
       if ('widget' in ev) {
         widgets.push(ev.widget)
         send({ type: 'widget', widget: ev.widget })
+      } else if ('activity' in ev) {
+        send({ type: 'activity', ...ev.activity })
       } else {
         answer += ev.text
         send({ type: 'text', text: ev.text })
@@ -266,6 +267,7 @@ ai.post('/chat', async (req, res) => {
     }
     // Only "Build calculator" makes one automatically; after other answers it is a button, so it costs only on request.
     if (!aborted && body.mode === 'calculator') {
+      send({ type: 'activity', tool: 'calculators' })
       try {
         const made = await generateCalculators(
           `Request:\n${body.message}\n\nExplanation:\n${answer}`,

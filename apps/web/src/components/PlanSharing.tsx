@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
 import { useSession } from '../lib/auth'
+import { Spinner } from './feedback'
 import { ErrorNote, btn, inputCls } from './ui'
 
 // Plans are shared as copies: each student keeps their own progress. See packages/shared/src/plan-file.ts.
@@ -47,6 +48,7 @@ export function SharedWithYou() {
               disabled={accept.isPending}
               onClick={() => accept.mutate(s.id)}
             >
+              {accept.isPending && <Spinner />}
               {t('study.accept')}
             </button>
             <button
@@ -55,6 +57,7 @@ export function SharedWithYou() {
               disabled={decline.isPending}
               onClick={() => decline.mutate(s.id)}
             >
+              {decline.isPending && <Spinner />}
               {t('study.decline')}
             </button>
           </li>
@@ -172,6 +175,7 @@ export function PlanActions({ plan, onChange }: { plan: ExamPlan; onChange: (pla
           disabled={toggle.isPending}
           onClick={() => toggle.mutate()}
         >
+          {toggle.isPending && <Spinner />}
           {plan.active ? t('study.pause') : t('study.resume')}
         </button>
         <a href={api.study.exportUrl(plan.id)} download className={btn('secondary', 'sm')}>
@@ -215,6 +219,7 @@ export function PlanActions({ plan, onChange }: { plan: ExamPlan; onChange: (pla
                 </select>
               </label>
               <button type="submit" className={btn('primary', 'sm')} disabled={!recipient || share.isPending}>
+                {share.isPending && <Spinner />}
                 {t('study.send')}
               </button>
             </form>

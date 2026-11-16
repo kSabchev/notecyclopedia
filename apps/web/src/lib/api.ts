@@ -30,6 +30,7 @@ import type {
   WhereWasI,
 } from '@nc/shared'
 import i18n from '../i18n'
+import { isNetworkFailure, reportReachable } from './connection'
 
 /** The interface language, sent with AI requests as the fallback language for short notes. */
 /** A link you added to the Useful links page. */
@@ -51,9 +52,21 @@ export class ApiError extends Error {
   }
 }
 
+/** fetch, reporting whether the server could be reached (see lib/connection.ts). */
+async function apiFetch(input: string, init: RequestInit): Promise<Response> {
+  try {
+    const res = await fetch(input, init)
+    reportReachable(true)
+    return res
+  } catch (e) {
+    if (isNetworkFailure(e)) reportReachable(false)
+    throw e
+  }
+}
+
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
   const isForm = body instanceof FormData
-  const res = await fetch(`/api${url}`, {
+  const res = await apiFetch(`/api${url}`, {
     method,
     credentials: 'include',
     headers: body && !isForm ? { 'content-type': 'application/json' } : undefined,
@@ -386,7 +399,7 @@ export async function* streamChat(
   },
   signal?: AbortSignal,
 ): AsyncGenerator<AiStreamEvent> {
-  const res = await fetch('/api/ai/chat', {
+  const res = await apiFetch('/api/ai/chat', {
     method: 'POST',
     credentials: 'include',
     headers: { 'content-type': 'application/json' },

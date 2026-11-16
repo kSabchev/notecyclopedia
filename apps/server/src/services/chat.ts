@@ -1,11 +1,10 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import type { AiAttachment, AiMode, WidgetAttrs } from '@nc/shared'
-import { type UsageMeter, modelFor, streamText } from './claude-client'
+import { type UsageMeter, modelFor, streamText, withoutImages } from './claude-client'
 import { chatSystemPrompt } from './prompts'
 import type { RetrievedChunk } from './retrieval'
 
 import { CHAT_TOOLS, type CalculatorLibrary, runChatTool } from './chat-tools'
-import { withoutImages } from './claude-client'
 
 /** The AI portal’s answers: the history sent to Claude, sources, photos, streaming and tool rounds. */
 
@@ -120,6 +119,7 @@ export async function* streamAnswer(opts: {
     const results: Anthropic.ToolResultBlockParam[] = []
     for (const block of final.content) {
       if (block.type !== 'tool_use') continue
+      yield { activity: { tool: block.name, name: await toolSubject(block, calculators) } }
       const outcome = await runChatTool(block.name, block.input, calculators)
       if (outcome.widget) yield { widget: outcome.widget }
       results.push({
@@ -134,7 +134,19 @@ export async function* streamAnswer(opts: {
   }
 }
 
-export type AnswerEvent = { text: string } | { widget: WidgetAttrs }
+export type AnswerEvent =
+  | { text: string }
+  | { widget: WidgetAttrs }
+  | { activity: { tool: string; name?: string } }
+
+/** What a tool call is about, for the activity shown while it runs: the calculator a run uses. */
+async function toolSubject(block: Anthropic.ToolUseBlock, calculators: CalculatorLibrary) {
+  if (block.name !== 'run_calculator') return undefined
+  const id = (block.input as { calculatorId?: unknown }).calculatorId
+  return typeof id === 'string'
+    ? ((await calculators.get(id).catch(() => null))?.name ?? undefined)
+    : undefined
+}
 
 /** Finding and running a calculator takes two rounds, so leave room for a few of those. */
 const MAX_TOOL_ROUNDS = 6

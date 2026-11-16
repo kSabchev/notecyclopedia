@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useConfirm } from '../components/FeedbackProvider'
+import { Spinner, usePageTitle } from '../components/feedback'
 import { Card, ErrorNote, Field, SectionHeader, btn } from '../components/ui'
 import { type BackupImportResult, type BackupSummary, api } from '../lib/api'
 import { timeAgo } from '../lib/format'
@@ -36,6 +38,8 @@ function LastBackup({ waitingSince }: { waitingSince: number | null }) {
 
 export function Backup() {
   const { t } = useTranslation()
+  usePageTitle(t('backup.title'))
+  const confirm = useConfirm()
   const queryClient = useQueryClient()
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<BackupSummary | null>(null)
@@ -65,10 +69,15 @@ export function Backup() {
     importBackup.reset()
   }
 
-  const importCopy = () => {
-    if (file && window.confirm(t('backup.confirmImport', { name: file.name }))) {
+  const importCopy = async () => {
+    if (
+      file &&
+      (await confirm({
+        title: t('backup.confirmImport', { name: file.name }),
+        confirmLabel: t('backup.createCopy'),
+      }))
+    )
       importBackup.mutate(file)
-    }
   }
 
   return (
@@ -118,6 +127,7 @@ export function Backup() {
               if (file) previewBackup.mutate(file)
             }}
           >
+            {previewBackup.isPending && <Spinner />}
             {previewBackup.isPending ? t('backup.checking') : t('backup.preview')}
           </button>
         </div>
@@ -146,6 +156,7 @@ export function Backup() {
                 disabled={importBackup.isPending}
                 onClick={importCopy}
               >
+                {importBackup.isPending && <Spinner />}
                 {importBackup.isPending ? t('backup.importing') : t('backup.createCopy')}
               </button>
             </div>

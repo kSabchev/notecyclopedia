@@ -10,6 +10,8 @@ import './styles.css'
 // After an update, a page opened before it may ask for a file the new build no longer has. Reload once to get
 // the new build; the flag stops a loop if the file is missing for another reason.
 window.addEventListener('vite:preloadError', (event) => {
+  // Offline, the file is missing only because the network is: a reload would fail too. The banner says so.
+  if (!navigator.onLine) return
   try {
     if (sessionStorage.getItem('nc.reloadedForUpdate')) return
     sessionStorage.setItem('nc.reloadedForUpdate', '1')

@@ -2,6 +2,7 @@ import { type DiffLine, diffLines, docBlocks } from '@nc/shared'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
+import { Spinner } from './feedback'
 import { ErrorNote } from './ui'
 
 /** Unchanged blocks kept around each change; longer unchanged runs collapse into a count. */
@@ -45,7 +46,12 @@ export function RevisionChanges({ pageId, rev }: { pageId: string; rev: number }
   })
   if (current.error || previous.error) return <ErrorNote error={current.error ?? previous.error} />
   if (!current.data || (rev > 1 && !previous.data))
-    return <p className="m-0 text-sm text-muted">{t('common.loading')}</p>
+    return (
+      <p role="status" className="m-0 flex items-center gap-2 text-sm text-muted">
+        <Spinner />
+        {t('common.loading')}
+      </p>
+    )
 
   const before = previous.data
   const lines = diffLines(docBlocks(before?.content), docBlocks(current.data.content))

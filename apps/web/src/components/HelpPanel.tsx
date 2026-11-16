@@ -4,13 +4,14 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, streamChat } from '../lib/api'
-import { formatCost } from '../lib/format'
+import { activityLabel, formatCost } from '../lib/format'
 import { stashAppend } from '../lib/page-draft'
 import { CloseIcon, SparkIcon } from './Icons'
 import { Markdown } from './Markdown'
 import { FormulaPin } from './PinStar'
 import { QuickCheck } from './QuickCheck'
 import { Tex } from './Tex'
+import { Thinking } from './feedback'
 import { ErrorNote, btn } from './ui'
 
 import { type HelpKind, type HelpTarget, KINDS } from './ReadingHelp'
@@ -108,6 +109,7 @@ export default function HelpPanel({
   const navigate = useNavigate()
   const [kind, setKind] = useState<HelpKind | null>(initialKind)
   const [answer, setAnswer] = useState('')
+  const [activity, setActivity] = useState<string | null>(null)
   const [threadId, setThreadId] = useState<string | null>(null)
   const [usage, setUsage] = useState<AiUsage | null>(null)
   /** The stored answer, once its stream finished: a quick check is kept with it. */
@@ -127,6 +129,7 @@ export default function HelpPanel({
       abort.current = controller
       setKind(next)
       setAnswer('')
+      setActivity(null)
       setUsage(null)
       setMessageId(null)
       setError(null)
@@ -141,7 +144,10 @@ export default function HelpPanel({
           controller.signal,
         )) {
           if (ev.type === 'thread') setThreadId(ev.threadId)
-          else if (ev.type === 'text') setAnswer((a) => a + ev.text)
+          else if (ev.type === 'text') {
+            setAnswer((a) => a + ev.text)
+            setActivity(null)
+          } else if (ev.type === 'activity') setActivity(activityLabel(t, ev))
           else if (ev.type === 'usage') setUsage(ev.usage)
           else if (ev.type === 'done' && ev.messageId) setMessageId(ev.messageId)
           else if (ev.type === 'error') setError(ev.message)
@@ -178,7 +184,7 @@ export default function HelpPanel({
   return (
     <aside
       aria-label={t('help.panel')}
-      className="fixed inset-y-0 right-0 z-50 flex w-[min(440px,100%)] flex-col gap-4 overflow-y-auto border-l border-line bg-surface p-5 shadow-2xl"
+      className="nc-slide-right fixed inset-y-0 right-0 z-50 flex w-[min(440px,100%)] flex-col gap-4 overflow-y-auto border-l border-line bg-surface p-5 shadow-2xl"
     >
       <div className="flex items-center gap-2">
         <SparkIcon className="text-ai" />
@@ -224,11 +230,8 @@ export default function HelpPanel({
       </div>
       {kind && (
         <section aria-label={t('help.answer')} aria-busy={streaming} className="flex flex-col gap-3">
-          {answer ? (
-            <Markdown text={answer} />
-          ) : (
-            !error && <p className="m-0 text-muted">{t('common.loading')}</p>
-          )}
+          {answer && <Markdown text={answer} />}
+          {streaming && !error && (!answer || activity) && <Thinking activity={activity} />}
           <ErrorNote error={error} />
           {!streaming && answer && (
             <div className="flex flex-wrap items-center gap-2 border-t border-line-soft pt-3">

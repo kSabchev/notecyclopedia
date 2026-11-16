@@ -4,11 +4,13 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DailyQuestionCard } from '../components/DailyQuestionCard'
+import { useToast } from '../components/FeedbackProvider'
 import { FileDrop } from '../components/FileDrop'
 import { CloseIcon, PlusIcon, SparkIcon, UploadIcon } from '../components/Icons'
 import { Tex } from '../components/Tex'
 import { TodayRevision } from '../components/TodayRevision'
-import { Empty, FileBadge, SectionHeader, btn } from '../components/ui'
+import { SkeletonCards, SkeletonList, usePageTitle } from '../components/feedback'
+import { Empty, ErrorNote, FileBadge, SectionHeader, btn } from '../components/ui'
 import { api } from '../lib/api'
 import { timeAgo } from '../lib/format'
 
@@ -23,11 +25,27 @@ export function Home() {
   const pages = useQuery({ queryKey: ['pages', 'recent'], queryFn: () => api.pages.list() })
   const pinned = useQuery({ queryKey: ['formulas', 'pinned'], queryFn: () => api.formulas(true) })
   const qc = useQueryClient()
-  // Unpinning asks first: the card's × is easy to hit by mistake.
+  const toast = useToast()
+  usePageTitle(t('nav.home'))
+  // Unpinning is instant and can be undone: the card's × is easy to hit by mistake.
+  const pin = (f: { pageId: string; nodeId: string | null }, on: boolean) =>
+    api.pinFormula(f.pageId, f.nodeId ?? '', on)
   const unpin = useMutation({
-    mutationFn: (f: { pageId: string; nodeId: string | null }) =>
-      api.pinFormula(f.pageId, f.nodeId ?? '', false),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['formulas'] }),
+    mutationFn: (f: { id: string; pageId: string; nodeId: string | null }) => pin(f, false),
+    onMutate: (f) => {
+      const before = qc.getQueryData<typeof pinned.data>(['formulas', 'pinned'])
+      qc.setQueryData(
+        ['formulas', 'pinned'],
+        before?.filter((x) => x.id !== f.id),
+      )
+      return { before }
+    },
+    onError: (_e, _f, context) => qc.setQueryData(['formulas', 'pinned'], context?.before),
+    onSuccess: (_r, f) =>
+      toast(t('toast.unpinned'), {
+        undo: () => pin(f, true).then(() => qc.invalidateQueries({ queryKey: ['formulas'] })),
+      }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['formulas'] }),
   })
   const files = useQuery({ queryKey: ['files', 'recent'], queryFn: () => api.files.list() })
   const calcs = useQuery({
@@ -63,7 +81,7 @@ export function Home() {
         <div className="flex min-w-0 flex-[2_1_520px] flex-col gap-10">
           <TodayRevision />
           <DailyQuestionCard />
-          <WhereWasI pages={pages.data} courseOf={courseOf} />
+          <WhereWasI pages={pages.data} pagesError={pages.error} courseOf={courseOf} />
 
           <section aria-labelledby="h-pinned" className="flex flex-col gap-4">
             <SectionHeader
@@ -71,6 +89,8 @@ export function Home() {
               title={t('home.pinned')}
               action={<Link to="/formulas">{t('home.formulaIndex')}</Link>}
             />
+            {pinned.isPending && <SkeletonCards count={3} />}
+            <ErrorNote error={pinned.error ?? unpin.error} />
             {pinned.data?.length === 0 && <Empty>{t('home.noPinned')}</Empty>}
             {!!pinned.data?.length && (
               <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3">
@@ -83,11 +103,7 @@ export function Home() {
                       type="button"
                       aria-label={t('home.unpin', { name: f.description ?? f.pageTitle })}
                       title={t('formulas.unpin')}
-                      disabled={unpin.isPending}
-                      onClick={() =>
-                        window.confirm(t('home.unpinConfirm', { name: f.description ?? f.pageTitle })) &&
-                        unpin.mutate(f)
-                      }
+                      onClick={() => unpin.mutate(f)}
                       className="absolute right-2 top-2 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border-0 bg-transparent text-muted hover:bg-line-soft hover:text-ink"
                     >
                       <CloseIcon size={16} />
@@ -109,6 +125,8 @@ export function Home() {
               title={t('home.recentFiles')}
               action={<Link to="/files">{t('home.manageFiles')}</Link>}
             />
+            {files.isPending && <SkeletonList rows={3} />}
+            <ErrorNote error={files.error} />
             {files.data?.length === 0 && <Empty>{t('files.none')}</Empty>}
             {!!files.data?.length && (
               <div className="flex flex-col rounded-[12px] border border-line bg-surface">
@@ -192,6 +210,8 @@ export function Home() {
                 {t('home.library')}
               </Link>
             </div>
+            {calcs.isPending && <SkeletonList rows={3} />}
+            <ErrorNote error={calcs.error} />
             {calcs.data?.length === 0 && <p className="m-0 text-sm text-muted">{t('calc.empty')}</p>}
             {calcs.data?.slice(0, 5).map((c) => (
               <Link
@@ -256,7 +276,11 @@ function PageCard({
  * Where you left off: pages you opened, your AI sessions, and the pages your questions were answered from. It
  * comes from your own activity, so it costs nothing. Until you have opened pages, recently edited ones show.
  */
-function WhereWasI({ pages, courseOf }: { pages: PageSummary[] | undefined; courseOf: CourseOf }) {
+function WhereWasI({
+  pages,
+  pagesError,
+  courseOf,
+}: { pages: PageSummary[] | undefined; pagesError: unknown; courseOf: CourseOf }) {
   const { t } = useTranslation()
   const where = useQuery({ queryKey: ['study', 'where'], queryFn: api.study.where })
   const viewed = where.data?.viewed ?? []
@@ -269,6 +293,8 @@ function WhereWasI({ pages, courseOf }: { pages: PageSummary[] | undefined; cour
         title={t('home.where')}
         action={<Link to="/wiki">{t('home.allPages')}</Link>}
       />
+      {(!pages || where.isPending) && !pagesError && !where.error && <SkeletonCards count={3} />}
+      <ErrorNote error={pagesError ?? where.error} />
       {pages?.length === 0 && <Empty>{t('home.empty')}</Empty>}
       <div
         role="list"

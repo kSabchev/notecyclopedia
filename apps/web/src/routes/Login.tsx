@@ -2,11 +2,13 @@ import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Brand } from '../components/Layout'
 import { ThemeToggle } from '../components/ThemeToggle'
+import { usePageTitle } from '../components/feedback'
 import { ErrorNote, Field, btn, inputCls } from '../components/ui'
 import { signIn, signUp } from '../lib/auth'
 
 export function Login() {
   const { t, i18n } = useTranslation()
+  usePageTitle(t('auth.signIn'))
   const [mode, setMode] = useState<'in' | 'up'>('in')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')

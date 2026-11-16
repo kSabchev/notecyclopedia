@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { Spinner } from './feedback'
 
 type Variant = 'primary' | 'secondary' | 'dark' | 'ai' | 'ghost' | 'danger'
 const variants: Record<Variant, string> = {
@@ -15,13 +16,28 @@ export const btn = (v: Variant = 'secondary', size: 'md' | 'sm' = 'md') =>
     size === 'md' ? 'min-h-11 px-4 text-[15px]' : 'min-h-10 px-3.5 text-sm'
   } ${variants[v]}`
 
+/** A button; with `busy`, it shows a spinner and is disabled while its action runs. */
 export function Button({
   variant = 'secondary',
   size = 'md',
   className = '',
+  busy = false,
+  disabled,
+  children,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: 'md' | 'sm' }) {
-  return <button type="button" {...rest} className={`${btn(variant, size)} ${className}`} />
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: 'md' | 'sm'; busy?: boolean }) {
+  return (
+    <button
+      type="button"
+      {...rest}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+      className={`${btn(variant, size)} ${className}`}
+    >
+      {busy && <Spinner />}
+      {children}
+    </button>
+  )
 }
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {

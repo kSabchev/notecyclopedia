@@ -233,8 +233,11 @@ test('exam prep: a plan is proposed once, then caught up, moved, ticked off and 
   await expect(page.getByRole('link', { name: /Midterm/ })).toContainText('Exam date passed')
   // Deleting asks first.
   await page.getByRole('link', { name: /Astro final/ }).click()
-  page.once('dialog', (dialog) => dialog.accept())
   await page.getByRole('button', { name: 'Delete plan' }).click()
+  await page
+    .getByRole('dialog', { name: 'Delete this plan?' })
+    .getByRole('button', { name: 'Delete plan' })
+    .click()
   await expect(page).toHaveURL('/study')
   await expect(page.getByRole('link', { name: /Astro final/ })).toHaveCount(0)
   await expect(page.getByText('This course already has a plan')).toHaveCount(0)

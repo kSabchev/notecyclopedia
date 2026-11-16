@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api'
+import { Spinner } from './feedback'
 import { ErrorNote, btn } from './ui'
 
 const PREVIEW_LINES = 2000
@@ -28,7 +29,13 @@ export function FilePreview({ file }: { file: { id: string; name: string } }) {
   const kind = missionFileKind(file.name)
 
   if (text.error) return <ErrorNote error={text.error} />
-  if (!text.data) return <p className="m-0 text-sm text-muted">{t('common.loading')}</p>
+  if (!text.data)
+    return (
+      <p role="status" className="m-0 flex items-center gap-2 text-sm text-muted">
+        <Spinner />
+        {t('common.loading')}
+      </p>
+    )
   const lines = text.data.split(/\r?\n/)
   const spacecraft = kind ? parseMissionSpacecraft(text.data, kind) : []
 

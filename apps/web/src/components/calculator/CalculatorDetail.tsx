@@ -13,11 +13,12 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../../lib/api'
 import { CalculatorRunner } from '../CalculatorRunner'
 import { Connections } from '../Connections'
+import { useConfirm, useToast } from '../FeedbackProvider'
 import { LectureLabel } from '../LectureLinks'
+import { Spinner } from '../feedback'
 import { ErrorNote, Eyebrow, btn, inputCls } from '../ui'
-import { AutomaticChecks, ReviewPanel } from './CalculatorChecks'
+import { AutomaticChecks, ReviewPanel, ReworkForm } from './CalculatorChecks'
 
-import { ReworkForm } from './CalculatorChecks'
 import { SpecEditor } from './SpecEditor'
 
 const TEMPLATE: CalculatorSpec = {
@@ -37,6 +38,8 @@ export function CalculatorDetail({
   onCancelNew,
 }: { calc: Calculator | null; isNew: boolean; onCancelNew: () => void }) {
   const { t } = useTranslation()
+  const toast = useToast()
+  const confirm = useConfirm()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
@@ -95,12 +98,17 @@ export function CalculatorDetail({
   })
   const archive = useMutation({
     mutationFn: (archived: boolean) => api.calculators.archive(calc?.id ?? '', archived),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['calculators'] }),
+    onSuccess: (_r, archived) => {
+      qc.invalidateQueries({ queryKey: ['calculators'] })
+      if (archived) toast(t('toast.archived'), { undo: () => archive.mutate(false) })
+      else toast(t('toast.restored'))
+    },
   })
   const duplicate = useMutation({
     mutationFn: () => api.calculators.duplicate(calc?.id ?? ''),
     onSuccess: (copy) => {
       qc.invalidateQueries({ queryKey: ['calculators'] })
+      toast(t('toast.duplicated'))
       navigate({ to: '/calculators/$calcId', params: { calcId: copy.id } })
     },
   })
@@ -133,6 +141,7 @@ export function CalculatorDetail({
     },
     onSuccess: (c) => {
       qc.invalidateQueries({ queryKey: ['calculators'] })
+      toast(t('toast.saved'))
       setEditing(false)
       navigate({ to: '/calculators/$calcId', params: { calcId: c.id } })
     },
@@ -141,6 +150,7 @@ export function CalculatorDetail({
     mutationFn: () => api.calculators.remove(calc?.id ?? ''),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['calculators'] })
+      toast(t('toast.deleted'))
       navigate({ to: '/calculators' })
     },
   })
@@ -204,6 +214,7 @@ export function CalculatorDetail({
                 disabled={!parsed.spec || save.isPending}
                 onClick={() => save.mutate()}
               >
+                {save.isPending && <Spinner />}
                 {t('calc.save')}
               </button>
             </>
@@ -215,6 +226,7 @@ export function CalculatorDetail({
                 disabled={check.isPending}
                 onClick={() => check.mutate()}
               >
+                {check.isPending && <Spinner />}
                 {check.isPending ? t('calc.review.running') : t('calc.review.button')}
               </button>
               <button
@@ -234,6 +246,7 @@ export function CalculatorDetail({
                 disabled={duplicate.isPending}
                 onClick={() => duplicate.mutate()}
               >
+                {duplicate.isPending && <Spinner />}
                 {t('calc.duplicate')}
               </button>
               <button
@@ -242,12 +255,21 @@ export function CalculatorDetail({
                 disabled={archive.isPending}
                 onClick={() => archive.mutate(!calc?.archivedAt)}
               >
+                {archive.isPending && <Spinner />}
                 {calc?.archivedAt ? t('calc.restore') : t('calc.archive')}
               </button>
               <button
                 type="button"
                 className={btn('danger', 'sm')}
-                onClick={() => window.confirm(`${t('calc.delete')}?`) && remove.mutate()}
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: t('calc.confirmDelete', { name: calc?.name ?? '' }),
+                    body: t('calc.confirmDeleteBody'),
+                    confirmLabel: t('calc.delete'),
+                    danger: true,
+                  })
+                  if (ok) remove.mutate()
+                }}
               >
                 {t('calc.delete')}
               </button>

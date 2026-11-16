@@ -6,12 +6,14 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PinStar } from '../components/PinStar'
 import { Tex } from '../components/Tex'
-import { Empty, inputCls } from '../components/ui'
+import { SkeletonList, usePageTitle } from '../components/feedback'
+import { Empty, ErrorNote, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 
 /** Formulas grouped by subject (course), then by lecture, in the order the server gives them. */
 export function Formulas() {
   const { t } = useTranslation()
+  usePageTitle(t('nav.formulas'))
   const [filter, setFilter] = useState('')
   const [courseId, setCourseId] = useState<string | null>(null)
   const formulas = useQuery({ queryKey: ['formulas', 'all'], queryFn: () => api.formulas() })
@@ -61,7 +63,9 @@ export function Formulas() {
           </div>
         )}
       </div>
-      {groups.length === 0 && !formulas.isPending && <Empty>{t('home.noPinned')}</Empty>}
+      {formulas.isPending && <SkeletonList rows={4} />}
+      <ErrorNote error={formulas.error} />
+      {groups.length === 0 && formulas.isSuccess && <Empty>{t('home.noPinned')}</Empty>}
       {groups.map(({ course, formulas: rows }) => (
         <section key={course.id} aria-labelledby={`fc-${course.id}`} className="flex flex-col gap-2">
           <h2 id={`fc-${course.id}`} className="m-0 flex items-center gap-2.5 text-xl font-bold">

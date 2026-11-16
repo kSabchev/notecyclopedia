@@ -5,9 +5,11 @@ import { EditorContent, type JSONContent, useEditor } from '@tiptap/react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { EditorToolbar } from '../components/EditorToolbar'
+import { useConfirm } from '../components/FeedbackProvider'
 import { FileDrop } from '../components/FileDrop'
 import { BackIcon } from '../components/Icons'
 import { editorExtensions } from '../components/extensions'
+import { SkeletonPage, Spinner, usePageTitle } from '../components/feedback'
 import { ErrorNote, Field, btn, inputCls } from '../components/ui'
 import { ApiError, api } from '../lib/api'
 import { formatCost } from '../lib/format'
@@ -15,6 +17,7 @@ import { takeAppend } from '../lib/page-draft'
 
 function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCourseId?: string }) {
   const { t } = useTranslation()
+  const confirm = useConfirm()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const courses = useQuery({ queryKey: ['courses'], queryFn: api.courses.list })
@@ -97,9 +100,9 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
   // A theory page can be drafted as a topic hub from the course's notes; the draft only fills the editor.
   const draftHub = useMutation({
     mutationFn: () => api.ai.topicHub(courseId, title.trim()),
-    onSuccess: (draft) => {
+    onSuccess: async (draft) => {
       if (!editor) return
-      if (!editor.isEmpty && !window.confirm(t('editor.hub.replace'))) return
+      if (!editor.isEmpty && !(await confirm({ title: t('editor.hub.replace') }))) return
       editor.commands.setContent(draft.content as JSONContent)
       setDirty(true)
     },
@@ -128,6 +131,7 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
             disabled={save.isPending || !courseId || !lectureNumberValid}
             onClick={() => save.mutate()}
           >
+            {save.isPending && <Spinner />}
             {t('editor.publish')}
           </button>
         </div>
@@ -162,6 +166,7 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
                     disabled={!courseId || title.trim().length < 2 || draftHub.isPending}
                     onClick={() => draftHub.mutate()}
                   >
+                    {draftHub.isPending && <Spinner />}
                     {draftHub.isPending ? t('editor.hub.drafting') : t('editor.hub.draft')}
                   </button>
                   <span className="min-w-0 flex-1 text-sm text-muted">{t('editor.hub.hint')}</span>
@@ -301,15 +306,22 @@ function EditorScreen({ page, defaultCourseId }: { page: Page | null; defaultCou
 }
 
 export function PageEdit() {
-  const { t } = useTranslation()
   const { pageId } = useParams({ from: '/app/pages/$pageId/edit' })
   const page = useQuery({ queryKey: ['page', pageId], queryFn: () => api.pages.get(pageId) })
-  if (page.isPending) return <div className="p-10 text-muted">{t('common.loading')}</div>
-  if (page.error) return <div className="p-10 text-danger">{page.error.message}</div>
+  usePageTitle(page.data?.title)
+  if (page.isPending) return <SkeletonPage />
+  if (page.error)
+    return (
+      <div className="p-10">
+        <ErrorNote error={page.error} />
+      </div>
+    )
   return <EditorScreen key={`${page.data.id}-${page.data.revision}`} page={page.data} />
 }
 
 export function PageNew() {
+  const { t } = useTranslation()
   const { courseId } = useSearch({ from: '/app/pages/new' })
+  usePageTitle(t('nav.newPage'))
   return <EditorScreen page={null} defaultCourseId={courseId} />
 }

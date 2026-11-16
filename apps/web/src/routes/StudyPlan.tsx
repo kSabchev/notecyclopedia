@@ -11,9 +11,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useConfirm, useToast } from '../components/FeedbackProvider'
 import { CloseIcon, PenIcon } from '../components/Icons'
 import { PlanActions } from '../components/PlanSharing'
 import { Countdown, TaskLinks, progressOf } from '../components/StudyParts'
+import { SkeletonPage, Spinner, usePageTitle } from '../components/feedback'
 import { ErrorNote, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 import { formatCost, todayLocal, useDayLabel } from '../lib/format'
@@ -22,6 +24,8 @@ import { useLectureExtras } from '../lib/lectures'
 /** A revision plan, edited in place: every change is saved straight away. */
 export function StudyPlan() {
   const { t } = useTranslation()
+  const confirm = useConfirm()
+  const toast = useToast()
   const { planId } = useParams({ from: '/app/study/$planId' })
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -45,6 +49,7 @@ export function StudyPlan() {
     mutationFn: () => api.study.deletePlan(planId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['study', 'plans'] })
+      toast(t('toast.deleted'))
       navigate({ to: '/study' })
     },
   })
@@ -53,10 +58,11 @@ export function StudyPlan() {
   /** The plan as edited on this screen; edits show at once (a ticked box stays ticked) and are saved behind. */
   const [edited, setEdited] = useState<ExamPlan | null>(null)
   const [noDaysLeft, setNoDaysLeft] = useState(false)
+  usePageTitle(edited?.title ?? plan.data?.title)
 
   if (plan.error) return <ErrorNote error={plan.error} />
   const p = edited?.id === planId ? edited : plan.data
-  if (!p) return <p className="px-12 pt-10 text-muted">{t('common.loading')}</p>
+  if (!p) return <SkeletonPage />
   const today = todayLocal()
   const progress = progressOf(p)
   const course = courses.data?.find((c) => c.id === p.courseId)
@@ -187,8 +193,17 @@ export function StudyPlan() {
           <button
             type="button"
             className={btn('danger', 'sm')}
-            onClick={() => window.confirm(t('study.confirmDelete')) && remove.mutate()}
+            disabled={remove.isPending}
+            onClick={async () => {
+              const ok = await confirm({
+                title: t('study.confirmDelete'),
+                confirmLabel: t('study.delete'),
+                danger: true,
+              })
+              if (ok) remove.mutate()
+            }}
           >
+            {remove.isPending && <Spinner />}
             {t('study.delete')}
           </button>
         </div>

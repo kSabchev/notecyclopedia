@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { SkeletonList, Spinner, usePageTitle } from '../components/feedback'
 import { Empty, ErrorNote, btn } from '../components/ui'
 import { api } from '../lib/api'
 
@@ -7,6 +8,7 @@ const PAGE_SIZE = 50
 
 export function AdminClaudeUsage() {
   const { t, i18n } = useTranslation()
+  usePageTitle(t('adminUsage.title'))
   const calls = useInfiniteQuery({
     queryKey: ['admin', 'claude-calls'],
     queryFn: ({ pageParam }) => api.admin.claudeCalls(pageParam),
@@ -43,7 +45,7 @@ export function AdminClaudeUsage() {
       </p>
       <ErrorNote error={calls.error} />
       {rows.length === 0 && !calls.isPending && <Empty>{t('adminUsage.empty')}</Empty>}
-      {calls.isPending && <p className="m-0 text-muted">{t('common.loading')}</p>}
+      {calls.isPending && <SkeletonList rows={4} />}
       {rows.length > 0 && (
         <p className="m-0 text-sm text-muted">
           {t('adminUsage.loadedSummary', {
@@ -118,6 +120,7 @@ export function AdminClaudeUsage() {
           disabled={calls.isFetchingNextPage}
           onClick={() => calls.fetchNextPage()}
         >
+          {calls.isFetchingNextPage && <Spinner />}
           {calls.isFetchingNextPage ? t('common.loading') : t('adminUsage.loadMore')}
         </button>
       )}
