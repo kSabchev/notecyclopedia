@@ -108,10 +108,12 @@ revision, so nothing is lost.
 next to the current page, where you can change it; **Restore AI version** discards your changes to it, and nothing is
 saved until **Accept changes**. It is also the way to rewrite AI-sounding wording.
 
-A page with headings asks first what to review: **The whole page**, the opening before the first heading, or one
-section (a heading and everything under it, down to the next heading of the same level). A long page does not fit one
-review, so review it a section at a time: parts that are probably too long are marked, and a page clearly too long is
-refused before any AI call. A reviewed section goes back into the page, and only that section changes.
+A page with headings asks first what to review: **The whole page**, or one or more sections: the opening before the
+first heading, or a heading and everything under it, down to the next heading of the same level (a subsection of a
+ticked section is included). A long page does not fit one review, so it is reviewed in parts: neighbouring sections
+share a call while they fit, and the parts are reviewed at the same time. Parts that are probably too long are marked;
+one clearly too long is not sent, and the review notes say so while the other parts are still reviewed. The reviewed
+sections go back into the page, and only they change.
 
 ### Math
 

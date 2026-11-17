@@ -253,7 +253,7 @@ test(
     })
 
     await t.test(
-      'Review & polish can review one section; a page too long for one review is refused first',
+      'Review & polish can review chosen sections; a part too long for one review is refused before calling Claude',
       async () => {
         const p = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
         const h = (id: string, text: string) => ({
@@ -278,19 +278,60 @@ test(
           review: {
             findings: string[]
             content: { content: { content?: { text?: string }[] }[] }
-            section: { id: string }
+            sections: { id: string }[]
           }
-        }>(review({ section: 'h-second' }))
+        }>(review({ sections: ['h-second'] }))
         const sent = lastContent(fake.requests[calls] as Anthropic.MessageCreateParams)
         assert.match(sent, /Equal areas text/)
         assert.doesNotMatch(sent, /First law text/, 'Only the section is sent')
-        assert.equal(result.review.section.id, 'h-second')
+        assert.deepEqual(
+          result.review.sections.map((x) => x.id),
+          ['h-second'],
+        )
         assert.deepEqual(
           result.review.content.content.map((b) => b.content?.[0]?.text),
           ['Kepler', 'First law text.', 'Second law', 'Second law, reworded.'],
           'The revised section is put back into the whole page',
         )
-        assert.equal((await review({ section: 'no-such-heading' })).status, 404)
+        assert.equal((await review({ sections: ['no-such-heading'] })).status, 404)
+
+        // Neighbouring sections that fit together share one call.
+        const both = fake.requests.length
+        const together = await ok<{ review: { sections: { id: string }[] } }>(
+          review({ sections: ['h-second', 'h-kepler'] }),
+        )
+        assert.equal(fake.requests.length - both, 1, 'One call for both')
+        assert.deepEqual(
+          together.review.sections.map((x) => x.id),
+          ['h-kepler', 'h-second'],
+        )
+
+        // A section too long for one review is reported, without a call, while the others are reviewed.
+        const mixed = await api.createPage(student, {
+          courseId: course.id,
+          title: 'Mixed',
+          content: [
+            h('h-kepler', 'Kepler'),
+            p('First law text.'),
+            h('h-huge', 'Huge'),
+            ...Array.from({ length: 300 }, (_, i) => p(`Paragraph ${i} `.repeat(30))),
+          ],
+        })
+        const mixedCalls = fake.requests.length
+        const partial = await ok<{ review: { findings: string[]; sections: { id: string }[] } }>(
+          send(student, 'POST', `/ai/pages/${mixed.id}/review`, { sections: ['h-kepler', 'h-huge'] }),
+        )
+        assert.equal(fake.requests.length - mixedCalls, 1, 'Only the section that fits is sent')
+        assert.deepEqual(
+          partial.review.sections.map((x) => x.id),
+          ['h-kepler'],
+        )
+        assert.ok(partial.review.findings.some((f) => /^Not reviewed: “Huge”\. .*too long/.test(f)))
+        const allTooLong = await send(student, 'POST', `/ai/pages/${mixed.id}/review`, {
+          sections: ['h-huge'],
+        })
+        assert.equal(allTooLong.status, 413)
+        assert.equal(fake.requests.length - mixedCalls, 1, 'Still no call for a part too long')
 
         const long = await api.createPage(student, {
           courseId: course.id,

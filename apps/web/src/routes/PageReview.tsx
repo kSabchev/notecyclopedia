@@ -20,18 +20,29 @@ export function PageReview() {
   usePageTitle(t('page.reviewTitle'))
   const { pageId } = useParams({ from: '/app/pages/$pageId/review' })
   const page = useQuery({ queryKey: ['page', pageId], queryFn: () => api.pages.get(pageId) })
-  const review = useMutation({ mutationFn: (section?: string) => api.ai.reviewPage(pageId, section) })
-  const parts = useMemo(() => (page.data ? reviewParts(page.data.content, t) : []), [page.data, t])
-  const [choice, setChoice] = useState<string | null>(null)
-  const chosen = parts.find((p) => p.id === choice) ?? parts.find((p) => p.fits) ?? parts[0]
+  const review = useMutation({ mutationFn: (sections?: string[]) => api.ai.reviewPage(pageId, sections) })
+  const choices = useMemo(() => (page.data ? reviewChoices(page.data.content, t) : []), [page.data, t])
+  // What is ticked: the whole page, or some sections. Until the reader chooses, the whole page when it fits.
+  const [picked, setPicked] = useState<string[] | null>(null)
+  const ticked = picked ?? (choices[0]?.fits ? [WHOLE] : [])
+  /** A section inside a ticked section is already part of it. */
+  const coveredBy = (c: (typeof choices)[number]) => ticked.includes(c.parent ?? '')
+  const toggle = (id: string, on: boolean) => {
+    if (id === WHOLE) return setPicked(on ? [WHOLE] : [])
+    const rest = ticked.filter((x) => x !== WHOLE && x !== id)
+    setPicked(on ? [...rest, id] : rest)
+  }
+  const sections = ticked.filter((id) => id !== WHOLE)
+  const names = (ids: { id: string; title: string }[]) =>
+    ids.map((s) => (s.id === INTRO_SECTION ? t('page.reviewIntro') : `“${s.title}”`)).join(', ')
   const started = useRef(false)
 
-  // A page without headings has only one part: review it at once, as before.
+  // A page without headings has only one choice: review it at once, as before.
   useEffect(() => {
-    if (started.current || parts.length !== 1) return
+    if (started.current || choices.length !== 1) return
     started.current = true
     review.mutate(undefined)
-  }, [parts, review])
+  }, [choices, review])
 
   if (page.isPending) return <SkeletonPage />
   if (page.error)
@@ -46,19 +57,25 @@ export function PageReview() {
         <p role="status" className="m-0 flex items-center gap-2.5 text-muted">
           <Spinner />
           {review.variables
-            ? t('page.reviewPreparingSection', { section: chosen?.label })
+            ? t('page.reviewPreparingSection', {
+                sections: names(
+                  choices
+                    .filter((c) => review.variables?.includes(c.id))
+                    .map((c) => ({ id: c.id, title: c.label })),
+                ),
+              })
             : t('page.reviewPreparing')}
         </p>
       </div>
     )
-  if (review.isSuccess) return <ReviewDraft result={review.data} />
+  if (review.isSuccess) return <ReviewDraft result={review.data} names={names} />
 
   const back = (
     <Link to="/pages/$pageId" params={{ pageId }} className={btn('secondary', 'sm')}>
       {t('page.reviewBack')}
     </Link>
   )
-  if (review.isError && parts.length <= 1)
+  if (review.isError && choices.length <= 1)
     return (
       <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-5 px-6 py-10">
         <ErrorNote error={review.error} />
@@ -66,7 +83,7 @@ export function PageReview() {
       </div>
     )
 
-  // Choose the whole page or one section; after an error (such as a part too long), choose again.
+  // Choose the whole page or one or more sections; after an error (such as a part too long), choose again.
   return (
     <main className="mx-auto flex w-full max-w-[720px] flex-col gap-5 px-6 py-10">
       <header className="flex flex-col gap-1">
@@ -78,30 +95,38 @@ export function PageReview() {
         className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault()
-          if (chosen) review.mutate(chosen.id === WHOLE ? undefined : chosen.id)
+          if (ticked.includes(WHOLE)) review.mutate(undefined)
+          else if (sections.length) review.mutate(sections)
         }}
       >
         <fieldset className="m-0 flex flex-col gap-1 rounded-[12px] border border-line bg-surface p-3">
           <legend className="sr-only">{t('page.reviewChoose')}</legend>
-          {parts.map((part) => (
-            <label
-              key={part.id}
-              className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-[8px] px-3 hover:bg-surface-2 ${part.level === 3 ? 'pl-9' : ''}`}
-            >
-              <input
-                type="radio"
-                name="review-part"
-                className="h-[18px] w-[18px] accent-accent"
-                checked={chosen?.id === part.id}
-                onChange={() => setChoice(part.id)}
-              />
-              <span className={`flex-1 ${part.id === WHOLE ? 'font-semibold' : ''}`}>{part.label}</span>
-              {!part.fits && <span className="text-xs text-muted">{t('page.reviewTooLong')}</span>}
-            </label>
-          ))}
+          {choices.map((c) => {
+            const covered = coveredBy(c)
+            return (
+              <label
+                key={c.id}
+                className={`flex min-h-11 items-center gap-3 rounded-[8px] px-3 ${covered ? 'text-muted' : 'cursor-pointer hover:bg-surface-2'} ${c.level === 3 ? 'pl-9' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  className="h-[18px] w-[18px] accent-accent"
+                  checked={covered || ticked.includes(c.id)}
+                  disabled={covered}
+                  onChange={(e) => toggle(c.id, e.target.checked)}
+                />
+                <span className={`flex-1 ${c.id === WHOLE ? 'font-semibold' : ''}`}>{c.label}</span>
+                {covered ? (
+                  <span className="text-xs text-muted">{t('page.reviewIncluded')}</span>
+                ) : (
+                  !c.fits && <span className="text-xs text-muted">{t('page.reviewTooLong')}</span>
+                )}
+              </label>
+            )
+          })}
         </fieldset>
         <div className="flex flex-wrap gap-2">
-          <button type="submit" className={btn('ai')} disabled={!chosen}>
+          <button type="submit" className={btn('ai')} disabled={!ticked.length}>
             {review.isError ? t('page.reviewOther') : t('page.reviewStart')}
           </button>
           {back}
@@ -114,22 +139,33 @@ export function PageReview() {
 /** The whole page in the review choices. */
 const WHOLE = 'page'
 
-/** What can be reviewed: the whole page, then each section, each marked if it is probably too long for one review. */
-function reviewParts(content: DocJSON, t: TFunction) {
+/**
+ * What can be reviewed: the whole page, then each section (with the section it sits in, if any), each marked if it is
+ * probably too long for one review.
+ */
+function reviewChoices(content: DocJSON, t: TFunction) {
   const blocks = (content.content ?? []) as DocBlock[]
+  const sections = docSections(content)
   return [
-    { id: WHOLE, label: t('page.reviewWhole'), level: 0, fits: reviewFits(blocks) },
-    ...docSections(content).map((s) => ({
+    { id: WHOLE, label: t('page.reviewWhole'), level: 0, fits: reviewFits(blocks), parent: null },
+    ...sections.map((s) => ({
       id: s.id,
       label: s.id === INTRO_SECTION ? t('page.reviewIntro') : s.title || t('common.untitled'),
       level: s.level,
       fits: reviewFits(blocks.slice(s.start, s.end)),
+      parent:
+        sections.find(
+          (o) => o !== s && o.start <= s.start && s.end <= o.end && o.end - o.start > s.end - s.start,
+        )?.id ?? null,
     })),
   ]
 }
 
 /** The proposed version opens in an editor, so the user can adjust the AI draft before accepting it. */
-function ReviewDraft({ result }: { result: ReviewResult }) {
+function ReviewDraft({
+  result,
+  names,
+}: { result: ReviewResult; names: (sections: { id: string; title: string }[]) => string }) {
   const { t } = useTranslation()
   const confirm = useConfirm()
   const navigate = useNavigate()
@@ -181,11 +217,8 @@ function ReviewDraft({ result }: { result: ReviewResult }) {
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h1 className="m-0 font-serif text-3xl font-semibold">{t('page.reviewTitle')}</h1>
           <p className="m-0 text-sm text-muted">
-            {draft.section
-              ? t('page.reviewReadySection', {
-                  title: page.title,
-                  section: draft.section.title || t('page.reviewIntro'),
-                })
+            {draft.sections
+              ? t('page.reviewReadySection', { title: page.title, sections: names(draft.sections) })
               : t('page.reviewReady', { title: page.title })}
           </p>
         </div>

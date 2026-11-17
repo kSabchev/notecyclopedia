@@ -80,3 +80,49 @@ export function reviewTokens(blocks: DocBlock[]): number {
 
 /** Whether a review of these blocks probably fits the output limit. */
 export const reviewFits = (blocks: DocBlock[]) => reviewTokens(blocks) <= REVIEW_MAX_TOKENS
+
+/** Blocks `start` to `end` of a page reviewed in one call, and the chosen sections they cover. */
+export interface ReviewPart {
+  start: number
+  end: number
+  sections: Pick<DocSection, 'id' | 'title'>[]
+}
+
+/**
+ * The calls a review of the chosen sections needs. A subsection inside a chosen section is already covered; sections
+ * next to each other share a call while their blocks fit one review. Unknown ids are left out (see `missing`).
+ */
+export function reviewParts(doc: DocJSON, ids: string[]): { parts: ReviewPart[]; missing: string[] } {
+  const all = docSections(doc)
+  const chosen = all.filter((s) => ids.includes(s.id))
+  const missing = ids.filter((id) => !all.some((s) => s.id === id))
+  const outer = chosen
+    .filter(
+      (s) =>
+        !chosen.some(
+          (o) => o !== s && o.start <= s.start && s.end <= o.end && o.end - o.start > s.end - s.start,
+        ),
+    )
+    .sort((a, b) => a.start - b.start)
+  const blocks = (doc.content ?? []) as DocBlock[]
+  const parts: ReviewPart[] = []
+  for (const s of outer) {
+    const last = parts.at(-1)
+    if (last && last.end === s.start && reviewFits(blocks.slice(last.start, s.end))) {
+      last.end = s.end
+      last.sections.push({ id: s.id, title: s.title })
+    } else parts.push({ start: s.start, end: s.end, sections: [{ id: s.id, title: s.title }] })
+  }
+  return { parts, missing }
+}
+
+/** The document with each part's blocks replaced by its revision (parts must not overlap). */
+export function replaceParts(
+  doc: DocJSON,
+  revisions: { part: Pick<ReviewPart, 'start' | 'end'>; blocks: DocBlock[] }[],
+) {
+  // From the last part to the first, so earlier positions stay valid.
+  return [...revisions]
+    .sort((a, b) => b.part.start - a.part.start)
+    .reduce((next, r) => replaceSection(next, r.part, r.blocks), doc)
+}

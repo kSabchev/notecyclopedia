@@ -3,8 +3,8 @@ import {
   type DocBlock,
   type DocJSON,
   REVIEW_MAX_TOKENS,
-  docSections,
-  replaceSection,
+  replaceParts,
+  reviewParts,
   reviewTokens,
   tidyDoc,
 } from '@nc/shared'
@@ -211,40 +211,22 @@ export function parsePageReviewInput(input: unknown) {
   return { findings: parsed.data.findings, content: tidyDoc(document.data as DocJSON).doc }
 }
 
-/**
- * Review a page, or one of its sections (a heading id, or `INTRO_SECTION`): the revised section is put back into the
- * page, so the result is always the whole page. A part clearly too long for one review is refused before calling
- * Claude, with a hint to review it a section at a time.
- */
-export async function generatePageReview(
-  title: string,
-  content: unknown,
-  userId: string,
-  sectionId?: string,
-) {
-  const doc = content as DocJSON
-  const section = sectionId ? docSections(doc).find((s) => s.id === sectionId) : undefined
-  if (sectionId && !section) throw new HttpError(404, 'That section is no longer on the page.')
-  const blocks = ((doc.content ?? []) as DocBlock[]).slice(section?.start ?? 0, section?.end)
+const TOO_LONG_PAGE = 'This page is too long to review at once. Review it one section at a time.'
+const TOO_LONG_PART =
+  'This section is too long to review at once. Choose a shorter one (a subsection) instead.'
+
+/** One review call: the blocks given (a whole page, or part of one), revised. */
+async function reviewBlocks(title: string, content: DocJSON, userId: string, sections?: string[]) {
   // The estimate is rough: refuse only what is well over the limit, and let the rest try.
-  if (reviewTokens(blocks) > REVIEW_MAX_TOKENS * 1.5)
-    throw new HttpError(
-      413,
-      section
-        ? 'This section is too long to review at once. Choose a shorter one (a subsection) instead.'
-        : 'This page is too long to review at once. Review it one section at a time.',
-    )
+  if (reviewTokens((content.content ?? []) as DocBlock[]) > REVIEW_MAX_TOKENS * 1.5)
+    throw new HttpError(413, sections ? TOO_LONG_PART : TOO_LONG_PAGE)
   const { value } = await callTool<ReturnType<typeof parsePageReviewInput>>({
     feature: 'page-review',
     userId,
     tool: reviewPageTool,
     maxTokens: REVIEW_MAX_TOKENS,
-    prompt: pageReviewPrompt({
-      title,
-      content: section ? { type: 'doc', content: blocks } : content,
-      section: section && { title: section.title },
-    }),
-    // A whole revised page is too large to ask for twice.
+    prompt: pageReviewPrompt({ title, content, sections }),
+    // A revised page is too large to ask for twice.
     retries: 0,
     parse: (input) => {
       try {
@@ -254,16 +236,58 @@ export async function generatePageReview(
       }
     },
     messages: {
-      cutOff: section
-        ? 'This section is too long to review at once. Choose a shorter one (a subsection) instead.'
-        : 'This page is too long to review at once. Review it one section at a time.',
+      cutOff: sections ? TOO_LONG_PART : TOO_LONG_PAGE,
       invalid: 'The AI returned an invalid page review. Try generating it again.',
     },
   })
-  if (!section) return { ...value, section: null }
+  return value
+}
+
+/**
+ * Review a page, or the chosen sections of it (heading ids, or `INTRO_SECTION`). Sections are reviewed in as few
+ * calls as fit (neighbours together), in parallel, and put back into the page, so the result is always the whole
+ * page. A part that fails (too long, or an invalid answer) is reported in the findings while the others are kept; only
+ * when every part fails is the error returned.
+ */
+export async function generatePageReview(
+  title: string,
+  content: unknown,
+  userId: string,
+  sectionIds?: string[],
+) {
+  const doc = content as DocJSON
+  if (!sectionIds?.length) return { ...(await reviewBlocks(title, doc, userId)), sections: null }
+
+  const { parts, missing } = reviewParts(doc, sectionIds)
+  if (missing.length) throw new HttpError(404, 'A chosen section is no longer on the page.')
+  const blocks = (doc.content ?? []) as DocBlock[]
+  const results = await Promise.allSettled(
+    parts.map((part) =>
+      reviewBlocks(
+        title,
+        { type: 'doc', content: blocks.slice(part.start, part.end) },
+        userId,
+        part.sections.map((s) => s.title),
+      ),
+    ),
+  )
+  const label = (part: (typeof parts)[number]) =>
+    part.sections.map((s) => (s.title ? `“${s.title}”` : 'the opening')).join(', ')
+  const findings: string[] = []
+  const revisions: { part: (typeof parts)[number]; blocks: DocBlock[] }[] = []
+  results.forEach((r, i) => {
+    const part = parts[i] as (typeof parts)[number]
+    if (r.status === 'rejected') {
+      findings.push(`Not reviewed: ${label(part)}. ${(r.reason as Error).message}`)
+      return
+    }
+    revisions.push({ part, blocks: (r.value.content.content ?? []) as DocBlock[] })
+    for (const f of r.value.findings) findings.push(parts.length > 1 ? `${label(part)}: ${f}` : f)
+  })
+  if (!revisions.length) throw (results[0] as PromiseRejectedResult).reason
   return {
-    findings: value.findings,
-    content: replaceSection(doc, section, (value.content.content ?? []) as DocBlock[]),
-    section: { id: section.id, title: section.title },
+    findings,
+    content: replaceParts(doc, revisions),
+    sections: revisions.flatMap((r) => r.part.sections),
   }
 }

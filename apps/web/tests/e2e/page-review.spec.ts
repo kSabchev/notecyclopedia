@@ -4,7 +4,7 @@ const text = (t: string) => ({ type: 'text', text: t })
 const p = (t: string) => ({ type: 'paragraph', content: [text(t)] })
 const h = (id: string, t: string) => ({ type: 'heading', attrs: { level: 2, id }, content: [text(t)] })
 
-test('Review & polish can review the whole page or one section', async ({ page }) => {
+test('Review & polish can review the whole page or one or more sections', async ({ page }) => {
   await page.goto('/login')
   await page.getByRole('button', { name: 'Create account' }).click()
   await page.getByLabel('Name').fill('Reviewer')
@@ -29,6 +29,8 @@ test('Review & polish can review the whole page or one section', async ({ page }
     p('Orbits are ellipses.'),
     h('h-second', 'Second law'),
     p('Equal areas in equal times.'),
+    { type: 'heading', attrs: { level: 3, id: 'h-area' }, content: [text('Areal velocity')] },
+    p('Constant along the orbit.'),
   ])
 
   // Claude is mocked: the review returns the page with the second section reworded.
@@ -45,7 +47,10 @@ test('Review & polish can review the whole page or one section', async ({ page }
         review: {
           findings: ['Second law: clearer wording.'],
           content: { type: 'doc', content },
-          section: { id: 'h-second', title: 'Second law' },
+          sections: [
+            { id: 'h-first', title: 'First law' },
+            { id: 'h-second', title: 'Second law' },
+          ],
         },
       },
     })
@@ -54,11 +59,16 @@ test('Review & polish can review the whole page or one section', async ({ page }
   await page.goto(`/pages/${kepler.id}/review`)
   const choices = page.getByRole('group', { name: 'What should the AI review?' })
   await expect(choices.getByLabel('The whole page')).toBeChecked()
-  await expect(choices.getByLabel('The opening (before the first heading)')).toBeVisible()
+  await expect(choices.getByLabel('The opening (before the first heading)')).not.toBeChecked()
+  // Ticking sections replaces the whole page; a subsection of a ticked section is already included.
+  await choices.getByLabel('First law').check()
+  await expect(choices.getByLabel('The whole page')).not.toBeChecked()
   await choices.getByLabel('Second law').check()
+  await expect(choices.getByLabel('Areal velocity')).toBeChecked()
+  await expect(choices.getByLabel('Areal velocity')).toBeDisabled()
   await page.getByRole('button', { name: 'Review', exact: true }).click()
-  await expect(page.getByText('Proposed changes to “Second law” of Kepler’s laws')).toBeVisible()
-  expect(asked).toEqual([{ section: 'h-second' }])
+  await expect(page.getByText('Proposed changes to “First law”, “Second law” of Kepler’s laws')).toBeVisible()
+  expect(asked).toEqual([{ sections: ['h-first', 'h-second'] }])
   await expect(page.getByText('Second law: clearer wording.')).toBeVisible()
 
   // A page without headings has nothing to choose: its review starts at once.
