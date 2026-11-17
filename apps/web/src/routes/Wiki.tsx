@@ -245,7 +245,7 @@ function PageList({
                           onClick={() => movePage(p.id, i - 1)}
                           className="h-9 w-9 cursor-pointer rounded-lg text-ink hover:bg-line-soft disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          {reorder.isPending && <Spinner />}↑
+                          ↑
                         </button>
                         <button
                           type="button"
@@ -254,7 +254,7 @@ function PageList({
                           onClick={() => movePage(p.id, i + 1)}
                           className="h-9 w-9 cursor-pointer rounded-lg text-ink hover:bg-line-soft disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          {reorder.isPending && <Spinner />}↓
+                          ↓
                         </button>
                       </div>
                     )}
@@ -347,7 +347,7 @@ export function Wiki() {
                   onClick={() => moveCourse(i, i - 1)}
                   className="h-9 w-9 cursor-pointer rounded-lg text-ink hover:bg-line-soft disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {reorder.isPending && <Spinner />}↑
+                  ↑
                 </button>
                 <button
                   type="button"
@@ -356,7 +356,7 @@ export function Wiki() {
                   onClick={() => moveCourse(i, i + 1)}
                   className="h-9 w-9 cursor-pointer rounded-lg text-ink hover:bg-line-soft disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {reorder.isPending && <Spinner />}↓
+                  ↓
                 </button>
               </div>
             )}

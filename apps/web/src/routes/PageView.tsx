@@ -327,7 +327,7 @@ export function PageView() {
                                 if (ok) restore.mutate({ rev: r.revision, baseRevision: p.revision })
                               }}
                             >
-                              {restore.isPending && <Spinner />}
+                              {restore.isPending && restore.variables?.rev === r.revision && <Spinner />}
                               {t('page.restore')}
                             </button>
                           </div>

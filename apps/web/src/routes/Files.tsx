@@ -434,29 +434,10 @@ export function Files() {
                             onClick={() => createArticle.mutate(f)}
                             className={`${btn('secondary', 'sm')} mr-2`}
                           >
-                            {createArticle.isPending && <Spinner />}
+                            {/* Only the file being turned into an article shows it is working; the others are just unavailable. */}
                             {createArticle.isPending && createArticle.variables?.id === f.id ? (
                               <span role="status" className="inline-flex items-center gap-2">
-                                <svg
-                                  aria-hidden="true"
-                                  className="h-4 w-4 animate-spin"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                >
-                                  <circle
-                                    className="opacity-25"
-                                    cx="12"
-                                    cy="12"
-                                    r="9"
-                                    stroke="currentColor"
-                                    strokeWidth="3"
-                                  />
-                                  <path
-                                    className="opacity-75"
-                                    fill="currentColor"
-                                    d="M12 3a9 9 0 0 0-9 9h3a6 6 0 0 1 6-6V3Z"
-                                  />
-                                </svg>
+                                <Spinner />
                                 {t('files.generatingArticle')}
                               </span>
                             ) : (
