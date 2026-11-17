@@ -448,6 +448,18 @@ export const bg: Dict = {
     history: 'История',
     edit: 'Редактирай',
     summarize: 'Резюме',
+    reviewChoose: 'Какво да прегледа ИИ?',
+    reviewIncluded: 'включено',
+    reviewChooseHint:
+      'Изберете цялата страница или един или повече раздела. Дълга страница се преглежда на части, а преработените раздели се връщат в страницата.',
+    reviewWhole: 'Цялата страница',
+    reviewIntro: 'Началото (преди първото заглавие)',
+    reviewTooLong: 'твърде дълго за един преглед',
+    reviewStart: 'Прегледай',
+    reviewOther: 'Избери друга част',
+    reviewPreparingSection: 'Преглеждам {{sections}} и подготвям предложените промени…',
+    reviewReadySection:
+      'Предложени промени в {{sections}} от {{title}}; останалата част от страницата е без промяна.',
     reviewPolish: 'Преглед и редактиране',
     reviewTitle: 'Преглед на промените от AI',
     reviewReady: '„{{title}}“ е готова за преглед.',
@@ -461,6 +473,7 @@ export const bg: Dict = {
     reviewFindings: 'Бележки от прегледа',
     reviewNoFindings:
       'AI не откри конкретни твърдения за проверка. Прегледай предложените промени, преди да ги приемеш.',
+    reviewReadOnly: 'Само за четене. Превърта се заедно с предложения вариант.',
     reviewOriginal: 'Текуща страница',
     reviewProposed: 'Редактиран вариант',
     reviewEditable: 'Можеш да редактираш този вариант, преди да го приемеш.',

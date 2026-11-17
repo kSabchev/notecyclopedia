@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { parsePageReviewResponse } from './page-review'
+import { parsePageReviewResponse, partForPrompt } from './page-review'
 
 const response = (input: unknown, stop_reason = 'tool_use') => ({
   stop_reason,
@@ -65,7 +65,7 @@ test('rejects malformed or invalid document JSON', () => {
 })
 
 test('reports output truncation and missing tool output', () => {
-  assert.throws(() => parsePageReviewResponse(response({}, 'max_tokens')), /exceeded the AI output limit/)
+  assert.throws(() => parsePageReviewResponse(response({}, 'max_tokens')), /too long to review at once/)
   assert.throws(
     () => parsePageReviewResponse({ stop_reason: 'end_turn', content: [{ type: 'text' }] }),
     /did not return a page review/,
@@ -99,4 +99,37 @@ test('keeps inline math, and turns math the AI left as $…$ text into inline ma
   })
   const bad = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'mathInline', attrs: {} }] }] }
   assert.throws(() => parsePageReviewResponse(response({ findings: [], content: JSON.stringify(bad) })))
+})
+
+test('drops empty text nodes, which the editor refuses', () => {
+  const content = {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { id: 'h', level: 2 }, content: [{ type: 'text', text: '' }] },
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: '' },
+          { type: 'text', text: 'Kept' },
+        ],
+      },
+    ],
+  }
+  const result = parsePageReviewResponse(response({ findings: [], content: JSON.stringify(content) }))
+  assert.deepEqual(result.content.content, [
+    { type: 'heading', attrs: { id: 'h', level: 2 }, content: [] },
+    { type: 'paragraph', content: [{ type: 'text', text: 'Kept' }] },
+  ])
+})
+
+test('names a part for the prompt, telling the opening and an empty heading apart', () => {
+  const name = (...sections: { id: string; title: string }[]) => partForPrompt({ sections })
+  assert.equal(name({ id: 'a', title: 'Orbits' }), 'the section "Orbits"')
+  assert.equal(name({ id: 'a', title: 'A' }, { id: 'b', title: 'B' }), 'the sections "A" and "B"')
+  assert.equal(name({ id: 'intro', title: '' }), 'the text before the first heading')
+  assert.equal(name({ id: 'x', title: '' }), 'the section under an empty heading')
+  assert.equal(
+    name({ id: 'a', title: 'Summary' }, { id: 'x', title: '' }),
+    '"Summary" and the section under an empty heading',
+  )
 })

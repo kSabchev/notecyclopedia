@@ -54,6 +54,32 @@ test(
             },
           ],
         }
+      if (tools.includes('review_page')) {
+        // Returns the section it was given with its paragraph reworded.
+        const sent = lastContent(request)
+        const heading = sent.includes('Second law') ? 'Second law' : 'Kepler'
+        return {
+          tools: [
+            {
+              name: 'review_page',
+              input: {
+                findings: [`Checked ${heading}`],
+                content: JSON.stringify({
+                  type: 'doc',
+                  content: [
+                    {
+                      type: 'heading',
+                      attrs: { level: 2, id: heading === 'Kepler' ? 'h-kepler' : 'h-second' },
+                      content: [{ type: 'text', text: heading }],
+                    },
+                    { type: 'paragraph', content: [{ type: 'text', text: `${heading}, reworded.` }] },
+                  ],
+                }),
+              },
+            },
+          ],
+        }
+      }
       if (tools.includes('review_calculator'))
         return { tools: [{ name: 'review_calculator', input: { findings: [] } }] }
       throw new Error(`Unexpected request with tools ${tools.join(', ')}`)
@@ -225,6 +251,100 @@ test(
         send(actor, 'POST', '/ai/topic-hub', { courseId: course.id, topic: 'Hohmann transfer' })
       assert.equal((await draft(outsider)).status, 403)
     })
+
+    await t.test(
+      'Review & polish can review chosen sections; a part too long for one review is refused before calling Claude',
+      async () => {
+        const p = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+        const h = (id: string, text: string) => ({
+          type: 'heading',
+          attrs: { level: 2, id },
+          content: [{ type: 'text', text }],
+        })
+        const page = await api.createPage(student, {
+          courseId: course.id,
+          title: 'Kepler’s laws',
+          content: [
+            h('h-kepler', 'Kepler'),
+            p('First law text.'),
+            h('h-second', 'Second law'),
+            p('Equal areas text.'),
+          ],
+        })
+        const review = (body: Record<string, unknown>) =>
+          send(student, 'POST', `/ai/pages/${page.id}/review`, body)
+        const calls = fake.requests.length
+        const result = await ok<{
+          review: {
+            findings: string[]
+            content: { content: { content?: { text?: string }[] }[] }
+            sections: { id: string }[]
+          }
+        }>(review({ sections: ['h-second'] }))
+        const sent = lastContent(fake.requests[calls] as Anthropic.MessageCreateParams)
+        assert.match(sent, /Equal areas text/)
+        assert.doesNotMatch(sent, /First law text/, 'Only the section is sent')
+        assert.deepEqual(
+          result.review.sections.map((x) => x.id),
+          ['h-second'],
+        )
+        assert.deepEqual(
+          result.review.content.content.map((b) => b.content?.[0]?.text),
+          ['Kepler', 'First law text.', 'Second law', 'Second law, reworded.'],
+          'The revised section is put back into the whole page',
+        )
+        assert.equal((await review({ sections: ['no-such-heading'] })).status, 404)
+
+        // Neighbouring sections that fit together share one call.
+        const both = fake.requests.length
+        const together = await ok<{ review: { sections: { id: string }[] } }>(
+          review({ sections: ['h-second', 'h-kepler'] }),
+        )
+        assert.equal(fake.requests.length - both, 1, 'One call for both')
+        assert.deepEqual(
+          together.review.sections.map((x) => x.id),
+          ['h-kepler', 'h-second'],
+        )
+
+        // A section too long for one review is reported, without a call, while the others are reviewed.
+        const mixed = await api.createPage(student, {
+          courseId: course.id,
+          title: 'Mixed',
+          content: [
+            h('h-kepler', 'Kepler'),
+            p('First law text.'),
+            h('h-huge', 'Huge'),
+            ...Array.from({ length: 300 }, (_, i) => p(`Paragraph ${i} `.repeat(30))),
+          ],
+        })
+        const mixedCalls = fake.requests.length
+        const partial = await ok<{ review: { findings: string[]; sections: { id: string }[] } }>(
+          send(student, 'POST', `/ai/pages/${mixed.id}/review`, { sections: ['h-kepler', 'h-huge'] }),
+        )
+        assert.equal(fake.requests.length - mixedCalls, 1, 'Only the section that fits is sent')
+        assert.deepEqual(
+          partial.review.sections.map((x) => x.id),
+          ['h-kepler'],
+        )
+        assert.ok(partial.review.findings.some((f) => /^Not reviewed: “Huge”\. .*too long/.test(f)))
+        const allTooLong = await send(student, 'POST', `/ai/pages/${mixed.id}/review`, {
+          sections: ['h-huge'],
+        })
+        assert.equal(allTooLong.status, 413)
+        assert.equal(fake.requests.length - mixedCalls, 1, 'Still no call for a part too long')
+
+        const long = await api.createPage(student, {
+          courseId: course.id,
+          title: 'Very long',
+          content: Array.from({ length: 300 }, (_, i) => p(`Paragraph ${i} `.repeat(30))),
+        })
+        const before = fake.requests.length
+        const refused = await send(student, 'POST', `/ai/pages/${long.id}/review`, {})
+        assert.equal(refused.status, 413)
+        assert.match(((await refused.json()) as { error: string }).error, /one section at a time/)
+        assert.equal(fake.requests.length, before, 'Claude is not called')
+      },
+    )
 
     await t.test('the daily budget stops a user before the answer starts', async () => {
       const spender = await api.signup('spender')

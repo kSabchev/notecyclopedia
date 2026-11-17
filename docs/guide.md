@@ -106,7 +106,15 @@ revision, so nothing is lost.
 
 **Review & polish** asks Claude to check a page for errors and clarity and propose a revised version. The proposal opens
 next to the current page, where you can change it; **Restore AI version** discards your changes to it, and nothing is
-saved until **Accept changes**. It is also the way to rewrite AI-sounding wording.
+saved until **Accept changes**. The two versions scroll together, so the same heading is always at the same height on
+both sides; after a review of chosen sections, both open at the first of them. It is also the way to rewrite AI-sounding wording.
+
+A page with headings asks first what to review: **The whole page**, or one or more sections: the opening before the
+first heading, or a heading and everything under it, down to the next heading of the same level (a subsection of a
+ticked section is included). A long page does not fit one review, so it is reviewed in parts: neighbouring sections
+share a call while they fit, and the parts are reviewed at the same time. Parts that are probably too long are marked;
+one clearly too long is not sent, and the review notes say so while the other parts are still reviewed. The reviewed
+sections go back into the page, and only they change.
 
 ### Math
 
