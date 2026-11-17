@@ -2,7 +2,9 @@ import type Anthropic from '@anthropic-ai/sdk'
 import {
   type DocBlock,
   type DocJSON,
+  INTRO_SECTION,
   REVIEW_MAX_TOKENS,
+  type ReviewPart,
   replaceParts,
   reviewParts,
   reviewTokens,
@@ -84,6 +86,13 @@ const reviewPageTool: Anthropic.Tool = {
       },
     },
   },
+}
+
+/** The nodes without empty text nodes, which the editor refuses (the AI writes them for an empty heading). */
+function dropEmptyText(nodes: ReviewNode[]): ReviewNode[] {
+  return nodes
+    .filter((n) => !(n.type === 'text' && !n.text))
+    .map((n) => (n.content ? { ...n, content: dropEmptyText(n.content) } : n))
 }
 
 function validateDocument(content: ReviewNode[]) {
@@ -206,26 +215,51 @@ export function parsePageReviewInput(input: unknown) {
       'The AI returned an invalid page draft. Try generating it again.',
     )
   }
-  validateDocument(document.data.content)
+  const blocks = dropEmptyText(document.data.content)
+  validateDocument(blocks)
   // Math the AI wrote as $…$ text becomes inline math, and formulas get the LaTeX tidy-up.
-  return { findings: parsed.data.findings, content: tidyDoc(document.data as DocJSON).doc }
+  return { findings: parsed.data.findings, content: tidyDoc({ type: 'doc', content: blocks } as DocJSON).doc }
 }
 
 const TOO_LONG_PAGE = 'This page is too long to review at once. Review it one section at a time.'
 const TOO_LONG_PART =
   'This section is too long to review at once. Choose a shorter one (a subsection) instead.'
 
+/** "a", "a and b", "a, b and c". */
+const listed = (items: string[]) =>
+  items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items.at(-1)}` : (items[0] ?? '')
+
+/** How the prompt names a part: by its sections, telling the text before the first heading and an empty heading apart. */
+export function partForPrompt(part: Pick<ReviewPart, 'sections'>) {
+  const titled = part.sections.filter((s) => s.id !== INTRO_SECTION && s.title)
+  const names = part.sections.map((s) =>
+    s.id === INTRO_SECTION
+      ? 'the text before the first heading'
+      : s.title
+        ? JSON.stringify(s.title)
+        : 'the section under an empty heading',
+  )
+  if (titled.length === 1 && names.length === 1) return `the section ${names[0]}`
+  return titled.length > 1 && titled.length === names.length ? `the sections ${listed(names)}` : listed(names)
+}
+
+/** How a finding names a part. */
+const partLabel = (part: Pick<ReviewPart, 'sections'>) =>
+  part.sections
+    .map((s) => (s.id === INTRO_SECTION ? 'the opening' : s.title ? `“${s.title}”` : 'an untitled section'))
+    .join(', ')
+
 /** One review call: the blocks given (a whole page, or part of one), revised. */
-async function reviewBlocks(title: string, content: DocJSON, userId: string, sections?: string[]) {
+async function reviewBlocks(title: string, content: DocJSON, userId: string, part?: string) {
   // The estimate is rough: refuse only what is well over the limit, and let the rest try.
   if (reviewTokens((content.content ?? []) as DocBlock[]) > REVIEW_MAX_TOKENS * 1.5)
-    throw new HttpError(413, sections ? TOO_LONG_PART : TOO_LONG_PAGE)
+    throw new HttpError(413, part ? TOO_LONG_PART : TOO_LONG_PAGE)
   const { value } = await callTool<ReturnType<typeof parsePageReviewInput>>({
     feature: 'page-review',
     userId,
     tool: reviewPageTool,
     maxTokens: REVIEW_MAX_TOKENS,
-    prompt: pageReviewPrompt({ title, content, sections }),
+    prompt: pageReviewPrompt({ title, content, part }),
     // A revised page is too large to ask for twice.
     retries: 0,
     parse: (input) => {
@@ -236,7 +270,7 @@ async function reviewBlocks(title: string, content: DocJSON, userId: string, sec
       }
     },
     messages: {
-      cutOff: sections ? TOO_LONG_PART : TOO_LONG_PAGE,
+      cutOff: part ? TOO_LONG_PART : TOO_LONG_PAGE,
       invalid: 'The AI returned an invalid page review. Try generating it again.',
     },
   })
@@ -267,22 +301,20 @@ export async function generatePageReview(
         title,
         { type: 'doc', content: blocks.slice(part.start, part.end) },
         userId,
-        part.sections.map((s) => s.title),
+        partForPrompt(part),
       ),
     ),
   )
-  const label = (part: (typeof parts)[number]) =>
-    part.sections.map((s) => (s.title ? `“${s.title}”` : 'the opening')).join(', ')
   const findings: string[] = []
   const revisions: { part: (typeof parts)[number]; blocks: DocBlock[] }[] = []
   results.forEach((r, i) => {
     const part = parts[i] as (typeof parts)[number]
     if (r.status === 'rejected') {
-      findings.push(`Not reviewed: ${label(part)}. ${(r.reason as Error).message}`)
+      findings.push(`Not reviewed: ${partLabel(part)}. ${(r.reason as Error).message}`)
       return
     }
     revisions.push({ part, blocks: (r.value.content.content ?? []) as DocBlock[] })
-    for (const f of r.value.findings) findings.push(parts.length > 1 ? `${label(part)}: ${f}` : f)
+    for (const f of r.value.findings) findings.push(parts.length > 1 ? `${partLabel(part)}: ${f}` : f)
   })
   if (!revisions.length) throw (results[0] as PromiseRejectedResult).reason
   return {

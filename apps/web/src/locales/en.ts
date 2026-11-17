@@ -470,6 +470,7 @@ export const en = {
     reviewFindings: 'Review notes',
     reviewNoFindings:
       'AI did not identify specific points to verify. Review the proposed changes before accepting.',
+    reviewReadOnly: 'Read only. It scrolls along with the proposed version.',
     reviewOriginal: 'Current page',
     reviewProposed: 'Updated version',
     reviewEditable: 'You can edit this version before accepting it.',

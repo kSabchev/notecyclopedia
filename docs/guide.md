@@ -106,7 +106,8 @@ revision, so nothing is lost.
 
 **Review & polish** asks Claude to check a page for errors and clarity and propose a revised version. The proposal opens
 next to the current page, where you can change it; **Restore AI version** discards your changes to it, and nothing is
-saved until **Accept changes**. It is also the way to rewrite AI-sounding wording.
+saved until **Accept changes**. The two versions scroll together, so the same heading is always at the same height on
+both sides; after a review of chosen sections, both open at the first of them. It is also the way to rewrite AI-sounding wording.
 
 A page with headings asks first what to review: **The whole page**, or one or more sections: the opening before the
 first heading, or a heading and everything under it, down to the next heading of the same level (a subsection of a

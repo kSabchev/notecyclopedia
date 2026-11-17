@@ -11,6 +11,7 @@ import { useConfirm } from '../components/FeedbackProvider'
 import { editorExtensions } from '../components/extensions'
 import { SkeletonPage, Spinner, usePageTitle } from '../components/feedback'
 import { ErrorNote, btn } from '../components/ui'
+import { useAlignedScroll } from '../lib/aligned-scroll'
 import { api } from '../lib/api'
 
 type ReviewResult = Awaited<ReturnType<typeof api.ai.reviewPage>>
@@ -34,7 +35,9 @@ export function PageReview() {
   }
   const sections = ticked.filter((id) => id !== WHOLE)
   const names = (ids: { id: string; title: string }[]) =>
-    ids.map((s) => (s.id === INTRO_SECTION ? t('page.reviewIntro') : `“${s.title}”`)).join(', ')
+    ids
+      .map((s) => (s.id === INTRO_SECTION ? t('page.reviewIntro') : `“${s.title || t('common.untitled')}”`))
+      .join(', ')
   const started = useRef(false)
 
   // A page without headings has only one choice: review it at once, as before.
@@ -172,6 +175,11 @@ function ReviewDraft({
   const qc = useQueryClient()
   const { page, review: draft } = result
   const [edited, setEdited] = useState(false)
+  const originalPane = useRef<HTMLDivElement>(null)
+  const proposedPane = useRef<HTMLDivElement>(null)
+  // After a review of chosen sections, both sides open at the first of them.
+  const first = draft.sections?.[0]?.id
+  useAlignedScroll(originalPane, proposedPane, first === INTRO_SECTION ? undefined : first)
   const editor = useEditor({
     extensions: editorExtensions,
     content: draft.content as JSONContent,
@@ -265,12 +273,30 @@ function ReviewDraft({
         )}
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <section className="min-w-0 rounded-[12px] border border-line bg-surface p-5">
-          <h2 className="m-0 mb-4 text-lg font-bold">{t('page.reviewOriginal')}</h2>
-          <DocView doc={page.content} />
+      {/* Two columns sharing three rows (heading, toolbar, pane), so both panes start at the same height; they
+          scroll together, heading by heading. */}
+      <div className="grid gap-5 lg:grid-cols-2 lg:grid-rows-[auto_auto_1fr] lg:gap-y-0">
+        <section
+          aria-label={t('page.reviewOriginal')}
+          className="min-w-0 overflow-clip rounded-[12px] border border-line bg-surface lg:row-span-3 lg:grid lg:grid-rows-subgrid"
+        >
+          <div className="px-5 pt-5">
+            <h2 className="m-0 text-lg font-bold">{t('page.reviewOriginal')}</h2>
+            <p className="m-0 text-sm text-muted">{t('page.reviewReadOnly')}</p>
+          </div>
+          <div className="mt-4 border-b border-line" />
+          <div
+            ref={originalPane}
+            data-testid="review-original"
+            className="px-5 pb-5 pt-4 lg:h-[70vh] lg:overflow-y-auto lg:pb-[40vh]"
+          >
+            <DocView doc={page.content} />
+          </div>
         </section>
-        <section className="min-w-0 overflow-clip rounded-[12px] border-2 border-ai bg-surface">
+        <section
+          aria-label={t('page.reviewProposed')}
+          className="min-w-0 overflow-clip rounded-[12px] border-2 border-ai bg-surface lg:row-span-3 lg:grid lg:grid-rows-subgrid"
+        >
           <div className="flex flex-wrap items-center gap-3 px-5 pt-5">
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <h2 className="m-0 text-lg font-bold text-ai-text">
@@ -298,9 +324,13 @@ function ReviewDraft({
           </div>
           <div className="mt-4">
             {editor && <EditorToolbar editor={editor} courseId={page.courseId} pageId={page.id} />}
-            <div className="px-5 pb-5 pt-4">
-              <EditorContent editor={editor} className="prose-nc" />
-            </div>
+          </div>
+          <div
+            ref={proposedPane}
+            data-testid="review-proposed"
+            className="px-5 pb-5 pt-4 lg:h-[70vh] lg:overflow-y-auto lg:pb-[40vh]"
+          >
+            <EditorContent editor={editor} className="prose-nc" />
           </div>
         </section>
       </div>
