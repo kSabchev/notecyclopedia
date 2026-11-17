@@ -48,7 +48,7 @@ export function SharedWithYou() {
               disabled={accept.isPending}
               onClick={() => accept.mutate(s.id)}
             >
-              {accept.isPending && <Spinner />}
+              {accept.isPending && accept.variables === s.id && <Spinner />}
               {t('study.accept')}
             </button>
             <button
@@ -57,7 +57,7 @@ export function SharedWithYou() {
               disabled={decline.isPending}
               onClick={() => decline.mutate(s.id)}
             >
-              {decline.isPending && <Spinner />}
+              {decline.isPending && decline.variables === s.id && <Spinner />}
               {t('study.decline')}
             </button>
           </li>
