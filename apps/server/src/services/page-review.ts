@@ -1,5 +1,13 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import { type DocJSON, tidyDoc } from '@nc/shared'
+import {
+  type DocBlock,
+  type DocJSON,
+  REVIEW_MAX_TOKENS,
+  docSections,
+  replaceSection,
+  reviewTokens,
+  tidyDoc,
+} from '@nc/shared'
 import { z } from 'zod'
 import { HttpError } from '../http'
 import { callTool, invalidAnswer } from './ai-tool'
@@ -166,7 +174,7 @@ export function parsePageReviewResponse(response: {
   content: Array<{ type: string; input?: unknown }>
 }) {
   if (response.stop_reason === 'max_tokens')
-    throw new HttpError(502, 'The page review exceeded the AI output limit. Try generating it again.')
+    throw new HttpError(502, 'This page is too long to review at once. Review it one section at a time.')
   const block = response.content.find((item) => item.type === 'tool_use')
   if (!block || block.type !== 'tool_use') throw new HttpError(502, 'The AI did not return a page review')
   return parsePageReviewInput(block.input)
@@ -203,13 +211,39 @@ export function parsePageReviewInput(input: unknown) {
   return { findings: parsed.data.findings, content: tidyDoc(document.data as DocJSON).doc }
 }
 
-export async function generatePageReview(title: string, content: unknown, userId: string) {
-  const { value } = await callTool({
+/**
+ * Review a page, or one of its sections (a heading id, or `INTRO_SECTION`): the revised section is put back into the
+ * page, so the result is always the whole page. A part clearly too long for one review is refused before calling
+ * Claude, with a hint to review it a section at a time.
+ */
+export async function generatePageReview(
+  title: string,
+  content: unknown,
+  userId: string,
+  sectionId?: string,
+) {
+  const doc = content as DocJSON
+  const section = sectionId ? docSections(doc).find((s) => s.id === sectionId) : undefined
+  if (sectionId && !section) throw new HttpError(404, 'That section is no longer on the page.')
+  const blocks = ((doc.content ?? []) as DocBlock[]).slice(section?.start ?? 0, section?.end)
+  // The estimate is rough: refuse only what is well over the limit, and let the rest try.
+  if (reviewTokens(blocks) > REVIEW_MAX_TOKENS * 1.5)
+    throw new HttpError(
+      413,
+      section
+        ? 'This section is too long to review at once. Choose a shorter one (a subsection) instead.'
+        : 'This page is too long to review at once. Review it one section at a time.',
+    )
+  const { value } = await callTool<ReturnType<typeof parsePageReviewInput>>({
     feature: 'page-review',
     userId,
     tool: reviewPageTool,
-    maxTokens: 8192,
-    prompt: pageReviewPrompt({ title, content }),
+    maxTokens: REVIEW_MAX_TOKENS,
+    prompt: pageReviewPrompt({
+      title,
+      content: section ? { type: 'doc', content: blocks } : content,
+      section: section && { title: section.title },
+    }),
     // A whole revised page is too large to ask for twice.
     retries: 0,
     parse: (input) => {
@@ -220,9 +254,16 @@ export async function generatePageReview(title: string, content: unknown, userId
       }
     },
     messages: {
-      cutOff: 'The page review exceeded the AI output limit. Try generating it again.',
+      cutOff: section
+        ? 'This section is too long to review at once. Choose a shorter one (a subsection) instead.'
+        : 'This page is too long to review at once. Review it one section at a time.',
       invalid: 'The AI returned an invalid page review. Try generating it again.',
     },
   })
-  return value
+  if (!section) return { ...value, section: null }
+  return {
+    findings: value.findings,
+    content: replaceSection(doc, section, (value.content.content ?? []) as DocBlock[]),
+    section: { id: section.id, title: section.title },
+  }
 }

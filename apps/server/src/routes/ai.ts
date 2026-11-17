@@ -32,7 +32,8 @@ ai.get('/status', (_req, res) => {
 ai.post('/pages/:id/review', async (req, res) => {
   const user = me(req)
   const page = await loadPage(param(req, 'id'), user.id, 'editor')
-  const review = await generatePageReview(page.title, page.content, user.id)
+  const { section } = z.object({ section: z.string().min(1).max(100).optional() }).parse(req.body ?? {})
+  const review = await generatePageReview(page.title, page.content, user.id, section)
   const { contentText: _omit, ...pageData } = page
   res.json({ page: pageData, review })
 })

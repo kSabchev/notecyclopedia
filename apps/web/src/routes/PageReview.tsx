@@ -1,14 +1,15 @@
-import type { DocJSON } from '@nc/shared'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { type DocBlock, type DocJSON, INTRO_SECTION, docSections, reviewFits } from '@nc/shared'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { EditorContent, type JSONContent, useEditor } from '@tiptap/react'
-import { useEffect, useRef, useState } from 'react'
+import type { TFunction } from 'i18next'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DocView } from '../components/DocView'
 import { EditorToolbar } from '../components/EditorToolbar'
 import { useConfirm } from '../components/FeedbackProvider'
 import { editorExtensions } from '../components/extensions'
-import { Spinner, usePageTitle } from '../components/feedback'
+import { SkeletonPage, Spinner, usePageTitle } from '../components/feedback'
 import { ErrorNote, btn } from '../components/ui'
 import { api } from '../lib/api'
 
@@ -18,36 +19,113 @@ export function PageReview() {
   const { t } = useTranslation()
   usePageTitle(t('page.reviewTitle'))
   const { pageId } = useParams({ from: '/app/pages/$pageId/review' })
-  const review = useMutation({ mutationFn: () => api.ai.reviewPage(pageId) })
-  const generate = review.mutate
+  const page = useQuery({ queryKey: ['page', pageId], queryFn: () => api.pages.get(pageId) })
+  const review = useMutation({ mutationFn: (section?: string) => api.ai.reviewPage(pageId, section) })
+  const parts = useMemo(() => (page.data ? reviewParts(page.data.content, t) : []), [page.data, t])
+  const [choice, setChoice] = useState<string | null>(null)
+  const chosen = parts.find((p) => p.id === choice) ?? parts.find((p) => p.fits) ?? parts[0]
   const started = useRef(false)
 
+  // A page without headings has only one part: review it at once, as before.
   useEffect(() => {
-    if (started.current) return
+    if (started.current || parts.length !== 1) return
     started.current = true
-    generate()
-  }, [generate])
+    review.mutate(undefined)
+  }, [parts, review])
 
-  if (review.isIdle || review.isPending)
+  if (page.isPending) return <SkeletonPage />
+  if (page.error)
+    return (
+      <div className="mx-auto w-full max-w-[1000px] px-6 py-10">
+        <ErrorNote error={page.error} />
+      </div>
+    )
+  if (review.isPending)
     return (
       <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-4 px-6 py-10">
         <p role="status" className="m-0 flex items-center gap-2.5 text-muted">
           <Spinner />
-          {t('page.reviewPreparing')}
+          {review.variables
+            ? t('page.reviewPreparingSection', { section: chosen?.label })
+            : t('page.reviewPreparing')}
         </p>
       </div>
     )
-  if (review.isError)
+  if (review.isSuccess) return <ReviewDraft result={review.data} />
+
+  const back = (
+    <Link to="/pages/$pageId" params={{ pageId }} className={btn('secondary', 'sm')}>
+      {t('page.reviewBack')}
+    </Link>
+  )
+  if (review.isError && parts.length <= 1)
     return (
       <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-5 px-6 py-10">
         <ErrorNote error={review.error} />
-        <Link to="/pages/$pageId" params={{ pageId }} className={btn('secondary', 'sm')}>
-          {t('page.reviewBack')}
-        </Link>
+        <div>{back}</div>
       </div>
     )
 
-  return <ReviewDraft result={review.data} />
+  // Choose the whole page or one section; after an error (such as a part too long), choose again.
+  return (
+    <main className="mx-auto flex w-full max-w-[720px] flex-col gap-5 px-6 py-10">
+      <header className="flex flex-col gap-1">
+        <h1 className="m-0 font-serif text-3xl font-semibold">{t('page.reviewChoose')}</h1>
+        <p className="m-0 text-sm text-muted">{t('page.reviewChooseHint')}</p>
+      </header>
+      <ErrorNote error={review.error} />
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (chosen) review.mutate(chosen.id === WHOLE ? undefined : chosen.id)
+        }}
+      >
+        <fieldset className="m-0 flex flex-col gap-1 rounded-[12px] border border-line bg-surface p-3">
+          <legend className="sr-only">{t('page.reviewChoose')}</legend>
+          {parts.map((part) => (
+            <label
+              key={part.id}
+              className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-[8px] px-3 hover:bg-surface-2 ${part.level === 3 ? 'pl-9' : ''}`}
+            >
+              <input
+                type="radio"
+                name="review-part"
+                className="h-[18px] w-[18px] accent-accent"
+                checked={chosen?.id === part.id}
+                onChange={() => setChoice(part.id)}
+              />
+              <span className={`flex-1 ${part.id === WHOLE ? 'font-semibold' : ''}`}>{part.label}</span>
+              {!part.fits && <span className="text-xs text-muted">{t('page.reviewTooLong')}</span>}
+            </label>
+          ))}
+        </fieldset>
+        <div className="flex flex-wrap gap-2">
+          <button type="submit" className={btn('ai')} disabled={!chosen}>
+            {review.isError ? t('page.reviewOther') : t('page.reviewStart')}
+          </button>
+          {back}
+        </div>
+      </form>
+    </main>
+  )
+}
+
+/** The whole page in the review choices. */
+const WHOLE = 'page'
+
+/** What can be reviewed: the whole page, then each section, each marked if it is probably too long for one review. */
+function reviewParts(content: DocJSON, t: TFunction) {
+  const blocks = (content.content ?? []) as DocBlock[]
+  return [
+    { id: WHOLE, label: t('page.reviewWhole'), level: 0, fits: reviewFits(blocks) },
+    ...docSections(content).map((s) => ({
+      id: s.id,
+      label: s.id === INTRO_SECTION ? t('page.reviewIntro') : s.title || t('common.untitled'),
+      level: s.level,
+      fits: reviewFits(blocks.slice(s.start, s.end)),
+    })),
+  ]
 }
 
 /** The proposed version opens in an editor, so the user can adjust the AI draft before accepting it. */
@@ -102,7 +180,14 @@ function ReviewDraft({ result }: { result: ReviewResult }) {
       <header className="flex flex-wrap items-center gap-3 border-b border-line pb-5">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h1 className="m-0 font-serif text-3xl font-semibold">{t('page.reviewTitle')}</h1>
-          <p className="m-0 text-sm text-muted">{t('page.reviewReady', { title: page.title })}</p>
+          <p className="m-0 text-sm text-muted">
+            {draft.section
+              ? t('page.reviewReadySection', {
+                  title: page.title,
+                  section: draft.section.title || t('page.reviewIntro'),
+                })
+              : t('page.reviewReady', { title: page.title })}
+          </p>
         </div>
         <Link
           to="/pages/$pageId"

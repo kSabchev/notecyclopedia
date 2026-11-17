@@ -108,6 +108,11 @@ revision, so nothing is lost.
 next to the current page, where you can change it; **Restore AI version** discards your changes to it, and nothing is
 saved until **Accept changes**. It is also the way to rewrite AI-sounding wording.
 
+A page with headings asks first what to review: **The whole page**, the opening before the first heading, or one
+section (a heading and everything under it, down to the next heading of the same level). A long page does not fit one
+review, so review it a section at a time: parts that are probably too long are marked, and a page clearly too long is
+refused before any AI call. A reviewed section goes back into the page, and only that section changes.
+
 ### Math
 
 - **Formula blocks** hold displayed equations, with an optional label and description.

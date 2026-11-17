@@ -65,7 +65,7 @@ test('rejects malformed or invalid document JSON', () => {
 })
 
 test('reports output truncation and missing tool output', () => {
-  assert.throws(() => parsePageReviewResponse(response({}, 'max_tokens')), /exceeded the AI output limit/)
+  assert.throws(() => parsePageReviewResponse(response({}, 'max_tokens')), /too long to review at once/)
   assert.throws(
     () => parsePageReviewResponse({ stop_reason: 'end_turn', content: [{ type: 'text' }] }),
     /did not return a page review/,

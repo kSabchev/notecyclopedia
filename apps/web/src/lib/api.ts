@@ -124,7 +124,9 @@ export interface PageReview {
   page: Page
   review: {
     findings: string[]
+    /** The whole page: with only the reviewed section changed when `section` is set. */
     content: DocJSON
+    section: { id: string; title: string } | null
   }
 }
 
@@ -291,7 +293,9 @@ export const api = {
   search: (q: string) => get<SearchHit[]>(`/search${qs({ q })}`),
   ai: {
     status: () => get<{ configured: boolean }>('/ai/status'),
-    reviewPage: (id: string) => request<PageReview>('POST', `/ai/pages/${id}/review`),
+    /** Review & polish the page, or one section of it (a heading id, or `INTRO_SECTION`). */
+    reviewPage: (id: string, section?: string) =>
+      request<PageReview>('POST', `/ai/pages/${id}/review`, section ? { section } : {}),
     /** Questions to check an answer was understood: one call the first time, kept afterwards. */
     quickCheck: (messageId: string) =>
       request<QuickCheck>('POST', `/ai/messages/${messageId}/quick-check`, { locale: uiLocale() }),
