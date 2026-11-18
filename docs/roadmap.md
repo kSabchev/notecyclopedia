@@ -20,6 +20,21 @@ How each finished feature works is in the [user guide](guide.md).
 Then the lecture card actions (*Quiz me on this lecture*, *Article from the original*) and the rest of exam prep.
 Workspace packages and subject packs wait until something outside the app needs them; hosting comes later.
 
+## Who it helps
+
+The open items, by the people they are for. Practice problems from calculators serve all four, which is why they come
+first after the real-Claude session.
+
+- **A new student** meeting the subject: the notation sheet, the *Start here* course view, prerequisites on a page,
+  step-through worked examples and course packs.
+- **A graduating student** (finals, thesis): the exam formula sheet, lecture-aware plans, time per task, past exams,
+  practice problems, page export to LaTeX or Markdown, a reference list from uploads, the transfer diagram and TLE
+  import, and a readable export of all notes.
+- **A teaching assistant** (seminars, grading): problem variants with an answer key, handouts with a separate solutions
+  sheet, common-mistakes notes, and (once hosted) checks of submitted answers.
+- **A professor** (course owner): course packs, presentation mode, exam variants, the notation consistency check,
+  Review & polish for lecture notes (done), and (once hosted) which pages students ask about most.
+
 ## Open
 
 ### Orbits
@@ -45,6 +60,12 @@ Workspace packages and subject packs wait until something outside the app needs 
 - [ ] **One-click task actions:** open the page, *Quiz me on this*, or ask the tutor with the page as the source; AI only
       when clicked.
 - [ ] **Exam formula sheet:** the key and pinned formulas of the pages in scope, grouped by lecture, printable (no AI).
+- [ ] **Past exams:** upload a past exam, tag each problem with its lecture and link it to the calculator that solves
+      it; a view of which lectures past exams drew on most (no AI).
+- [ ] ***Start here* view of a course:** the lectures in order, with each one's key formulas and terms, built from the
+      headings, terms and backlinks the app already has (no AI).
+- [ ] **Prerequisites on a page:** "builds on…", from the page's existing references, so a newcomer knows what to read
+      first.
 
 ### Practice and teaching
 
@@ -53,12 +74,30 @@ Workspace packages and subject packs wait until something outside the app needs 
       variants. Inputs without a min or max get a range around their default (half to double), so existing and
       AI-made calculators work without changes. The page's AI panel already has a **Practice problems** button that asks
       Claude: name the two apart, or let it use the calculator version when the page has calculators.
+- [ ] **Problem and exam variants with an answer key:** a set of practice problems (or a whole exam) with different
+      numbers per group or per student, and a separate key with the exact answers and steps (no AI; built on practice
+      problems).
+- [ ] **Step-through worked examples:** a calculator's step-by-step solution shown one step at a time, with each step's
+      numbers filled in, so a newcomer can follow the method before trying it.
+- [ ] **Common-mistakes notes:** a short note an assistant writes on a calculator or page ("forgot to convert to km"),
+      shown when Check my working finds that mistake. Written by hand, so it costs no AI.
 - [ ] **Notation sheet per lecture:** the symbols a lecture uses (μ, a, e, ν, h…) with their meaning and unit, collected
       from its formulas and calculator constants.
+- [ ] **Notation consistency check:** across a course's lectures, a symbol used with two meanings or two units, or a
+      term defined in one lecture and used differently in another (no AI; built on the notation sheet).
 - [ ] **Presentation mode:** a page in full screen with large type and live orbit diagrams, so notes double as slides.
-- [ ] **Printable handouts:** a page, or the exam formula sheet, as clean print or PDF output.
+- [ ] **Printable handouts:** a page, a problem set (with its solutions on a separate sheet), or the exam formula sheet,
+      as clean print or PDF output.
 - [ ] **Course packs:** a course exported without personal data, for students to import as their own copy (built on
       backup).
+
+### Writing and keeping your notes
+
+- [ ] **Page export to LaTeX or Markdown,** formulas intact, as the start of a thesis chapter or a report.
+- [ ] **Reference list from uploads:** the sources a page cites (its uploads and originals), as a list to paste into a
+      thesis, and as BibTeX.
+- [ ] **Readable export of all notes:** every course as Markdown with images, so the notes outlive the course and the
+      app (backup already keeps everything, but only for restoring into the app).
 
 ### Claude outside the app
 
@@ -115,6 +154,13 @@ Courses can already be shared between accounts on one server. Running it for cla
       R2).
 - [ ] Password reset, email verification, rate limits and account deletion.
 
+Then, for teaching with it:
+
+- [ ] **Checking submitted answers:** students submit answers to a problem set, and the assistant sees them checked
+      with the calculator's exact answer and the unit checks (no AI). Needs consent and a clear privacy note.
+- [ ] **What students ask about:** the pages of a shared course that students ask the tutor about most, anonymised and
+      only for students who opt in, so a professor sees which parts need more explanation.
+
 ## Dropped
 
 - Question banks generated after every save, FSRS scheduling and a scheduled daily quiz: they turn the tool into
@@ -141,3 +187,5 @@ Courses can already be shared between accounts on one server. Running it for cla
 | Connected navigation ([#22](https://github.com/kSabchev/notecyclopedia/pull/22)) | Tasks, lectures, calculators and courses linked to each other |
 | Readable math ([#23](https://github.com/kSabchev/notecyclopedia/pull/23)) | Inline math, one converter for AI text, the LaTeX tidy-up, Tidy formulas |
 | Reuse, step 1 ([#24](https://github.com/kSabchev/notecyclopedia/pull/24)–[#28](https://github.com/kSabchev/notecyclopedia/pull/28)) | `callTool` and the prompts module, UI text per language, large files split with shared helpers, tests by area with coverage minimums in CI |
+| Documentation ([#29](https://github.com/kSabchev/notecyclopedia/pull/29)–[#31](https://github.com/kSabchev/notecyclopedia/pull/31)) | A short README with the guide, configuration, development and roadmap in `docs/`, screenshots, the MIT licence |
+| Polish ([#32](https://github.com/kSabchev/notecyclopedia/pull/32)–[#34](https://github.com/kSabchev/notecyclopedia/pull/34)) | Loading, error and not-found screens, toasts and confirm dialogs, the offline notice, AI tool activity, spinners only on the working row, Review & polish by section with both versions aligned |

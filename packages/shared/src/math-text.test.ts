@@ -94,6 +94,28 @@ describe('markdownBlocks', () => {
 })
 
 describe('tidyDoc', () => {
+  it('turns a paragraph of display math into a formula block, where formula blocks may go', () => {
+    const para = (t: string) => ({ type: 'paragraph', content: [text(t)] })
+    const doc: DocJSON = {
+      type: 'doc',
+      content: [
+        para('$$v = \\sqrt{\\mu / r}$$'),
+        para('\\[ T = 2\\pi \\sqrt{a^3/\\mu} \\]'),
+        para('Then $$x$$ inside a sentence stays.'),
+        { type: 'callout', content: [para('$$y = 1$$')] },
+      ],
+    }
+    const { doc: tidied, changes } = tidyDoc(doc)
+    expect(changes).toBe(2)
+    expect(tidied.content?.slice(0, 2)).toEqual([
+      { type: 'formula', attrs: { latex: 'v = \\sqrt{\\mu / r}', pinned: false } },
+      { type: 'formula', attrs: { latex: 'T = 2\\pi \\sqrt{a^3/\\mu}', pinned: false } },
+    ])
+    // Mixed text, and a callout (which holds only paragraphs), are left as they are.
+    expect(tidied.content?.slice(2)).toEqual(doc.content?.slice(2))
+    expect(tidyDoc(tidied).changes).toBe(0)
+  })
+
   it('converts math left as text in older pages and tidies formulas, counting the changes', () => {
     const doc: DocJSON = {
       type: 'doc',
