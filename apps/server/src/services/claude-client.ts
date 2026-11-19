@@ -122,9 +122,17 @@ export async function* streamText(
   }
   const stream = c.messages.stream(request)
   let completed = false
+  // Input and cache tokens arrive with the first event; output tokens only at the end, so for an answer stopped
+  // early they are estimated from the text streamed so far.
+  let started: Anthropic.Usage | undefined
+  let streamedChars = 0
   try {
     for await (const ev of stream) {
-      if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') yield ev.delta.text
+      if (ev.type === 'message_start') started = ev.message.usage
+      if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
+        streamedChars += ev.delta.text.length
+        yield ev.delta.text
+      }
     }
     const response = await stream.finalMessage()
     completed = true
@@ -144,12 +152,20 @@ export async function* streamText(
     // The consumer stopped early (e.g. the browser disconnected).
     if (!completed) {
       stream.abort()
+      const usage = started && {
+        ...started,
+        output_tokens: Math.max(started.output_tokens, Math.ceil(streamedChars / 4)),
+      }
       await recordClaudeCall({
         ...logged,
         model: request.model,
         status: 'failed',
-        error: 'Claude response stream ended before completion',
+        usage,
+        error: usage
+          ? 'Stopped before the answer was complete; output tokens are estimated from the text streamed.'
+          : 'Claude response stream ended before completion',
       })
+      if (usage) opts.meter?.add(request.model, usage)
     }
   }
 }

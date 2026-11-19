@@ -93,7 +93,9 @@ export async function* streamAnswer(opts: {
     const request: Anthropic.MessageCreateParamsNonStreaming = {
       model: modelFor(mode),
       max_tokens: 16000,
-      system: chatSystemPrompt(mode),
+      // The system prompt and the tools before it are the same for every chat in a mode: cached, every chat within
+      // five minutes reads them instead of paying for them again.
+      system: [{ type: 'text', text: chatSystemPrompt(mode), cache_control: { type: 'ephemeral' } }],
       tools: CHAT_TOOLS,
       messages,
     }

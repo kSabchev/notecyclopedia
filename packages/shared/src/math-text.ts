@@ -80,6 +80,19 @@ type Node = {
   content?: Node[]
 }
 
+/** The nodes whose children may be formula blocks. */
+const FORMULA_PARENTS = new Set(['doc', 'listItem', 'blockquote'])
+
+/** The LaTeX of a paragraph that is only display math (`$$…$$` or `\[…\]` as text), or null. */
+function displayMath(node: Node): string | null {
+  if (node.type !== 'paragraph' || node.content?.length !== 1) return null
+  const [text] = node.content
+  if (text?.type !== 'text' || !text.text || text.marks?.length) return null
+  const m = /^\s*(?:\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\])\s*$/.exec(text.text)
+  const latex = (m?.[1] ?? m?.[2])?.trim()
+  return latex || null
+}
+
 /**
  * The document with math written as text (`$…$` left by older AI saves or pasted in) turned into math nodes, and every
  * formula's LaTeX tidied. Text in code is left alone. `changes` counts what changed, for "Tidied 3 formulas".
@@ -94,7 +107,16 @@ export function tidyDoc(doc: DocJSON): { doc: DocJSON; changes: number } {
       return { ...node, attrs: { ...node.attrs, latex } }
     }
     if (!node.content || node.type === 'codeBlock') return node
-    const content = node.content.flatMap((child): Node[] => {
+    // A paragraph of display math alone becomes a formula block, where formula blocks may go.
+    const children = FORMULA_PARENTS.has(node.type)
+      ? node.content.map((child): Node => {
+          const latex = displayMath(child)
+          if (latex === null) return child
+          changes++
+          return { type: 'formula', attrs: { latex: tidyLatex(latex), pinned: false } }
+        })
+      : node.content
+    const content = children.flatMap((child): Node[] => {
       if (child.type !== 'text' || !child.text || child.marks?.some((m) => m.type === 'code'))
         return [visit(child)]
       const parts = inlineContent(child.text, { marks: child.marks })
