@@ -183,6 +183,13 @@ adding one copies its value and unit into the calculator (units are descriptive,
 A calculator's page shows the theory and a **step-by-step solution**: each result's formula, the same formula with the
 current values and units filled in, and the result.
 
+**Practice problem**, under every calculator (on its page and where a page embeds it), makes a problem like this one
+with new numbers, without AI. Each input gets a random value within its min and max (half to double its default where
+those are missing), rounded to its step or to three significant figures. Type your answers and **Check my answers**
+marks each one right or wrong without giving it away; an answer within 1% counts, and a decimal comma is fine.
+**Show solution** gives the exact answers and the step-by-step solution with those numbers, and **New problem** draws
+another. The page's **Practice problems with AI** button is the other kind: Claude writes the problems from the page.
+
 Formulas are checked when saved against what both the Python and the HTML exports support: arithmetic, comparisons,
 `and`/`or`/`not`, `condition ? a : b` and the common math functions. Write `theta deg` to use an input in degrees, for
 example `sin(theta deg)`.

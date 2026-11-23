@@ -8,28 +8,26 @@ How each finished feature works is in the [user guide](guide.md).
 
 ## Next up
 
-1. **One session against real Claude:** the tutor, an exam plan and a quick check, with the time to the first token. The
-   tests mock every AI call, so this is the only check of real answers; it costs a few cents. Fix what it shows.
-2. **Practice problems from calculators** (no AI).
-3. **Phone-width check**, before more screens are added.
-4. **Exam formula sheet**, then **lecture-aware plans**.
-5. **MCP server**, so Claude Desktop or Claude Code can use your notes and calculators on your Claude plan instead of
+1. **Problem and exam variants with an answer key**, on top of practice problems.
+2. **Phone-width check**, before more screens are added.
+3. **Exam formula sheet**, then **lecture-aware plans**; printable handouts share the formula sheet's print output.
+4. **MCP server**, so Claude Desktop or Claude Code can use your notes and calculators on your Claude plan instead of
    the app's API credits.
-6. **Transfer diagram with TLE import.**
+5. **Transfer diagram with TLE import.**
 
 Then the lecture card actions (*Quiz me on this lecture*, *Article from the original*) and the rest of exam prep.
 Workspace packages and subject packs wait until something outside the app needs them; hosting comes later.
 
 ## Who it helps
 
-The open items, by the people they are for. Practice problems from calculators serve all four, which is why they come
-first after the real-Claude session.
+The open items, by the people they are for. Practice problems from calculators (done) serve all four; the variants
+with an answer key built on them come next.
 
 - **A new student** meeting the subject: the notation sheet, the *Start here* course view, prerequisites on a page,
   step-through worked examples and course packs.
 - **A graduating student** (finals, thesis): the exam formula sheet, lecture-aware plans, time per task, past exams,
-  practice problems, page export to LaTeX or Markdown, a reference list from uploads, the transfer diagram and TLE
-  import, and a readable export of all notes.
+  problem variants with an answer key for self-tests, page export to LaTeX or Markdown, a reference list from
+  uploads, the transfer diagram and TLE import, and a readable export of all notes.
 - **A teaching assistant** (seminars, grading): problem variants with an answer key, handouts with a separate solutions
   sheet, common-mistakes notes, and (once hosted) checks of submitted answers.
 - **A professor** (course owner): course packs, presentation mode, exam variants, the notation consistency check,
@@ -69,14 +67,9 @@ first after the real-Claude session.
 
 ### Practice and teaching
 
-- [ ] **Practice problems from calculators** (no AI): random inputs within a calculator's min and max make "a problem
-      like this one", with the exact answer and steps. Unlimited, for students and for professors making seminar or exam
-      variants. Inputs without a min or max get a range around their default (half to double), so existing and
-      AI-made calculators work without changes. The page's AI panel already has a **Practice problems** button that asks
-      Claude: name the two apart, or let it use the calculator version when the page has calculators.
 - [ ] **Problem and exam variants with an answer key:** a set of practice problems (or a whole exam) with different
-      numbers per group or per student, and a separate key with the exact answers and steps (no AI; built on practice
-      problems).
+      numbers per group or per student, and a separate key with the exact answers and steps (no AI). Built on practice
+      problems: each variant is a seed, so the same seed always gives the same numbers and answers.
 - [ ] **Step-through worked examples:** a calculator's step-by-step solution shown one step at a time, with each step's
       numbers filled in, so a newcomer can follow the method before trying it.
 - [ ] **Common-mistakes notes:** a short note an assistant writes on a calculator or page ("forgot to convert to km"),
@@ -189,3 +182,5 @@ Then, for teaching with it:
 | Reuse, step 1 ([#24](https://github.com/kSabchev/notecyclopedia/pull/24)–[#28](https://github.com/kSabchev/notecyclopedia/pull/28)) | `callTool` and the prompts module, UI text per language, large files split with shared helpers, tests by area with coverage minimums in CI |
 | Documentation ([#29](https://github.com/kSabchev/notecyclopedia/pull/29)–[#31](https://github.com/kSabchev/notecyclopedia/pull/31)) | A short README with the guide, configuration, development and roadmap in `docs/`, screenshots, the MIT licence |
 | Polish ([#32](https://github.com/kSabchev/notecyclopedia/pull/32)–[#34](https://github.com/kSabchev/notecyclopedia/pull/34)) | Loading, error and not-found screens, toasts and confirm dialogs, the offline notice, AI tool activity, spinners only on the working row, Review & polish by section with both versions aligned |
+| Real Claude ([#35](https://github.com/kSabchev/notecyclopedia/pull/35)) | One session against real Claude: prompt caching that pays off, numbers from calculators in chat, stopped answers counted, display math as formula blocks |
+| Practice problems ([#36](https://github.com/kSabchev/notecyclopedia/pull/36)) | A problem like this one under every calculator, with new numbers, answers checked and the solution on request, no AI |
