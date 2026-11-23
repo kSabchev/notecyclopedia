@@ -1,17 +1,17 @@
-import {
-  type CalculatorSpec,
-  calculationSteps,
-  defaultInputs,
-  evaluateCalculator,
-  formatValue,
-} from '@nc/shared'
+import { type CalculatorSpec, defaultInputs, evaluateCalculator, formatValue } from '@nc/shared'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Eyebrow } from './ui'
+import { CalculationSteps } from './calculator/CalculationSteps'
+import { PracticeProblem } from './calculator/PracticeProblem'
+import { Button, Eyebrow } from './ui'
 
-/** Live calculator UI for any spec. The full view also shows the theory and a step-by-step solution. */
+/**
+ * Live calculator UI for any spec. The full view also shows the theory and a step-by-step solution. Both offer a
+ * practice problem: the same calculation with new numbers.
+ */
 export function CalculatorRunner({ spec, compact = false }: { spec: CalculatorSpec; compact?: boolean }) {
   const { t } = useTranslation()
+  const [practicing, setPracticing] = useState(false)
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(Object.entries(defaultInputs(spec)).map(([k, v]) => [k, String(v)])),
   )
@@ -24,7 +24,6 @@ export function CalculatorRunner({ spec, compact = false }: { spec: CalculatorSp
     [values],
   )
   const result = useMemo(() => evaluateCalculator(spec, numbers), [spec, numbers])
-  const steps = useMemo(() => (compact ? [] : calculationSteps(spec, numbers)), [spec, numbers, compact])
   const theory = (spec.theory ?? '')
     .split(/\n\s*\n/)
     .map((p) => p.trim())
@@ -84,11 +83,27 @@ export function CalculatorRunner({ spec, compact = false }: { spec: CalculatorSp
       </div>
     </div>
   )
-  if (compact) return runner
+  const practice = practicing ? (
+    <PracticeProblem spec={spec} onClose={() => setPracticing(false)} />
+  ) : (
+    <div>
+      <Button size="sm" variant="ghost" onClick={() => setPracticing(true)}>
+        {t('calc.practice.button')}
+      </Button>
+    </div>
+  )
+  if (compact)
+    return (
+      <div className="flex flex-col gap-4">
+        {runner}
+        {practice}
+      </div>
+    )
 
   return (
     <div className="flex flex-col">
       {runner}
+      <div className="border-t border-line-soft px-6 py-4">{practice}</div>
       {theory.length > 0 && (
         <section
           aria-labelledby="calc-theory"
@@ -114,26 +129,7 @@ export function CalculatorRunner({ spec, compact = false }: { spec: CalculatorSp
         <h3 id="calc-steps" className="m-0 text-base font-bold">
           {t('calc.steps')}
         </h3>
-        <ol className="m-0 flex flex-col gap-4 pl-5">
-          {steps.map((step) => (
-            <li key={step.key} className="flex flex-col gap-1">
-              <span className="font-semibold">{step.label}</span>
-              {step.explanation && <span className="text-sm text-muted">{step.explanation}</span>}
-              <span className="font-mono text-[13px] [overflow-wrap:anywhere]">{step.formula}</span>
-              {step.substituted !== null ? (
-                <span className="font-mono text-[13px] [overflow-wrap:anywhere]">= {step.substituted}</span>
-              ) : (
-                <span className="text-sm text-muted">{t('calc.stepUnavailable')}</span>
-              )}
-              {step.value !== null && (
-                <span className="font-mono text-[13px] font-semibold">
-                  = {formatValue(step.value, spec.outputs.find((o) => o.key === step.key)?.precision ?? 3)}
-                  {step.unit ? ` ${step.unit}` : ''}
-                </span>
-              )}
-            </li>
-          ))}
-        </ol>
+        <CalculationSteps spec={spec} inputs={numbers} />
       </section>
     </div>
   )
