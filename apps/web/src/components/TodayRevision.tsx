@@ -56,20 +56,25 @@ export function TodayRevision() {
             {plan.items.map((item) => {
               const done = ticked[item.id] ?? item.done
               return (
-                <li key={item.id} className="flex items-center gap-3">
+                <li key={item.id} className="flex items-start gap-3">
                   <input
                     type="checkbox"
                     aria-label={item.focus}
-                    className="h-[18px] w-[18px] accent-accent"
+                    className="mt-1 h-[18px] w-[18px] shrink-0 accent-accent"
                     checked={done}
                     onChange={(e) => toggle(plan.planId, item.id, e.target.checked)}
                   />
-                  <span className={`flex-1 ${done ? 'text-muted line-through' : ''}`}>{item.focus}</span>
-                  {item.pageId && (
-                    <Link to="/pages/$pageId" params={{ pageId: item.pageId }} className="text-sm">
-                      {item.pageTitle}
-                    </Link>
-                  )}
+                  {/* On a phone the page link goes under the task instead of squeezing it. */}
+                  <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3">
+                    <span className={`flex-[1_1_12rem] ${done ? 'text-muted line-through' : ''}`}>
+                      {item.focus}
+                    </span>
+                    {item.pageId && (
+                      <Link to="/pages/$pageId" params={{ pageId: item.pageId }} className="text-sm">
+                        {item.pageTitle}
+                      </Link>
+                    )}
+                  </div>
                 </li>
               )
             })}

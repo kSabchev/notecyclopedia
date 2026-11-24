@@ -20,7 +20,8 @@ export function ThemeToggle() {
       className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm font-medium text-muted hover:bg-bg"
     >
       {theme === 'light' ? <MoonIcon size={16} /> : <SunIcon size={16} />}
-      {t(theme === 'light' ? 'theme.dark' : 'theme.light')}
+      {/* Icon only on a phone, where the header is narrow; the name stays for screen readers. */}
+      <span className="max-sm:sr-only">{t(theme === 'light' ? 'theme.dark' : 'theme.light')}</span>
     </button>
   )
 }

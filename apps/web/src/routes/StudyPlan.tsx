@@ -9,7 +9,7 @@ import {
 } from '@nc/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
-import { useState } from 'react'
+import { type KeyboardEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useConfirm, useToast } from '../components/FeedbackProvider'
 import { CloseIcon, PenIcon } from '../components/Icons'
@@ -20,6 +20,14 @@ import { ErrorNote, btn, inputCls } from '../components/ui'
 import { api } from '../lib/api'
 import { formatCost, todayLocal, useDayLabel } from '../lib/format'
 import { useLectureExtras } from '../lib/lectures'
+
+// The title and tasks are edited in text areas, so they wrap on a phone, but each stays one line of text.
+const oneLine = (text: string) => text.replace(/\s+/g, ' ').trim()
+const blurOnEnter = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  if (e.key !== 'Enter') return
+  e.preventDefault()
+  e.currentTarget.blur()
+}
 
 /** A revision plan, edited in place: every change is saved straight away. */
 export function StudyPlan() {
@@ -150,16 +158,18 @@ export function StudyPlan() {
       </Link>
       <header className="flex flex-col gap-3">
         <label className="group flex items-center gap-3" title={t('study.rename')}>
-          <input
+          {/* A text area so a long title wraps on a phone; Enter still saves it. */}
+          <textarea
             aria-label={t('study.planTitle')}
             defaultValue={p.title}
             key={p.title}
+            rows={1}
             onBlur={(e) => {
-              const title = e.target.value.trim()
+              const title = oneLine(e.target.value)
               if (title && title !== p.title) update({ title })
             }}
-            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-            className="m-0 min-w-[4ch] max-w-full rounded-lg border border-transparent [field-sizing:content] bg-transparent px-1 text-[32px] font-extrabold tracking-[-0.02em] text-ink hover:border-line focus:border-accent"
+            onKeyDown={blurOnEnter}
+            className="m-0 min-w-[4ch] max-w-full resize-none rounded-lg border border-transparent [field-sizing:content] bg-transparent px-1 text-[32px] font-extrabold leading-tight tracking-[-0.02em] text-ink hover:border-line focus:border-accent"
           />
           <PenIcon className="shrink-0 text-muted group-hover:text-ink" aria-hidden />
         </label>
@@ -271,16 +281,18 @@ export function StudyPlan() {
                     checked={item.done}
                     onChange={(e) => setItem(d.date, item.id, (i) => ({ ...i, done: e.target.checked }))}
                   />
-                  <div className="flex min-w-48 flex-1 flex-col">
-                    <input
+                  <div className="flex min-w-0 flex-[1_1_12rem] flex-col">
+                    <textarea
                       aria-label={t('study.task')}
                       defaultValue={item.focus}
                       key={item.focus}
+                      rows={1}
                       onBlur={(e) => {
-                        const focus = e.target.value.trim()
+                        const focus = oneLine(e.target.value)
                         if (focus && focus !== item.focus) setItem(d.date, item.id, (i) => ({ ...i, focus }))
                       }}
-                      className={`border-0 bg-transparent p-0 font-medium text-ink ${item.done ? 'line-through text-muted' : ''}`}
+                      onKeyDown={blurOnEnter}
+                      className={`resize-none border-0 bg-transparent p-0 font-medium text-ink [field-sizing:content] ${item.done ? 'line-through text-muted' : ''}`}
                     />
                     {item.pageId ? (
                       <Link to="/pages/$pageId" params={{ pageId: item.pageId }} className="text-sm">

@@ -62,10 +62,11 @@ export function FormulaFace({
         className={`graph-paper flex flex-col gap-1 px-5 py-4 cursor-pointer ${reading ? 'hover:bg-accent-soft' : ''}`}
         onDoubleClick={onDoubleClick}
       >
-        <div className="flex items-center gap-4">
+        {/* On a narrow screen the label goes under the formula rather than squeezing it to nothing. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {leading}
-          <Tex latex={latex} display className="min-w-0 flex-1 overflow-x-auto text-[1.15em]" />
-          {label && <span className="shrink-0 font-mono text-sm text-muted">({label})</span>}
+          <Tex latex={latex} display className="min-w-0 flex-[1_1_12rem] overflow-x-auto text-[1.15em]" />
+          {label && <span className="min-w-0 font-mono text-sm text-muted">({label})</span>}
           {actions}
         </div>
         {/* Below the formula, so a long description never squeezes it. */}

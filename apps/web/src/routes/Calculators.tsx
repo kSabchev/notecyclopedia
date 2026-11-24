@@ -136,7 +136,7 @@ export function Calculators() {
                 <option value="edited">{t('calc.sortEdited')}</option>
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-xs font-semibold text-muted">
+            <label className="flex min-w-0 max-w-full flex-col gap-1 text-xs font-semibold text-muted">
               {t('calc.filterCourse')}
               <select
                 className={`${inputCls} min-h-9 py-1 text-sm`}

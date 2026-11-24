@@ -192,10 +192,11 @@ export function SymbolPalette() {
         aria-expanded={open}
         aria-controls="math-symbol-palette"
         onClick={() => setOpen((current) => !current)}
-        className="fixed bottom-5 right-5 z-40 flex min-h-12 cursor-pointer items-center gap-2 rounded-full bg-inverse px-4 font-semibold text-inverse-ink shadow-lg hover:bg-inverse-2"
+        className="fixed bottom-5 right-5 z-40 flex min-h-12 min-w-12 cursor-pointer items-center justify-center gap-2 rounded-full bg-inverse px-3 font-semibold text-inverse-ink shadow-lg hover:bg-inverse-2 sm:px-4"
       >
         <SigmaIcon size={20} />
-        {t('symbols.open')}
+        {/* Icon only on a phone, so it covers less of the page; the name stays for screen readers. */}
+        <span className="max-sm:sr-only">{t('symbols.open')}</span>
       </button>
 
       {open && (
