@@ -38,11 +38,13 @@ export function PracticeProblem({ spec, onClose }: { spec: CalculatorSpec; onClo
   return (
     <section
       aria-labelledby={`${id}-title`}
-      className="flex flex-col gap-4 rounded-[12px] border border-line bg-bg p-5"
+      // Inside a page the reading styles (serif, list indents) would apply; the panel keeps the calculator's look.
+      className="flex flex-col gap-4 rounded-[12px] border border-line bg-bg p-5 font-sans text-[15px] leading-normal"
     >
+      {/* The buttons wrap under the title rather than squeezing it in a narrow panel. */}
       <div className="flex flex-wrap items-start gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h3 id={`${id}-title`} className="m-0 text-base font-bold">
+        <div className="flex min-w-0 flex-[1_1_14rem] flex-col gap-1">
+          <h3 id={`${id}-title`} className="m-0! text-base font-bold">
             {t('calc.practice.title')}
           </h3>
           <p className="m-0 text-sm text-muted">{t('calc.practice.intro')}</p>
@@ -61,7 +63,7 @@ export function PracticeProblem({ spec, onClose }: { spec: CalculatorSpec; onClo
         <>
           <div className="flex flex-col gap-2">
             <h4 className="m-0 text-sm font-bold">{t('calc.practice.given')}</h4>
-            <ul className="m-0 flex list-none flex-col gap-1 p-0" aria-label={t('calc.practice.given')}>
+            <ul className="m-0 flex list-none! flex-col gap-1 p-0!" aria-label={t('calc.practice.given')}>
               {spec.inputs.map((input) => (
                 <li key={input.key} className="flex flex-wrap gap-x-2">
                   <span>{input.label}:</span>
@@ -76,7 +78,7 @@ export function PracticeProblem({ spec, onClose }: { spec: CalculatorSpec; onClo
 
           <div className="flex flex-col gap-2">
             <h4 className="m-0 text-sm font-bold">{t('calc.practice.find')}</h4>
-            <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            <ul className="m-0 flex list-none! flex-col gap-3 p-0!">
               {spec.outputs.map((output) => {
                 const inputId = `${id}-${output.key}`
                 const text = answers[output.key] ?? ''

@@ -105,4 +105,6 @@ export function Field({ label, htmlFor, children }: { label: string; htmlFor: st
   )
 }
 
-export const inputCls = 'h-11 rounded-[10px] border border-line-strong bg-surface px-3 text-ink'
+/** Text inputs and selects. `max-w-full`: a select is as wide as its longest option, which must not widen the page. */
+export const inputCls =
+  'h-11 min-w-0 max-w-full rounded-[10px] border border-line-strong bg-surface px-3 text-ink'

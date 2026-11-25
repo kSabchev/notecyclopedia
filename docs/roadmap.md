@@ -9,11 +9,12 @@ How each finished feature works is in the [user guide](guide.md).
 ## Next up
 
 1. **Problem and exam variants with an answer key**, on top of practice problems.
-2. **Phone-width check**, before more screens are added.
-3. **Exam formula sheet**, then **lecture-aware plans**; printable handouts share the formula sheet's print output.
-4. **MCP server**, so Claude Desktop or Claude Code can use your notes and calculators on your Claude plan instead of
+2. **Exam formula sheet**, then **lecture-aware plans**; printable handouts share the formula sheet's print output.
+3. **MCP server**, so Claude Desktop or Claude Code can use your notes and calculators on your Claude plan instead of
    the app's API credits.
-5. **Transfer diagram with TLE import.**
+4. **Transfer diagram with TLE import.**
+
+New screens are checked at phone width (360 px) as they are added: `tests/e2e/phone-width.spec.ts` shows how.
 
 Then the lecture card actions (*Quiz me on this lecture*, *Article from the original*) and the rest of exam prep.
 Workspace packages and subject packs wait until something outside the app needs them; hosting comes later.
@@ -104,7 +105,6 @@ plan, not the app's API credits, so everyday questions about your notes cost the
 
 ### Small fixes
 
-- [ ] Phone-width check: the reading view, Lectures, the calculator runner and exam plans at 360–400 px.
 - [ ] Split the remaining large files when they next change: `Wiki.tsx`, `PageView.tsx`, `Files.tsx` and
       `routes/pages.ts` (about 500 lines each).
 
@@ -184,3 +184,4 @@ Then, for teaching with it:
 | Polish ([#32](https://github.com/kSabchev/notecyclopedia/pull/32)–[#34](https://github.com/kSabchev/notecyclopedia/pull/34)) | Loading, error and not-found screens, toasts and confirm dialogs, the offline notice, AI tool activity, spinners only on the working row, Review & polish by section with both versions aligned |
 | Real Claude ([#35](https://github.com/kSabchev/notecyclopedia/pull/35)) | One session against real Claude: prompt caching that pays off, numbers from calculators in chat, stopped answers counted, display math as formula blocks |
 | Practice problems ([#36](https://github.com/kSabchev/notecyclopedia/pull/36)) | A problem like this one under every calculator, with new numbers, answers checked and the solution on request, no AI |
+| Phone width ([#37](https://github.com/kSabchev/notecyclopedia/pull/37)) | The reading view, Lectures, calculators with practice, exam plans and Home at 360–400 px: nothing scrolls sideways, long names wrap, formulas keep their width, icon-only header and symbols buttons |
